@@ -6,6 +6,7 @@ import { toast } from "sonner";
 export function ProfilePage() {
   const myProfile = useQuery(api.profiles.getMyProfile);
   const myLogs = useQuery(api.rideLogs.getMyLogs);
+  const myRankings = useQuery(api.rankings.getMyRankings);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
 
   const [editing, setEditing] = useState(false);
@@ -80,17 +81,12 @@ export function ProfilePage() {
             <p className="text-xs text-gray-500">Coasters Ridden</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
-              {myLogs && myLogs.length > 0
-                ? (
-                    myLogs
-                      .filter((l: any) => l.rating)
-                      .reduce((sum: number, l: any) => sum + l.rating, 0) /
-                    (myLogs.filter((l: any) => l.rating).length || 1)
-                  ).toFixed(1)
+            <p className="text-lg font-bold text-primary truncate">
+              {myRankings && myRankings.length > 0
+                ? myRankings[0].coaster?.name ?? "—"
                 : "—"}
             </p>
-            <p className="text-xs text-gray-500">Avg Rating</p>
+            <p className="text-xs text-gray-500">Current #1</p>
           </div>
         </div>
       </div>
@@ -125,9 +121,6 @@ export function ProfilePage() {
                   </p>
                   <p className="text-xs text-gray-400">{log.coaster?.park}</p>
                 </div>
-                {log.rating && (
-                  <span className="text-xs text-yellow-600 font-semibold shrink-0">★ {log.rating}</span>
-                )}
               </div>
             ))}
           </div>

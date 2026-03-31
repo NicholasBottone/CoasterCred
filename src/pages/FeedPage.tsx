@@ -64,12 +64,6 @@ function FeedCard({ item }: { item: any }) {
             {coaster?.type}
           </span>
         </div>
-        {item.rating && (
-          <div className="mt-2 flex items-center gap-1">
-            <span className="text-yellow-500 text-sm">★</span>
-            <span className="text-sm font-semibold text-gray-700">{item.rating}/10</span>
-          </div>
-        )}
         {item.notes && (
           <p className="mt-2 text-sm text-gray-600 italic">"{item.notes}"</p>
         )}

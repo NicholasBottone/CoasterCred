@@ -81,7 +81,20 @@ export const removeLog = mutation({
         q.eq("userId", userId).eq("coasterId", args.coasterId)
       )
       .unique();
-    if (ranking) await ctx.db.delete(ranking._id);
+    if (ranking) {
+      const trailingRankings = await ctx.db
+        .query("rankings")
+        .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+        .collect();
+
+      await ctx.db.delete(ranking._id);
+
+      for (const other of trailingRankings) {
+        if (other._id !== ranking._id && other.rank > ranking.rank) {
+          await ctx.db.patch(other._id, { rank: other.rank - 1 });
+        }
+      }
+    }
   },
 });
 

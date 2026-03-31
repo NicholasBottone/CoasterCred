@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 
 export function ExplorePage() {
@@ -99,29 +98,78 @@ function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }
 
 function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void }) {
   const myLog = useQuery(api.rideLogs.getMyLogForCoaster, { coasterId: coaster._id });
-  const logRide = useMutation(api.rideLogs.logRide);
+  const rankings = useQuery(api.rankings.getMyRankings);
+  const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
   const removeLog = useMutation(api.rideLogs.removeLog);
 
-  const [rating, setRating] = useState<number>(myLog?.rating ?? 7);
-  const [notes, setNotes] = useState(myLog?.notes ?? "");
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [comparisonBounds, setComparisonBounds] = useState<{ low: number; high: number } | null>(null);
+  const loadingData = rankings === undefined || myLog === undefined;
 
-  const handleLog = async () => {
+  useEffect(() => {
+    setNotes(myLog?.notes ?? "");
+    setComparisonBounds(null);
+  }, [coaster._id, myLog?._id, myLog?.notes]);
+
+  const rankedCoasters = useMemo(
+    () =>
+      (rankings ?? []).filter((item: any) => item.coasterId !== coaster._id),
+    [coaster._id, rankings],
+  );
+
+  const currentRank = rankings?.findIndex((item: any) => item.coasterId === coaster._id);
+  const comparisonIndex =
+    comparisonBounds === null
+      ? null
+      : Math.floor((comparisonBounds.low + comparisonBounds.high) / 2);
+  const comparisonTarget =
+    comparisonIndex === null ? null : rankedCoasters[comparisonIndex];
+
+  const saveAtRank = async (targetRank: number) => {
     setSaving(true);
     try {
-      await logRide({
+      await saveRideWithRank({
         coasterId: coaster._id,
         riddenAt: Date.now(),
-        rating: rating || undefined,
         notes: notes || undefined,
+        targetRank,
       });
-      toast.success("Ride logged!");
+      toast.success(myLog ? "Ride log updated!" : "Ride logged and ranked!");
       onClose();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const startComparisonFlow = async () => {
+    if (loadingData) return;
+
+    if (rankedCoasters.length === 0) {
+      await saveAtRank(1);
+      return;
+    }
+
+    setComparisonBounds({ low: 0, high: rankedCoasters.length });
+  };
+
+  const handleComparisonChoice = async (winner: "selected" | "other") => {
+    if (comparisonBounds === null || comparisonTarget === null) return;
+
+    const mid = Math.floor((comparisonBounds.low + comparisonBounds.high) / 2);
+    const nextBounds =
+      winner === "selected"
+        ? { low: comparisonBounds.low, high: mid }
+        : { low: mid + 1, high: comparisonBounds.high };
+
+    if (nextBounds.low >= nextBounds.high) {
+      await saveAtRank(nextBounds.low + 1);
+      return;
+    }
+
+    setComparisonBounds(nextBounds);
   };
 
   const handleRemove = async () => {
@@ -160,20 +208,14 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
 
         <div className="border-t pt-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">
-            {myLog ? "Update your ride log" : "Log this ride"}
+            {myLog ? "Update ride notes and re-rank" : "Log this ride and place it in your list"}
           </p>
 
-          <div className="mb-3">
-            <label className="text-xs text-gray-500 mb-1 block">Rating: {rating}/10</label>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={rating}
-              onChange={(e) => setRating(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </div>
+          {typeof currentRank === "number" && currentRank >= 0 && (
+            <p className="mb-3 text-xs text-gray-500">
+              Currently ranked #{currentRank + 1} in your list.
+            </p>
+          )}
 
           <textarea
             placeholder="Notes (optional)..."
@@ -183,13 +225,58 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none mb-3"
           />
 
+          {loadingData ? (
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              Loading your current rankings...
+            </div>
+          ) : comparisonTarget ? (
+            <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                Which coaster is better?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => void handleComparisonChoice("selected")}
+                  disabled={saving}
+                  className="rounded-xl border border-primary/20 bg-white px-3 py-3 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                >
+                  <p className="text-sm font-semibold text-gray-900">{coaster.name}</p>
+                  <p className="text-xs text-gray-500">{coaster.park}</p>
+                </button>
+                <button
+                  onClick={() => void handleComparisonChoice("other")}
+                  disabled={saving}
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-gray-300 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <p className="text-sm font-semibold text-gray-900">
+                    {comparisonTarget.coaster?.name ?? "Unknown"}
+                  </p>
+                  <p className="text-xs text-gray-500">{comparisonTarget.coaster?.park}</p>
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                Pick the coaster you’d place higher in your personal rankings.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              {rankedCoasters.length === 0
+                ? "This will become your first ranked coaster."
+                : "Start the comparison flow to place this coaster into your list."}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
-              onClick={handleLog}
-              disabled={saving}
+              onClick={() => void startComparisonFlow()}
+              disabled={saving || loadingData}
               className="flex-1 bg-primary text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
             >
-              {myLog ? "Update Log" : "Log Ride ✓"}
+              {comparisonTarget
+                ? "Restart Comparisons"
+                : myLog
+                  ? "Start Re-Ranking"
+                  : "Start Comparisons"}
             </button>
             {myLog && (
               <button

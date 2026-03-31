@@ -9,8 +9,7 @@ export const getMyRankings = query({
     if (!userId) return [];
     const rankings = await ctx.db
       .query("rankings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("asc")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
       .collect();
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
@@ -33,8 +32,7 @@ export const getUserRankings = query({
   handler: async (ctx, args) => {
     const rankings = await ctx.db
       .query("rankings")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .order("asc")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
       .collect();
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
@@ -72,6 +70,73 @@ export const reorderRankings = mutation({
         await ctx.db.patch(existing._id, { rank: i + 1 });
       }
     }
+  },
+});
+
+export const saveRideWithRank = mutation({
+  args: {
+    coasterId: v.id("coasters"),
+    riddenAt: v.number(),
+    notes: v.optional(v.string()),
+    targetRank: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const allRankings = await ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+      .collect();
+
+    const existingRanking = allRankings.find((r) => r.coasterId === args.coasterId);
+    const rankingsWithoutCurrent = existingRanking
+      ? allRankings.filter((r) => r._id !== existingRanking._id)
+      : allRankings;
+
+    const maxTargetRank = rankingsWithoutCurrent.length + 1;
+    const targetRank = Math.max(1, Math.min(args.targetRank, maxTargetRank));
+
+    const existingLog = await ctx.db
+      .query("rideLogs")
+      .withIndex("by_user_and_coaster", (q) =>
+        q.eq("userId", userId).eq("coasterId", args.coasterId)
+      )
+      .unique();
+
+    if (existingLog) {
+      await ctx.db.patch(existingLog._id, {
+        riddenAt: args.riddenAt,
+        notes: args.notes,
+        rating: undefined,
+      });
+    } else {
+      await ctx.db.insert("rideLogs", {
+        userId,
+        coasterId: args.coasterId,
+        riddenAt: args.riddenAt,
+        notes: args.notes,
+      });
+    }
+
+    for (let i = 0; i < rankingsWithoutCurrent.length; i++) {
+      const ranking = rankingsWithoutCurrent[i];
+      const nextRank = i >= targetRank - 1 ? i + 2 : i + 1;
+      if (ranking.rank !== nextRank) {
+        await ctx.db.patch(ranking._id, { rank: nextRank });
+      }
+    }
+
+    if (existingRanking) {
+      await ctx.db.patch(existingRanking._id, { rank: targetRank });
+      return existingRanking._id;
+    }
+
+    return await ctx.db.insert("rankings", {
+      userId,
+      coasterId: args.coasterId,
+      rank: targetRank,
+    });
   },
 });
 

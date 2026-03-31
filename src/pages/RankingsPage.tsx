@@ -41,7 +41,9 @@ export function RankingsPage() {
         <h2 className="text-lg font-bold text-gray-800">My Rankings</h2>
         <span className="text-sm text-gray-400">{rankings.length} coasters</span>
       </div>
-      <p className="text-xs text-gray-400 mb-3">Use arrows to reorder your personal ranking</p>
+      <p className="text-xs text-gray-400 mb-3">
+        Head-to-head logging builds your list. Use arrows here for quick manual tweaks.
+      </p>
       <div className="flex flex-col gap-2">
         {rankings.map((item: any, idx: number) => (
           <div
@@ -55,10 +57,7 @@ export function RankingsPage() {
               <p className="font-semibold text-gray-900 text-sm truncate">
                 {item.coaster?.name ?? "Unknown"}
               </p>
-              <p className="text-xs text-gray-500 truncate">
-                {item.coaster?.park}
-                {item.log?.rating ? ` · ★ ${item.log.rating}/10` : ""}
-              </p>
+              <p className="text-xs text-gray-500 truncate">{item.coaster?.park}</p>
             </div>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
               item.coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
