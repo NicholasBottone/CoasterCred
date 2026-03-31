@@ -3,6 +3,20 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 
+async function getExistingLogForRideDate(
+  ctx: any,
+  userId: Id<"users">,
+  coasterId: Id<"coasters">,
+  rideDate: string,
+) {
+  return await ctx.db
+    .query("rideLogs")
+    .withIndex("by_user_and_coaster_and_rideDate", (q: any) =>
+      q.eq("userId", userId).eq("coasterId", coasterId).eq("rideDate", rideDate)
+    )
+    .unique();
+}
+
 export const getMyRankings = query({
   args: {},
   handler: async (ctx) => {
@@ -15,12 +29,13 @@ export const getMyRankings = query({
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
         const coaster = await ctx.db.get(r.coasterId);
-        const log = await ctx.db
+        const logs = await ctx.db
           .query("rideLogs")
           .withIndex("by_user_and_coaster", (q) =>
             q.eq("userId", userId).eq("coasterId", r.coasterId)
           )
-          .unique();
+          .collect();
+        const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
         return { ...r, coaster, log };
       })
     );
@@ -38,12 +53,13 @@ export const getUserRankings = query({
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
         const coaster = await ctx.db.get(r.coasterId);
-        const log = await ctx.db
+        const logs = await ctx.db
           .query("rideLogs")
           .withIndex("by_user_and_coaster", (q) =>
             q.eq("userId", args.userId).eq("coasterId", r.coasterId)
           )
-          .unique();
+          .collect();
+        const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
         return { ...r, coaster, log };
       })
     );
@@ -85,10 +101,11 @@ export const getFriendLeaderboard = query({
           .withIndex("by_user", (q) => q.eq("userId", currentUserId))
           .collect();
 
-        const rideCount =
+        const logsInWindow =
           cutoff === null
-            ? logs.length
-            : logs.filter((log) => log.riddenAt >= cutoff).length;
+            ? logs
+            : logs.filter((log) => log.riddenAt >= cutoff);
+        const rideCount = new Set(logsInWindow.map((log) => log.coasterId)).size;
         const lastRideAt = logs.reduce(
           (latest, log) => Math.max(latest, log.riddenAt),
           0,
@@ -147,8 +164,9 @@ export const saveRideWithRank = mutation({
   args: {
     coasterId: v.id("coasters"),
     riddenAt: v.number(),
+    rideDate: v.string(),
     notes: v.optional(v.string()),
-    targetRank: v.number(),
+    targetRank: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -164,30 +182,33 @@ export const saveRideWithRank = mutation({
       ? allRankings.filter((r) => r._id !== existingRanking._id)
       : allRankings;
 
-    const maxTargetRank = rankingsWithoutCurrent.length + 1;
-    const targetRank = Math.max(1, Math.min(args.targetRank, maxTargetRank));
-
-    const existingLog = await ctx.db
-      .query("rideLogs")
-      .withIndex("by_user_and_coaster", (q) =>
-        q.eq("userId", userId).eq("coasterId", args.coasterId)
-      )
-      .unique();
-
-    if (existingLog) {
-      await ctx.db.patch(existingLog._id, {
-        riddenAt: args.riddenAt,
-        notes: args.notes,
-        rating: undefined,
-      });
-    } else {
-      await ctx.db.insert("rideLogs", {
-        userId,
-        coasterId: args.coasterId,
-        riddenAt: args.riddenAt,
-        notes: args.notes,
-      });
+    const existingForDay = await getExistingLogForRideDate(
+      ctx,
+      userId,
+      args.coasterId,
+      args.rideDate,
+    );
+    if (existingForDay) {
+      throw new Error("You already logged this coaster for that date");
     }
+
+    await ctx.db.insert("rideLogs", {
+      userId,
+      coasterId: args.coasterId,
+      riddenAt: args.riddenAt,
+      rideDate: args.rideDate,
+      notes: args.notes,
+    });
+
+    if (existingRanking && args.targetRank === undefined) {
+      return existingRanking._id;
+    }
+
+    const maxTargetRank = rankingsWithoutCurrent.length + 1;
+    const targetRank = Math.max(
+      1,
+      Math.min(args.targetRank ?? maxTargetRank, maxTargetRank),
+    );
 
     for (let i = 0; i < rankingsWithoutCurrent.length; i++) {
       const ranking = rankingsWithoutCurrent[i];

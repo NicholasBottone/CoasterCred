@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
+import { dateInputValueToTimestamp, formatDate, todayDateInputValue } from "../lib/dateUtils";
 
 export function SearchPage() {
   const [search, setSearch] = useState("");
@@ -64,7 +65,8 @@ export function SearchPage() {
 }
 
 function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }) {
-  const myLog = useQuery(api.rideLogs.getMyLogForCoaster, { coasterId: coaster._id });
+  const myLogs = useQuery(api.rideLogs.getMyLogsForCoaster, { coasterId: coaster._id });
+  const rideCount = myLogs?.length ?? 0;
 
   return (
     <button
@@ -75,7 +77,11 @@ function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-900 text-sm truncate">{coaster.name}</p>
-            {myLog && <span className="text-green-500 text-xs">✓ Ridden</span>}
+            {rideCount > 0 && (
+              <span className="text-green-500 text-xs">
+                ✓ {rideCount === 1 ? "Ridden" : `${rideCount} rides`}
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 truncate">{coaster.park} · {coaster.location}</p>
         </div>
@@ -97,20 +103,24 @@ function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }
 }
 
 function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void }) {
-  const myLog = useQuery(api.rideLogs.getMyLogForCoaster, { coasterId: coaster._id });
+  const myLogs = useQuery(api.rideLogs.getMyLogsForCoaster, { coasterId: coaster._id });
   const rankings = useQuery(api.rankings.getMyRankings);
   const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
   const removeLog = useMutation(api.rideLogs.removeLog);
 
   const [notes, setNotes] = useState("");
+  const [rideDate, setRideDate] = useState(todayDateInputValue());
   const [saving, setSaving] = useState(false);
   const [comparisonBounds, setComparisonBounds] = useState<{ low: number; high: number } | null>(null);
-  const loadingData = rankings === undefined || myLog === undefined;
+  const loadingData = rankings === undefined || myLogs === undefined;
+  const rideHistory = myLogs ?? [];
+  const hasRideHistory = rideHistory.length > 0;
 
   useEffect(() => {
-    setNotes(myLog?.notes ?? "");
+    setNotes("");
+    setRideDate(todayDateInputValue());
     setComparisonBounds(null);
-  }, [coaster._id, myLog?._id, myLog?.notes]);
+  }, [coaster._id]);
 
   const rankedCoasters = useMemo(
     () =>
@@ -126,16 +136,21 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
   const comparisonTarget =
     comparisonIndex === null ? null : rankedCoasters[comparisonIndex];
 
-  const saveAtRank = async (targetRank: number) => {
+  const saveRide = async (targetRank?: number) => {
     setSaving(true);
     try {
       await saveRideWithRank({
         coasterId: coaster._id,
-        riddenAt: Date.now(),
+        riddenAt: dateInputValueToTimestamp(rideDate),
+        rideDate,
         notes: notes || undefined,
         targetRank,
       });
-      toast.success(myLog ? "Ride log updated!" : "Ride logged and ranked!");
+      toast.success(
+        currentRank !== undefined && currentRank >= 0 && targetRank === undefined
+          ? "Ride added to your history!"
+          : "Ride logged and ranked!",
+      );
       onClose();
     } catch (e: any) {
       toast.error(e.message);
@@ -147,8 +162,13 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
   const startComparisonFlow = async () => {
     if (loadingData) return;
 
+    if (currentRank !== undefined && currentRank >= 0) {
+      await saveRide();
+      return;
+    }
+
     if (rankedCoasters.length === 0) {
-      await saveAtRank(1);
+      await saveRide(1);
       return;
     }
 
@@ -165,19 +185,18 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
         : { low: mid + 1, high: comparisonBounds.high };
 
     if (nextBounds.low >= nextBounds.high) {
-      await saveAtRank(nextBounds.low + 1);
+      await saveRide(nextBounds.low + 1);
       return;
     }
 
     setComparisonBounds(nextBounds);
   };
 
-  const handleRemove = async () => {
+  const handleRemove = async (logId: string) => {
     setSaving(true);
     try {
-      await removeLog({ coasterId: coaster._id });
+      await removeLog({ logId });
       toast.success("Ride removed");
-      onClose();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -208,7 +227,9 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
 
         <div className="border-t pt-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">
-            {myLog ? "Update ride notes and re-rank" : "Log this ride and place it in your list"}
+            {hasRideHistory
+              ? "Add another ride to your history or re-rank this coaster"
+              : "Log this ride and place it in your list"}
           </p>
 
           {typeof currentRank === "number" && currentRank >= 0 && (
@@ -216,6 +237,20 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
               Currently ranked #{currentRank + 1} in your list.
             </p>
           )}
+
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 mb-1 block">Ride date</label>
+            <input
+              type="date"
+              value={rideDate}
+              max={todayDateInputValue()}
+              onChange={(e) => setRideDate(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Historical rides are supported. You can only log this coaster once per day.
+            </p>
+          </div>
 
           <textarea
             placeholder="Notes (optional)..."
@@ -228,6 +263,10 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
           {loadingData ? (
             <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
               Loading your current rankings...
+            </div>
+          ) : currentRank !== undefined && currentRank >= 0 && comparisonTarget === null ? (
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+              This coaster is already in your list, so a repeat ride adds trip history without creating another leaderboard credit.
             </div>
           ) : comparisonTarget ? (
             <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
@@ -274,20 +313,51 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
             >
               {comparisonTarget
                 ? "Restart Comparisons"
-                : myLog
-                  ? "Start Re-Ranking"
+                : currentRank !== undefined && currentRank >= 0
+                  ? "Log Ride"
                   : "Start Comparisons"}
             </button>
-            {myLog && (
+            {currentRank !== undefined && currentRank >= 0 && (
               <button
-                onClick={handleRemove}
+                onClick={() => setComparisonBounds({ low: 0, high: rankedCoasters.length })}
                 disabled={saving}
-                className="px-4 py-2.5 rounded-xl border border-red-200 text-red-500 text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl border border-primary/30 text-primary text-sm font-medium disabled:opacity-50"
               >
-                Remove
+                Re-rank
               </button>
             )}
           </div>
+
+          {rideHistory.length > 0 && (
+            <div className="mt-4 border-t pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold text-gray-800">Ride History</h4>
+                <span className="text-xs text-gray-400">{rideHistory.length} logged</span>
+              </div>
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                {rideHistory.map((log: any) => (
+                  <div
+                    key={log._id}
+                    className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{formatDate(log.rideDate)}</p>
+                      {log.notes && (
+                        <p className="text-xs text-gray-500 mt-0.5 break-words">{log.notes}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => void handleRemove(log._id)}
+                      disabled={saving}
+                      className="text-xs text-red-500 font-medium disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

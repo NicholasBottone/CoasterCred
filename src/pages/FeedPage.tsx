@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { formatDistanceToNow } from "../lib/dateUtils";
+import { formatDate, formatDistanceToNow } from "../lib/dateUtils";
 
 export function FeedPage() {
   const feed = useQuery(api.rideLogs.getFeed);
@@ -67,6 +67,9 @@ function FeedCard({ item }: { item: any }) {
         {item.notes && (
           <p className="mt-2 text-sm text-gray-600 italic">"{item.notes}"</p>
         )}
+        <p className="mt-2 text-xs text-gray-400">
+          Rode on {formatDate(item.rideDate)}
+        </p>
       </div>
     </div>
   );

@@ -3,10 +3,25 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 
+async function getExistingLogForRideDate(
+  ctx: any,
+  userId: Id<"users">,
+  coasterId: Id<"coasters">,
+  rideDate: string,
+) {
+  return await ctx.db
+    .query("rideLogs")
+    .withIndex("by_user_and_coaster_and_rideDate", (q: any) =>
+      q.eq("userId", userId).eq("coasterId", coasterId).eq("rideDate", rideDate)
+    )
+    .unique();
+}
+
 export const logRide = mutation({
   args: {
     coasterId: v.id("coasters"),
     riddenAt: v.number(),
+    rideDate: v.string(),
     notes: v.optional(v.string()),
     rating: v.optional(v.number()),
   },
@@ -14,21 +29,14 @@ export const logRide = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    // Check if already logged
-    const existing = await ctx.db
-      .query("rideLogs")
-      .withIndex("by_user_and_coaster", (q) =>
-        q.eq("userId", userId).eq("coasterId", args.coasterId)
-      )
-      .unique();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        riddenAt: args.riddenAt,
-        notes: args.notes,
-        rating: args.rating,
-      });
-      return existing._id;
+    const existingForDay = await getExistingLogForRideDate(
+      ctx,
+      userId,
+      args.coasterId,
+      args.rideDate,
+    );
+    if (existingForDay) {
+      throw new Error("You already logged this coaster for that date");
     }
 
     const logId = await ctx.db.insert("rideLogs", {
@@ -62,26 +70,30 @@ export const logRide = mutation({
 });
 
 export const removeLog = mutation({
-  args: { coasterId: v.id("coasters") },
+  args: { logId: v.id("rideLogs") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const log = await ctx.db
+    const log = await ctx.db.get(args.logId);
+    if (!log || log.userId !== userId) throw new Error("Ride log not found");
+
+    await ctx.db.delete(log._id);
+
+    const remainingLogs = await ctx.db
       .query("rideLogs")
       .withIndex("by_user_and_coaster", (q) =>
-        q.eq("userId", userId).eq("coasterId", args.coasterId)
+        q.eq("userId", userId).eq("coasterId", log.coasterId)
       )
-      .unique();
-    if (log) await ctx.db.delete(log._id);
+      .collect();
 
     const ranking = await ctx.db
       .query("rankings")
       .withIndex("by_user_and_coaster", (q) =>
-        q.eq("userId", userId).eq("coasterId", args.coasterId)
+        q.eq("userId", userId).eq("coasterId", log.coasterId)
       )
       .unique();
-    if (ranking) {
+    if (ranking && remainingLogs.length === 0) {
       const trailingRankings = await ctx.db
         .query("rankings")
         .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
@@ -105,7 +117,7 @@ export const getMyLogs = query({
     if (!userId) return [];
     const logs = await ctx.db
       .query("rideLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
     const withCoasters = await Promise.all(
@@ -123,7 +135,7 @@ export const getUserLogs = query({
   handler: async (ctx, args) => {
     const logs = await ctx.db
       .query("rideLogs")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", args.userId))
       .order("desc")
       .collect();
     const withCoasters = await Promise.all(
@@ -136,17 +148,19 @@ export const getUserLogs = query({
   },
 });
 
-export const getMyLogForCoaster = query({
+export const getMyLogsForCoaster = query({
   args: { coasterId: v.id("coasters") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
-    return await ctx.db
+    if (!userId) return [];
+    const logs = await ctx.db
       .query("rideLogs")
       .withIndex("by_user_and_coaster", (q) =>
         q.eq("userId", userId).eq("coasterId", args.coasterId)
       )
-      .unique();
+      .collect();
+
+    return logs.sort((a, b) => b.riddenAt - a.riddenAt);
   },
 });
 
@@ -171,7 +185,7 @@ export const getFeed = query({
     for (const uid of followingIds) {
       const logs = await ctx.db
         .query("rideLogs")
-        .withIndex("by_user", (q) => q.eq("userId", uid))
+        .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", uid))
         .order("desc")
         .take(10);
       const user = await ctx.db.get(uid);

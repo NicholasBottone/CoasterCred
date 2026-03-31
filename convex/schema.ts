@@ -44,11 +44,14 @@ const applicationTables = {
     userId: v.id("users"),
     coasterId: v.id("coasters"),
     riddenAt: v.number(),
+    rideDate: v.optional(v.string()),
     notes: v.optional(v.string()),
     rating: v.optional(v.number()), // 1-10
   })
     .index("by_user", ["userId"])
     .index("by_user_and_coaster", ["userId", "coasterId"])
+    .index("by_user_and_riddenAt", ["userId", "riddenAt"])
+    .index("by_user_and_coaster_and_rideDate", ["userId", "coasterId", "rideDate"])
     .index("by_coaster", ["coasterId"]),
 
   rankings: defineTable({

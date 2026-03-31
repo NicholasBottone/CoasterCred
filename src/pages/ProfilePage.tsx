@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
+import { formatDate } from "../lib/dateUtils";
 
 export function ProfilePage() {
   const myProfile = useQuery(api.profiles.getMyProfile);
@@ -44,6 +45,7 @@ export function ProfilePage() {
 
   const user = myProfile?.user;
   const profile = myProfile?.profile;
+  const uniqueCoasterCount = myLogs ? new Set(myLogs.map((log: any) => log.coasterId)).size : 0;
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
@@ -77,8 +79,8 @@ export function ProfilePage() {
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="bg-gray-50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{myLogs?.length ?? 0}</p>
-            <p className="text-xs text-gray-500">Coasters Ridden</p>
+            <p className="text-2xl font-bold text-primary">{uniqueCoasterCount}</p>
+            <p className="text-xs text-gray-500">Unique Coasters</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-3 text-center">
             <p className="text-lg font-bold text-primary truncate">
@@ -119,7 +121,9 @@ export function ProfilePage() {
                   <p className="text-sm font-medium text-gray-800 truncate">
                     {log.coaster?.name ?? "Unknown"}
                   </p>
-                  <p className="text-xs text-gray-400">{log.coaster?.park}</p>
+                  <p className="text-xs text-gray-400">
+                    {log.coaster?.park} · {formatDate(log.rideDate)}
+                  </p>
                 </div>
               </div>
             ))}

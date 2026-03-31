@@ -11,3 +11,21 @@ export function formatDistanceToNow(timestamp: number): string {
   if (minutes > 0) return `${minutes}m ago`;
   return "just now";
 }
+
+export function todayDateInputValue(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function dateInputValueToTimestamp(dateValue: string): number {
+  return new Date(`${dateValue}T12:00:00`).getTime();
+}
+
+export function formatDate(dateValue?: string | null): string {
+  if (!dateValue) return "Unknown date";
+  const parsed = new Date(`${dateValue}T12:00:00`);
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
