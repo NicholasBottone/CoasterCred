@@ -1,13 +1,22 @@
-import { useQuery, useMutation } from "convex/react";
+import { useState } from "react";
+import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
-import { toast } from "sonner";
+import { formatDistanceToNow } from "../lib/dateUtils";
+
+const WINDOW_OPTIONS = [
+  { value: "30d", label: "30d", description: "Most coaster credits in the last 30 days" },
+  { value: "365d", label: "365d", description: "Most coaster credits in the last 365 days" },
+  { value: "all", label: "All-time", description: "Most coaster credits across all logged rides" },
+] as const;
+
+type LeaderboardWindow = (typeof WINDOW_OPTIONS)[number]["value"];
 
 export function RankingsPage() {
-  const rankings = useQuery(api.rankings.getMyRankings);
-  const moveRank = useMutation(api.rankings.moveRank);
+  const [window, setWindow] = useState<LeaderboardWindow>("30d");
+  const leaderboard = useQuery(api.rankings.getFriendLeaderboard, { window });
+  const selectedWindow = WINDOW_OPTIONS.find((option) => option.value === window) ?? WINDOW_OPTIONS[0];
 
-  if (rankings === undefined) {
+  if (leaderboard === undefined) {
     return (
       <div className="flex justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -15,72 +24,81 @@ export function RankingsPage() {
     );
   }
 
-  if (rankings.length === 0) {
+  if (leaderboard.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
         <div className="text-5xl mb-4">🏆</div>
         <h2 className="text-xl font-semibold text-gray-700 mb-2">No rankings yet</h2>
         <p className="text-gray-500 text-sm">
-          Log a ride in the Explore tab to start building your rankings!
+          Follow some friends and start logging rides to see who has been riding the most lately.
         </p>
       </div>
     );
   }
 
-  const handleMove = async (coasterId: Id<"coasters">, direction: "up" | "down") => {
-    try {
-      await moveRank({ coasterId, direction });
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-  };
-
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-800">My Rankings</h2>
-        <span className="text-sm text-gray-400">{rankings.length} coasters</span>
-      </div>
-      <p className="text-xs text-gray-400 mb-3">
-        Head-to-head logging builds your list. Use arrows here for quick manual tweaks.
-      </p>
-      <div className="flex flex-col gap-2">
-        {rankings.map((item: any, idx: number) => (
-          <div
-            key={item._id}
-            className="bg-white rounded-xl border shadow-sm p-3 flex items-center gap-3"
+        <div>
+          <h2 className="text-lg font-bold text-gray-800">Rankings</h2>
+          <p className="text-xs text-gray-400">{selectedWindow.description}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={window}
+            onChange={(e) => setWindow(e.target.value as LeaderboardWindow)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+            {WINDOW_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-gray-400">{leaderboard.length} riders</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {leaderboard.map((entry: any, idx: number) => (
+          <div
+            key={entry.userId}
+            className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${
+              entry.isCurrentUser ? "bg-primary/5 border-primary/20" : "bg-white"
+            }`}
+          >
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
               {idx + 1}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 text-sm truncate">
-                {item.coaster?.name ?? "Unknown"}
-              </p>
-              <p className="text-xs text-gray-500 truncate">{item.coaster?.park}</p>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+              {entry.user?.name?.[0]?.toUpperCase() ?? entry.user?.email?.[0]?.toUpperCase() ?? "?"}
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-              item.coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-              item.coaster?.type === "Wood" ? "bg-amber-100 text-amber-700" :
-              "bg-blue-100 text-blue-700"
-            }`}>
-              {item.coaster?.type}
-            </span>
-            <div className="flex flex-col gap-0.5 shrink-0">
-              <button
-                onClick={() => handleMove(item.coasterId, "up")}
-                disabled={idx === 0}
-                className="text-gray-400 hover:text-primary disabled:opacity-20 text-xs leading-none px-1"
-              >
-                ▲
-              </button>
-              <button
-                onClick={() => handleMove(item.coasterId, "down")}
-                disabled={idx === rankings.length - 1}
-                className="text-gray-400 hover:text-primary disabled:opacity-20 text-xs leading-none px-1"
-              >
-                ▼
-              </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-gray-900 truncate">
+                  {entry.user?.name ?? entry.user?.email ?? "Unknown rider"}
+                </p>
+                {entry.isCurrentUser && (
+                  <span className="text-[10px] uppercase tracking-wide bg-primary text-white px-2 py-0.5 rounded-full">
+                    You
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 truncate">
+                {entry.profile?.homepark
+                  ? `Home park: ${entry.profile.homepark}`
+                  : "No home park added yet"}
+              </p>
+              <p className="text-xs text-gray-400">
+                {entry.lastRideAt
+                  ? `Last ride ${formatDistanceToNow(entry.lastRideAt)}`
+                  : "No rides logged yet"}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-bold text-primary">{entry.rideCount}</p>
+              <p className="text-[11px] text-gray-500">{selectedWindow.label}</p>
+              <p className="text-[11px] text-gray-400">{entry.totalRideCount} total</p>
             </div>
           </div>
         ))}

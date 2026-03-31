@@ -1,15 +1,15 @@
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
+import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
 import { Toaster } from "sonner";
 import { useState } from "react";
 import { FeedPage } from "./pages/FeedPage";
-import { ExplorePage } from "./pages/ExplorePage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { SearchPage } from "./pages/SearchPage";
+import { MyListPage } from "./pages/MyListPage";
 
-type Tab = "feed" | "explore" | "rankings" | "profile";
+type Tab = "feed" | "myList" | "search" | "rankings" | "profile";
 
 export default function App() {
   return (
@@ -42,7 +42,8 @@ function AuthenticatedApp() {
       {/* Content */}
       <main className="flex-1 pb-20">
         {tab === "feed" && <FeedPage />}
-        {tab === "explore" && <ExplorePage />}
+        {tab === "myList" && <MyListPage />}
+        {tab === "search" && <SearchPage />}
         {tab === "rankings" && <RankingsPage />}
         {tab === "profile" && <ProfilePage />}
       </main>
@@ -52,7 +53,8 @@ function AuthenticatedApp() {
         {(
           [
             { id: "feed", label: "Feed", icon: "🏠" },
-            { id: "explore", label: "Explore", icon: "🔍" },
+            { id: "myList", label: "My List", icon: "📋" },
+            { id: "search", label: "Search", icon: "🔍" },
             { id: "rankings", label: "Rankings", icon: "🏆" },
             { id: "profile", label: "Profile", icon: "👤" },
           ] as { id: Tab; label: string; icon: string }[]

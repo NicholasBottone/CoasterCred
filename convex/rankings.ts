@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
 
 export const getMyRankings = query({
   args: {},
@@ -47,6 +48,75 @@ export const getUserRankings = query({
       })
     );
     return withCoasters.sort((a, b) => a.rank - b.rank);
+  },
+});
+
+export const getFriendLeaderboard = query({
+  args: {
+    window: v.union(v.literal("30d"), v.literal("365d"), v.literal("all")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const now = Date.now();
+    const cutoff =
+      args.window === "30d"
+        ? now - 1000 * 60 * 60 * 24 * 30
+        : args.window === "365d"
+          ? now - 1000 * 60 * 60 * 24 * 365
+          : null;
+    const follows = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerId", userId))
+      .collect();
+
+    const userIds: Id<"users">[] = [userId, ...follows.map((follow) => follow.followingId)];
+
+    const leaderboard = await Promise.all(
+      userIds.map(async (currentUserId) => {
+        const user = await ctx.db.get(currentUserId);
+        const profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_userId", (q) => q.eq("userId", currentUserId))
+          .unique();
+        const logs = await ctx.db
+          .query("rideLogs")
+          .withIndex("by_user", (q) => q.eq("userId", currentUserId))
+          .collect();
+
+        const rideCount =
+          cutoff === null
+            ? logs.length
+            : logs.filter((log) => log.riddenAt >= cutoff).length;
+        const lastRideAt = logs.reduce(
+          (latest, log) => Math.max(latest, log.riddenAt),
+          0,
+        );
+
+        return {
+          userId: currentUserId,
+          user,
+          profile,
+          rideCount,
+          totalRideCount: logs.length,
+          lastRideAt: lastRideAt || null,
+          isCurrentUser: currentUserId === userId,
+        };
+      }),
+    );
+
+    return leaderboard
+      .filter((entry) => entry.user !== null)
+      .sort((a, b) => {
+        if (b.rideCount !== a.rideCount) {
+          return b.rideCount - a.rideCount;
+        }
+        if ((b.lastRideAt ?? 0) !== (a.lastRideAt ?? 0)) {
+          return (b.lastRideAt ?? 0) - (a.lastRideAt ?? 0);
+        }
+        return b.totalRideCount - a.totalRideCount;
+      });
   },
 });
 

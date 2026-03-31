@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
-export function ExplorePage() {
+export function SearchPage() {
   const [search, setSearch] = useState("");
   const [selectedCoaster, setSelectedCoaster] = useState<any>(null);
   const [showAddCustom, setShowAddCustom] = useState(false);
@@ -13,7 +13,7 @@ export function ExplorePage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-lg font-bold text-gray-800 flex-1">Explore Coasters</h2>
+        <h2 className="text-lg font-bold text-gray-800 flex-1">Search Coasters</h2>
         <button
           onClick={() => setShowAddCustom(true)}
           className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-medium"
