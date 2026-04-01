@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { formatDate } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
+import { getErrorMessage } from "../lib/errors";
 
 export function ProfilePage() {
   const myProfile = useQuery(api.profiles.getMyProfile);
@@ -39,7 +40,7 @@ export function ProfilePage() {
       toast.success("Profile updated!");
       setEditing(false);
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not update profile"));
     } finally {
       setSaving(false);
     }
@@ -260,7 +261,7 @@ function UserRow({ user }: { user: any }) {
         toast.success("Following!");
       }
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not update follow status"));
     }
   };
 

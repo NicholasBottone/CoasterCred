@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { LIMITS, validateOptionalText } from "./validation";
@@ -149,7 +149,7 @@ export const reorderRankings = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     const existingRankings = await ctx.db
       .query("rankings")
@@ -176,7 +176,7 @@ export const saveRideWithRank = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     const allRankings = await ctx.db
       .query("rankings")
@@ -195,7 +195,17 @@ export const saveRideWithRank = mutation({
       args.rideDate,
     );
     if (existingForDay) {
-      throw new Error("You already logged this coaster for that date");
+      throw new ConvexError("You already logged this coaster for that date");
+    }
+
+    let notes: string | undefined;
+    try {
+      notes = validateOptionalText(args.notes, "Notes", LIMITS.notes);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ConvexError(error.message);
+      }
+      throw new ConvexError("Could not log ride");
     }
 
     await ctx.db.insert("rideLogs", {
@@ -203,7 +213,7 @@ export const saveRideWithRank = mutation({
       coasterId: args.coasterId,
       riddenAt: args.riddenAt,
       rideDate: args.rideDate,
-      notes: validateOptionalText(args.notes, "Notes", LIMITS.notes),
+      notes,
     });
 
     if (existingRanking && args.targetRank === undefined) {
@@ -244,7 +254,7 @@ export const moveRank = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     const rankings = await ctx.db
       .query("rankings")

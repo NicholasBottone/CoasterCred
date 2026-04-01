@@ -1,5 +1,5 @@
 import { action, internalMutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 
 const COASTERPEDIA_SOURCE = "coasterpedia";
@@ -151,28 +151,38 @@ export const searchCoasterpedia = action({
     const queryText = args.q.trim();
     if (!queryText) return [];
 
-    const searchResults = (await fetchJson(
-      buildApiUrl({
-        action: "opensearch",
-        search: queryText,
-        limit: "8",
-        namespace: "0",
-      }),
-    )) as [string, string[], string[], string[]];
+    let searchResults: [string, string[], string[], string[]];
+    try {
+      searchResults = (await fetchJson(
+        buildApiUrl({
+          action: "opensearch",
+          search: queryText,
+          limit: "8",
+          namespace: "0",
+        }),
+      )) as [string, string[], string[], string[]];
+    } catch {
+      throw new ConvexError("Could not search coasters right now");
+    }
 
     const titles = searchResults[1] ?? [];
     if (titles.length === 0) return [];
 
-    const details = await fetchJson(
-      buildApiUrl({
-        action: "query",
-        prop: "info|revisions",
-        inprop: "url",
-        rvprop: "content",
-        rvslots: "main",
-        titles: titles.join("|"),
-      }),
-    );
+    let details: unknown;
+    try {
+      details = await fetchJson(
+        buildApiUrl({
+          action: "query",
+          prop: "info|revisions",
+          inprop: "url",
+          rvprop: "content",
+          rvslots: "main",
+          titles: titles.join("|"),
+        }),
+      );
+    } catch {
+      throw new ConvexError("Could not load coaster details right now");
+    }
 
     const pages = Object.values((details as any).query?.pages ?? {}) as any[];
     const normalized: ImportedCoaster[] = [];
@@ -209,23 +219,33 @@ export const materializeCoasterpediaCoaster = action({
     });
     if (existing) return existing._id;
 
-    const details = await fetchJson(
-      buildApiUrl({
-        action: "query",
-        pageids: args.sourceId,
-        prop: "info|revisions",
-        inprop: "url",
-        rvprop: "content",
-        rvslots: "main",
-      }),
-    );
+    let details: unknown;
+    try {
+      details = await fetchJson(
+        buildApiUrl({
+          action: "query",
+          pageids: args.sourceId,
+          prop: "info|revisions",
+          inprop: "url",
+          rvprop: "content",
+          rvslots: "main",
+        }),
+      );
+    } catch {
+      throw new ConvexError("Could not load this coaster right now");
+    }
 
     const page = (details as any).query?.pages?.[args.sourceId];
     if (!page) {
-      throw new Error("Could not find coaster in Coasterpedia");
+      throw new ConvexError("Could not find this coaster");
     }
 
-    const coaster = normalizeCoaster(page);
+    let coaster: ImportedCoaster;
+    try {
+      coaster = normalizeCoaster(page);
+    } catch {
+      throw new ConvexError("Could not load this coaster");
+    }
     return await ctx.runMutation(internal.coasters.upsertImportedCoaster, coaster);
   },
 });

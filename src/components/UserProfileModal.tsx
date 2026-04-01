@@ -3,6 +3,7 @@ import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { Avatar } from "./Avatar";
 import { formatDate } from "../lib/dateUtils";
+import { getErrorMessage } from "../lib/errors";
 
 export function UserProfileModal({
   userId,
@@ -31,7 +32,7 @@ export function UserProfileModal({
       toast.success("Unfollowed");
       onClose();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not unfollow"));
     }
   };
 

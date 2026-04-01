@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 
@@ -27,7 +27,7 @@ export const logRide = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     const existingForDay = await getExistingLogForRideDate(
       ctx,
@@ -36,7 +36,7 @@ export const logRide = mutation({
       args.rideDate,
     );
     if (existingForDay) {
-      throw new Error("You already logged this coaster for that date");
+      throw new ConvexError("You already logged this coaster for that date");
     }
 
     const logId = await ctx.db.insert("rideLogs", {
@@ -73,10 +73,10 @@ export const removeLog = mutation({
   args: { logId: v.id("rideLogs") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
     const log = await ctx.db.get(args.logId);
-    if (!log || log.userId !== userId) throw new Error("Ride log not found");
+    if (!log || log.userId !== userId) throw new ConvexError("Ride log not found");
 
     await ctx.db.delete(log._id);
 

@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
+import { getErrorMessage } from "../lib/errors";
 
 export function MyListPage() {
   const rankings = useQuery(api.rankings.getMyRankings);
@@ -34,7 +35,7 @@ export function MyListPage() {
     try {
       await moveRank({ coasterId, direction });
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not update ranking"));
     }
   };
 

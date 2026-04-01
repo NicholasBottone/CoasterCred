@@ -3,6 +3,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
+import { getErrorMessage } from "../lib/errors";
 
 export function SearchPage() {
   const [search, setSearch] = useState("");
@@ -32,7 +33,7 @@ export function SearchPage() {
       } catch (error: any) {
         if (!cancelled) {
           setResults([]);
-          toast.error(error.message ?? "Could not search Coasterpedia");
+          toast.error(getErrorMessage(error, "Could not search coasters"));
         }
       } finally {
         if (!cancelled) {

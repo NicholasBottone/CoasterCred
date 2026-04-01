@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   LIMITS,
@@ -7,6 +7,13 @@ import {
   validateDisplayName,
   validateOptionalText,
 } from "./validation";
+
+function toClientMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
 
 export const getMyProfile = query({
   args: {},
@@ -56,19 +63,29 @@ export const upsertProfile = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
 
-    const trimmedName =
-      args.name !== undefined ? validateDisplayName(args.name) : undefined;
+    let trimmedName: string | undefined;
+    try {
+      trimmedName =
+        args.name !== undefined ? validateDisplayName(args.name) : undefined;
+    } catch (error) {
+      throw new ConvexError(toClientMessage(error, "Could not update profile"));
+    }
     if (args.name !== undefined) {
       await ctx.db.patch(userId, { name: trimmedName });
     }
 
-    const profilePatch = {
-      bio: validateOptionalText(args.bio, "Bio", LIMITS.bio),
-      homepark: validateOptionalText(args.homepark, "Home park", LIMITS.homepark),
-      avatarUrl: validateAvatarUrl(args.avatarUrl),
-    };
+    let profilePatch;
+    try {
+      profilePatch = {
+        bio: validateOptionalText(args.bio, "Bio", LIMITS.bio),
+        homepark: validateOptionalText(args.homepark, "Home park", LIMITS.homepark),
+        avatarUrl: validateAvatarUrl(args.avatarUrl),
+      };
+    } catch (error) {
+      throw new ConvexError(toClientMessage(error, "Could not update profile"));
+    }
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
@@ -122,8 +139,8 @@ export const follow = mutation({
   args: { targetUserId: v.id("users") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    if (userId === args.targetUserId) throw new Error("Cannot follow yourself");
+    if (!userId) throw new ConvexError("Not authenticated");
+    if (userId === args.targetUserId) throw new ConvexError("Cannot follow yourself");
     const existing = await ctx.db
       .query("follows")
       .withIndex("by_follower_and_following", (q) =>
@@ -143,7 +160,7 @@ export const unfollow = mutation({
   args: { targetUserId: v.id("users") },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    if (!userId) throw new ConvexError("Not authenticated");
     const existing = await ctx.db
       .query("follows")
       .withIndex("by_follower_and_following", (q) =>

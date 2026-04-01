@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { dateInputValueToTimestamp, formatDate, todayDateInputValue } from "../lib/dateUtils";
+import { getErrorMessage } from "../lib/errors";
 
 export type CoasterSummary = {
   _id?: string;
@@ -94,7 +95,7 @@ export function CoasterModal({
       );
       onClose();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not log ride"));
     } finally {
       setSaving(false);
     }
@@ -139,7 +140,7 @@ export function CoasterModal({
       await removeLog({ logId: logId as any });
       toast.success("Ride removed");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(getErrorMessage(e, "Could not remove ride"));
     } finally {
       setSaving(false);
     }
