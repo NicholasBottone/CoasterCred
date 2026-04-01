@@ -247,31 +247,33 @@ export function CoasterModal({
             </div>
           </section>
 
-          <section className="surface-subtle p-4">
+          <section className="surface-subtle p-4 flex flex-col">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Your status</h4>
               <span className="text-[11px] text-gray-400 dark:text-gray-500">
                 {profileData?.myStats?.hasRidden ? "Ridden" : "Not ridden yet"}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <Metric label="Ride count" value={profileData?.myStats?.rideCount ?? 0} />
-              <Metric
-                label="Rank"
-                value={
-                  typeof profileData?.myStats?.currentRank === "number"
-                    ? `#${profileData.myStats.currentRank}`
-                    : "—"
-                }
-              />
-              <Metric
-                label="Score"
-                value={
-                  typeof profileData?.myStats?.currentScore === "number"
-                    ? profileData.myStats.currentScore.toFixed(1)
-                    : "—"
-                }
-              />
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="grid grid-cols-3 gap-2">
+                <Metric label="Ride count" value={profileData?.myStats?.rideCount ?? 0} />
+                <Metric
+                  label="Rank"
+                  value={
+                    typeof profileData?.myStats?.currentRank === "number"
+                      ? `#${profileData.myStats.currentRank}`
+                      : "—"
+                  }
+                />
+                <Metric
+                  label="Score"
+                  value={
+                    typeof profileData?.myStats?.currentScore === "number"
+                      ? profileData.myStats.currentScore.toFixed(1)
+                      : "—"
+                  }
+                />
+              </div>
             </div>
           </section>
         </div>
@@ -490,7 +492,7 @@ export function CoasterModal({
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="surface-subtle p-2 text-center">
+    <div className="surface-subtle p-2 flex flex-col justify-center items-center text-center">
       <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
       <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{value}</p>
     </div>
