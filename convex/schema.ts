@@ -24,6 +24,10 @@ const applicationTables = {
     park: v.string(),
     location: v.string(),
     type: v.string(), // "Steel", "Wood", "Hybrid"
+    source: v.optional(v.string()),
+    sourceId: v.optional(v.string()),
+    sourceUrl: v.optional(v.string()),
+    lastSyncedAt: v.optional(v.number()),
     manufacturer: v.optional(v.string()),
     heightFt: v.optional(v.number()),
     speedMph: v.optional(v.number()),
@@ -35,6 +39,7 @@ const applicationTables = {
   })
     .index("by_name", ["name"])
     .index("by_park", ["park"])
+    .index("by_source_and_sourceId", ["source", "sourceId"])
     .searchIndex("search_coasters", {
       searchField: "name",
       filterFields: ["park", "type"],

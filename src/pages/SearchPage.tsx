@@ -1,26 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { dateInputValueToTimestamp, formatDate, todayDateInputValue } from "../lib/dateUtils";
 
+type SearchResult = {
+  _id?: string;
+  source?: string;
+  sourceId?: string;
+  sourceUrl?: string;
+  lastSyncedAt?: number;
+  name: string;
+  park: string;
+  location: string;
+  type: string;
+  manufacturer?: string;
+  heightFt?: number;
+  speedMph?: number;
+  lengthFt?: number;
+  inversions?: number;
+  yearOpened?: number;
+};
+
 export function SearchPage() {
   const [search, setSearch] = useState("");
-  const [selectedCoaster, setSelectedCoaster] = useState<any>(null);
-  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [selectedCoaster, setSelectedCoaster] = useState<SearchResult | null>(null);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  const results = useQuery(api.coasters.search, { q: search });
+  const topCoasters = useQuery(api.coasters.getTopCoasters);
+  const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
+
+  useEffect(() => {
+    const queryText = search.trim();
+    if (!queryText) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const nextResults = await searchCoasterpedia({ q: queryText });
+        if (!cancelled) {
+          setResults(nextResults as SearchResult[]);
+        }
+      } catch (error: any) {
+        if (!cancelled) {
+          setResults([]);
+          toast.error(error.message ?? "Could not search Coasterpedia");
+        }
+      } finally {
+        if (!cancelled) {
+          setSearching(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [search, searchCoasterpedia]);
+
+  const displayResults = search.trim()
+    ? results
+    : ((topCoasters ?? []) as SearchResult[]);
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-lg font-bold text-gray-800 flex-1">Search Coasters</h2>
-        <button
-          onClick={() => setShowAddCustom(true)}
-          className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-medium"
-        >
-          + Add Custom
-        </button>
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-gray-800">Search Coasters</h2>
+        <p className="text-xs text-gray-400 mt-1">
+          Search Coasterpedia live. A coaster only enters our database once someone logs it.
+        </p>
       </div>
 
       <input
@@ -31,21 +86,23 @@ export function SearchPage() {
         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 mb-4 text-sm"
       />
 
-      {results === undefined ? (
+      {searching || (!topCoasters && !search.trim()) ? (
         <div className="flex justify-center py-10">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {results.map((coaster: any) => (
+          {displayResults.map((coaster) => (
             <CoasterCard
-              key={coaster._id}
+              key={coaster._id ?? `${coaster.source ?? "local"}:${coaster.sourceId ?? coaster.name}`}
               coaster={coaster}
               onClick={() => setSelectedCoaster(coaster)}
             />
           ))}
-          {results.length === 0 && (
-            <p className="text-center text-gray-400 py-8 text-sm">No coasters found</p>
+          {displayResults.length === 0 && (
+            <p className="text-center text-gray-400 py-8 text-sm">
+              {search.trim() ? "No coasters found" : "No local coasters yet"}
+            </p>
           )}
         </div>
       )}
@@ -56,16 +113,15 @@ export function SearchPage() {
           onClose={() => setSelectedCoaster(null)}
         />
       )}
-
-      {showAddCustom && (
-        <AddCustomModal onClose={() => setShowAddCustom(false)} />
-      )}
     </div>
   );
 }
 
-function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }) {
-  const myLogs = useQuery(api.rideLogs.getMyLogsForCoaster, { coasterId: coaster._id });
+function CoasterCard({ coaster, onClick }: { coaster: SearchResult; onClick: () => void }) {
+  const myLogs = useQuery(
+    api.rideLogs.getMyLogsForCoaster,
+    coaster._id ? { coasterId: coaster._id as any } : "skip",
+  );
   const rideCount = myLogs?.length ?? 0;
 
   return (
@@ -82,15 +138,24 @@ function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }
                 ✓ {rideCount === 1 ? "Ridden" : `${rideCount} rides`}
               </span>
             )}
+            {!coaster._id && coaster.source === "coasterpedia" && (
+              <span className="text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                Live
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500 truncate">{coaster.park} · {coaster.location}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-            coaster.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-            coaster.type === "Wood" ? "bg-amber-100 text-amber-700" :
-            "bg-blue-100 text-blue-700"
-          }`}>
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              coaster.type === "Hybrid"
+                ? "bg-purple-100 text-purple-700"
+                : coaster.type === "Wood"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-blue-100 text-blue-700"
+            }`}
+          >
             {coaster.type}
           </span>
           {coaster.heightFt && (
@@ -102,33 +167,38 @@ function CoasterCard({ coaster, onClick }: { coaster: any; onClick: () => void }
   );
 }
 
-function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void }) {
-  const myLogs = useQuery(api.rideLogs.getMyLogsForCoaster, { coasterId: coaster._id });
+function CoasterModal({ coaster, onClose }: { coaster: SearchResult; onClose: () => void }) {
+  const [localCoasterId, setLocalCoasterId] = useState<string | undefined>(coaster._id);
+  const myLogs = useQuery(
+    api.rideLogs.getMyLogsForCoaster,
+    localCoasterId ? { coasterId: localCoasterId as any } : "skip",
+  );
   const rankings = useQuery(api.rankings.getMyRankings);
   const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
   const removeLog = useMutation(api.rideLogs.removeLog);
+  const materializeCoaster = useAction(api.coasters.materializeCoasterpediaCoaster);
 
   const [notes, setNotes] = useState("");
   const [rideDate, setRideDate] = useState(todayDateInputValue());
   const [saving, setSaving] = useState(false);
   const [comparisonBounds, setComparisonBounds] = useState<{ low: number; high: number } | null>(null);
-  const loadingData = rankings === undefined || myLogs === undefined;
+  const loadingData = rankings === undefined || (localCoasterId !== undefined && myLogs === undefined);
   const rideHistory = myLogs ?? [];
-  const hasRideHistory = rideHistory.length > 0;
 
   useEffect(() => {
+    setLocalCoasterId(coaster._id);
     setNotes("");
     setRideDate(todayDateInputValue());
     setComparisonBounds(null);
-  }, [coaster._id]);
+  }, [coaster._id, coaster.sourceId]);
 
   const rankedCoasters = useMemo(
     () =>
-      (rankings ?? []).filter((item: any) => item.coasterId !== coaster._id),
-    [coaster._id, rankings],
+      (rankings ?? []).filter((item: any) => item.coasterId !== localCoasterId),
+    [localCoasterId, rankings],
   );
 
-  const currentRank = rankings?.findIndex((item: any) => item.coasterId === coaster._id);
+  const currentRank = rankings?.findIndex((item: any) => item.coasterId === localCoasterId);
   const comparisonIndex =
     comparisonBounds === null
       ? null
@@ -136,11 +206,22 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
   const comparisonTarget =
     comparisonIndex === null ? null : rankedCoasters[comparisonIndex];
 
+  const ensureLocalCoasterId = async () => {
+    if (localCoasterId) return localCoasterId;
+    if (coaster.source === "coasterpedia" && coaster.sourceId) {
+      const nextId = (await materializeCoaster({ sourceId: coaster.sourceId })) as string;
+      setLocalCoasterId(nextId);
+      return nextId;
+    }
+    throw new Error("Could not create a local coaster record");
+  };
+
   const saveRide = async (targetRank?: number) => {
     setSaving(true);
     try {
+      const coasterId = await ensureLocalCoasterId();
       await saveRideWithRank({
-        coasterId: coaster._id,
+        coasterId: coasterId as any,
         riddenAt: dateInputValueToTimestamp(rideDate),
         rideDate,
         notes: notes || undefined,
@@ -195,7 +276,7 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
   const handleRemove = async (logId: string) => {
     setSaving(true);
     try {
-      await removeLog({ logId });
+      await removeLog({ logId: logId as any });
       toast.success("Ride removed");
     } catch (e: any) {
       toast.error(e.message);
@@ -215,7 +296,6 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-2 mb-4">
           {coaster.heightFt && <Stat label="Height" value={`${coaster.heightFt}ft`} />}
           {coaster.speedMph && <Stat label="Speed" value={`${coaster.speedMph}mph`} />}
@@ -227,7 +307,7 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
 
         <div className="border-t pt-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">
-            {hasRideHistory
+            {rideHistory.length > 0
               ? "Add another ride to your history or re-rank this coaster"
               : "Log this ride and place it in your list"}
           </p>
@@ -370,100 +450,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="bg-gray-50 rounded-lg p-2 text-center">
       <p className="text-xs text-gray-400">{label}</p>
       <p className="text-sm font-semibold text-gray-800">{value}</p>
-    </div>
-  );
-}
-
-function AddCustomModal({ onClose }: { onClose: () => void }) {
-  const addCustom = useMutation(api.coasters.addCustom);
-  const [form, setForm] = useState({
-    name: "", park: "", location: "", type: "Steel",
-    manufacturer: "", heightFt: "", speedMph: "", lengthFt: "",
-    inversions: "", yearOpened: "",
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !form.park || !form.location) {
-      toast.error("Name, park, and location are required");
-      return;
-    }
-    setSaving(true);
-    try {
-      await addCustom({
-        name: form.name,
-        park: form.park,
-        location: form.location,
-        type: form.type,
-        manufacturer: form.manufacturer || undefined,
-        heightFt: form.heightFt ? Number(form.heightFt) : undefined,
-        speedMph: form.speedMph ? Number(form.speedMph) : undefined,
-        lengthFt: form.lengthFt ? Number(form.lengthFt) : undefined,
-        inversions: form.inversions ? Number(form.inversions) : undefined,
-        yearOpened: form.yearOpened ? Number(form.yearOpened) : undefined,
-      });
-      toast.success("Coaster added!");
-      onClose();
-    } catch (e: any) {
-      toast.error(e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const field = (key: keyof typeof form, label: string, type = "text") => (
-    <div>
-      <label className="text-xs text-gray-500 mb-1 block">{label}</label>
-      <input
-        type={type}
-        value={form[key]}
-        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-      />
-    </div>
-  );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5 my-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Add Custom Coaster</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
-        </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {field("name", "Name *")}
-          {field("park", "Park *")}
-          {field("location", "Location *")}
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Type</label>
-            <select
-              value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none"
-            >
-              <option>Steel</option>
-              <option>Wood</option>
-              <option>Hybrid</option>
-            </select>
-          </div>
-          {field("manufacturer", "Manufacturer")}
-          <div className="grid grid-cols-2 gap-3">
-            {field("heightFt", "Height (ft)", "number")}
-            {field("speedMph", "Speed (mph)", "number")}
-            {field("lengthFt", "Length (ft)", "number")}
-            {field("inversions", "Inversions", "number")}
-            {field("yearOpened", "Year Opened", "number")}
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-primary text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50 mt-1"
-          >
-            Add Coaster
-          </button>
-        </form>
-      </div>
     </div>
   );
 }
