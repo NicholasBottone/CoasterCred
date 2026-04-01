@@ -114,7 +114,12 @@ export const getFriendLeaderboard = query({
 
         return {
           userId: currentUserId,
-          user,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+              }
+            : null,
           profile,
           rideCount,
           totalRideCount: logs.length,

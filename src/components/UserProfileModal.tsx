@@ -64,9 +64,9 @@ export function UserProfileModal({
               />
               <div className="flex-1 min-w-0">
                 <h4 className="text-lg font-bold text-gray-900 truncate">
-                  {profileData?.user?.name ?? profileData?.user?.email ?? "Unknown rider"}
+                  {profileData?.user?.name ?? "Unknown rider"}
                 </h4>
-                {profileData?.user?.email && profileData?.user?.name && (
+                {isCurrentUser && profileData?.user?.email && (
                   <p className="text-xs text-gray-400 truncate">{profileData.user.email}</p>
                 )}
                 {profileData?.profile?.homepark && (

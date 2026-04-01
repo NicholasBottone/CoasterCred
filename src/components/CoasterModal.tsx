@@ -152,6 +152,16 @@ export function CoasterModal({
           <div>
             <h3 className="text-lg font-bold text-gray-900">{coaster.name}</h3>
             <p className="text-sm text-gray-500">{coaster.park} · {coaster.location}</p>
+            {coaster.sourceUrl && (
+              <a
+                href={coaster.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs text-primary hover:underline"
+              >
+                View on Coasterpedia
+              </a>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
@@ -187,9 +197,6 @@ export function CoasterModal({
               onChange={(e) => setRideDate(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Historical rides are supported. You can only log this coaster once per day.
-            </p>
           </div>
 
           <textarea
@@ -207,7 +214,7 @@ export function CoasterModal({
             </div>
           ) : currentRank !== undefined && currentRank >= 0 && comparisonTarget === null ? (
             <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-              This coaster is already in your list, so a repeat ride adds trip history without creating another leaderboard credit.
+              This coaster is already in your list.
             </div>
           ) : comparisonTarget ? (
             <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">

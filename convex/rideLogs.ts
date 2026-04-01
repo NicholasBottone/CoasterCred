@@ -207,7 +207,12 @@ export const getFeed = query({
         allLogs.push({
           ...log,
           coaster,
-          user,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+              }
+            : null,
           profile,
           rideOrdinal,
           isFirstRide: rideOrdinal === 1,

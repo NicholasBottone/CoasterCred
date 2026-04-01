@@ -248,7 +248,24 @@ export const getMany = query({
 export const getTopCoasters = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("coasters").take(30);
+    const coasters = await ctx.db.query("coasters").collect();
+    const rideLogs = await ctx.db.query("rideLogs").collect();
+
+    const rideCountByCoaster = new Map<string, number>();
+    for (const log of rideLogs) {
+      const key = String(log.coasterId);
+      rideCountByCoaster.set(key, (rideCountByCoaster.get(key) ?? 0) + 1);
+    }
+
+    return coasters
+      .sort((a, b) => {
+        const countDiff =
+          (rideCountByCoaster.get(String(b._id)) ?? 0) -
+          (rideCountByCoaster.get(String(a._id)) ?? 0);
+        if (countDiff !== 0) return countDiff;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 30);
   },
 });
 

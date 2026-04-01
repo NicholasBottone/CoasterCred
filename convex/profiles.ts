@@ -25,12 +25,25 @@ export const getMyProfile = query({
 export const getProfile = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx);
     const user = await ctx.db.get(args.userId);
     const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
-    return { user, profile };
+    if (!user) {
+      return { user: null, profile };
+    }
+    return {
+      user:
+        authUserId === args.userId
+          ? user
+          : {
+              _id: user._id,
+              name: user.name,
+            },
+      profile,
+    };
   },
 });
 
@@ -146,14 +159,17 @@ export const unfollow = mutation({
 export const searchUsers = query({
   args: { q: v.string() },
   handler: async (ctx, args) => {
-    if (!args.q.trim()) return [];
+    const queryText = args.q.trim();
+    if (!queryText) return [];
+
     const allUsers = await ctx.db.query("users").collect();
-    const lower = args.q.toLowerCase();
+    const lower = queryText.toLowerCase();
+    const hasExactEmailMatch = lower.includes("@");
     const matches = allUsers
       .filter(
         (u) =>
           u.name?.toLowerCase().includes(lower) ||
-          u.email?.toLowerCase().includes(lower)
+          (hasExactEmailMatch && u.email?.toLowerCase() === lower)
       )
       .slice(0, 10);
 
@@ -163,7 +179,11 @@ export const searchUsers = query({
           .query("userProfiles")
           .withIndex("by_userId", (q) => q.eq("userId", user._id))
           .unique();
-        return { ...user, profile };
+        return {
+          _id: user._id,
+          name: user.name,
+          profile,
+        };
       })
     );
   },
@@ -183,7 +203,15 @@ export const getFollowingList = query({
           .query("userProfiles")
           .withIndex("by_userId", (q) => q.eq("userId", f.followingId))
           .unique();
-        return { user, profile };
+        return {
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+              }
+            : null,
+          profile,
+        };
       })
     );
     return users.filter((u) => u.user !== null);

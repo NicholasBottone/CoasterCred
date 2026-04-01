@@ -224,7 +224,7 @@ function UserSearch() {
     <div>
       <input
         type="text"
-        placeholder="Search by name or email..."
+        placeholder="Search by display name or exact email..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 mb-2"
@@ -269,13 +269,11 @@ function UserRow({ user }: { user: any }) {
       <Avatar
         avatarUrl={user.profile?.avatarUrl}
         name={user.name}
-        email={user.email}
         sizeClassName="w-8 h-8"
         textClassName="text-sm"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{user.name ?? user.email}</p>
-        {user.name && <p className="text-xs text-gray-400 truncate">{user.email}</p>}
+        <p className="text-sm font-medium text-gray-800 truncate">{user.name ?? "Enthusiast"}</p>
       </div>
       <button
         onClick={handleToggle}

@@ -81,14 +81,13 @@ export function RankingsPage() {
                 <Avatar
                   avatarUrl={entry.profile?.avatarUrl}
                   name={entry.user?.name}
-                  email={entry.user?.email}
                   sizeClassName="w-10 h-10"
                   textClassName="text-base"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900 truncate">
-                      {entry.user?.name ?? entry.user?.email ?? "Unknown rider"}
+                      {entry.user?.name ?? "Unknown rider"}
                     </p>
                     {entry.isCurrentUser && (
                       <span className="text-[10px] uppercase tracking-wide bg-primary text-white px-2 py-0.5 rounded-full">

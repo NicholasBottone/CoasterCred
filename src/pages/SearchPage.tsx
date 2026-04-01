@@ -55,8 +55,18 @@ export function SearchPage() {
     <div className="max-w-lg mx-auto px-4 py-4">
       <div className="mb-4">
         <h2 className="text-lg font-bold text-gray-800">Search Coasters</h2>
+        <p className="text-xs text-gray-400 mt-1">Search by coaster name or park to log a ride.</p>
         <p className="text-xs text-gray-400 mt-1">
-          Search Coasterpedia live. A coaster only enters our database once someone logs it.
+          Coaster data by{" "}
+          <a
+            href="https://coasterpedia.net/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            Coasterpedia
+          </a>
+          .
         </p>
       </div>
 
@@ -118,11 +128,6 @@ function CoasterCard({ coaster, onClick }: { coaster: CoasterSummary; onClick: (
             {rideCount > 0 && (
               <span className="text-green-500 text-xs">
                 ✓ {rideCount === 1 ? "Ridden" : `${rideCount} rides`}
-              </span>
-            )}
-            {!coaster._id && coaster.source === "coasterpedia" && (
-              <span className="text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                Live
               </span>
             )}
           </div>

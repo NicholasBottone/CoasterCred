@@ -81,13 +81,12 @@ function FeedCard({
           <Avatar
             avatarUrl={profile?.avatarUrl}
             name={user?.name}
-            email={user?.email}
             sizeClassName="w-9 h-9"
             textClassName="text-sm"
           />
           <div className="min-w-0">
             <p className="font-semibold text-gray-800 text-sm truncate">
-              {user?.name ?? user?.email ?? "Unknown"}
+              {user?.name ?? "Unknown"}
             </p>
             <p className="text-xs text-gray-400">{formatDistanceToNow(item._creationTime)}</p>
           </div>
