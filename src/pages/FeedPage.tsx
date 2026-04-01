@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { formatDate, formatDistanceToNow } from "../lib/dateUtils";
+import { Avatar } from "../components/Avatar";
 
 export function FeedPage() {
   const feed = useQuery(api.rideLogs.getFeed);
@@ -39,9 +40,13 @@ function FeedCard({ item }: { item: any }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-          {user?.name?.[0]?.toUpperCase() ?? "?"}
-        </div>
+        <Avatar
+          avatarUrl={profile?.avatarUrl}
+          name={user?.name}
+          email={user?.email}
+          sizeClassName="w-9 h-9"
+          textClassName="text-sm"
+        />
         <div>
           <p className="font-semibold text-gray-800 text-sm">{user?.name ?? user?.email ?? "Unknown"}</p>
           <p className="text-xs text-gray-400">{formatDistanceToNow(item._creationTime)}</p>

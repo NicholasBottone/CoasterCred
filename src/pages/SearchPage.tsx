@@ -255,6 +255,7 @@ function CoasterModal({ coaster, onClose }: { coaster: any; onClose: () => void 
           <textarea
             placeholder="Notes (optional)..."
             value={notes}
+            maxLength={500}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none mb-3"

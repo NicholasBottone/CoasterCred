@@ -1,6 +1,12 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import {
+  LIMITS,
+  validateAvatarUrl,
+  validateDisplayName,
+  validateOptionalText,
+} from "./validation";
 
 export const getMyProfile = query({
   args: {},
@@ -30,6 +36,7 @@ export const getProfile = query({
 
 export const upsertProfile = mutation({
   args: {
+    name: v.optional(v.string()),
     bio: v.optional(v.string()),
     homepark: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
@@ -37,14 +44,26 @@ export const upsertProfile = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    const trimmedName =
+      args.name !== undefined ? validateDisplayName(args.name) : undefined;
+    if (args.name !== undefined) {
+      await ctx.db.patch(userId, { name: trimmedName });
+    }
+
+    const profilePatch = {
+      bio: validateOptionalText(args.bio, "Bio", LIMITS.bio),
+      homepark: validateOptionalText(args.homepark, "Home park", LIMITS.homepark),
+      avatarUrl: validateAvatarUrl(args.avatarUrl),
+    };
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
     if (existing) {
-      await ctx.db.patch(existing._id, args);
+      await ctx.db.patch(existing._id, profilePatch);
     } else {
-      await ctx.db.insert("userProfiles", { userId, ...args });
+      await ctx.db.insert("userProfiles", { userId, ...profilePatch });
     }
   },
 });
@@ -130,13 +149,23 @@ export const searchUsers = query({
     if (!args.q.trim()) return [];
     const allUsers = await ctx.db.query("users").collect();
     const lower = args.q.toLowerCase();
-    return allUsers
+    const matches = allUsers
       .filter(
         (u) =>
           u.name?.toLowerCase().includes(lower) ||
           u.email?.toLowerCase().includes(lower)
       )
       .slice(0, 10);
+
+    return await Promise.all(
+      matches.map(async (user) => {
+        const profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .unique();
+        return { ...user, profile };
+      })
+    );
   },
 });
 

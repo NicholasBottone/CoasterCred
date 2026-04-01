@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { LIMITS, validateOptionalText } from "./validation";
 
 async function getExistingLogForRideDate(
   ctx: any,
@@ -197,7 +198,7 @@ export const saveRideWithRank = mutation({
       coasterId: args.coasterId,
       riddenAt: args.riddenAt,
       rideDate: args.rideDate,
-      notes: args.notes,
+      notes: validateOptionalText(args.notes, "Notes", LIMITS.notes),
     });
 
     if (existingRanking && args.targetRank === undefined) {

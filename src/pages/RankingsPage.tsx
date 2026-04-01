@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { formatDistanceToNow } from "../lib/dateUtils";
+import { Avatar } from "../components/Avatar";
 
 const WINDOW_OPTIONS = [
   { value: "30d", label: "30d", description: "Most coaster credits in the last 30 days" },
@@ -70,9 +71,13 @@ export function RankingsPage() {
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
               {idx + 1}
             </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-              {entry.user?.name?.[0]?.toUpperCase() ?? entry.user?.email?.[0]?.toUpperCase() ?? "?"}
-            </div>
+            <Avatar
+              avatarUrl={entry.profile?.avatarUrl}
+              name={entry.user?.name}
+              email={entry.user?.email}
+              sizeClassName="w-10 h-10"
+              textClassName="text-base"
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-gray-900 truncate">

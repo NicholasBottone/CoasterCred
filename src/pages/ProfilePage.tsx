@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { formatDate } from "../lib/dateUtils";
+import { Avatar } from "../components/Avatar";
 
 export function ProfilePage() {
   const myProfile = useQuery(api.profiles.getMyProfile);
@@ -11,12 +12,16 @@ export function ProfilePage() {
   const upsertProfile = useMutation(api.profiles.upsertProfile);
 
   const [editing, setEditing] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
   const handleEdit = () => {
+    setDisplayName(myProfile?.user?.name ?? "");
+    setAvatarUrl(myProfile?.profile?.avatarUrl ?? "");
     setBio(myProfile?.profile?.bio ?? "");
     setHomepark(myProfile?.profile?.homepark ?? "");
     setEditing(true);
@@ -25,7 +30,12 @@ export function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await upsertProfile({ bio: bio || undefined, homepark: homepark || undefined });
+      await upsertProfile({
+        name: displayName.trim(),
+        avatarUrl: avatarUrl.trim() || undefined,
+        bio: bio || undefined,
+        homepark: homepark || undefined,
+      });
       toast.success("Profile updated!");
       setEditing(false);
     } catch (e: any) {
@@ -52,9 +62,13 @@ export function ProfilePage() {
       {/* Profile Card */}
       <div className="bg-white rounded-2xl border shadow-sm p-5 mb-4">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl shrink-0">
-            {user?.name?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? "?"}
-          </div>
+          <Avatar
+            avatarUrl={profile?.avatarUrl}
+            name={user?.name}
+            email={user?.email}
+            sizeClassName="w-16 h-16"
+            textClassName="text-2xl"
+          />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900 truncate">
               {user?.name ?? user?.email ?? "Enthusiast"}
@@ -141,10 +155,33 @@ export function ProfilePage() {
             </div>
             <div className="flex flex-col gap-3">
               <div>
+                <label className="text-xs text-gray-500 mb-1 block">Display Name</label>
+                <input
+                  type="text"
+                  value={displayName}
+                  maxLength={40}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="How other riders will see you"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Avatar URL</label>
+                <input
+                  type="url"
+                  value={avatarUrl}
+                  maxLength={500}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
                 <label className="text-xs text-gray-500 mb-1 block">Home Park</label>
                 <input
                   type="text"
                   value={homepark}
+                  maxLength={80}
                   onChange={(e) => setHomepark(e.target.value)}
                   placeholder="e.g. Cedar Point"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -154,6 +191,7 @@ export function ProfilePage() {
                 <label className="text-xs text-gray-500 mb-1 block">Bio</label>
                 <textarea
                   value={bio}
+                  maxLength={280}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself..."
                   rows={3}
@@ -228,9 +266,13 @@ function UserRow({ user }: { user: any }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-        {user.name?.[0]?.toUpperCase() ?? user.email?.[0]?.toUpperCase() ?? "?"}
-      </div>
+      <Avatar
+        avatarUrl={user.profile?.avatarUrl}
+        name={user.name}
+        email={user.email}
+        sizeClassName="w-8 h-8"
+        textClassName="text-sm"
+      />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800 truncate">{user.name ?? user.email}</p>
         {user.name && <p className="text-xs text-gray-400 truncate">{user.email}</p>}
