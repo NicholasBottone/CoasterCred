@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -15,11 +16,18 @@ export function UserProfileModal({
   onClose: () => void;
   onViewProfile: (userId: string) => void;
 }) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const profileData = useQuery(apiAny.profiles.getPublicProfilePreview, { userId });
   const follow = useMutation(api.profiles.follow);
   const unfollow = useMutation(api.profiles.unfollow);
 
   const loading = profileData === undefined;
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [userId]);
 
   const handleFollowToggle = async () => {
     try {
@@ -36,8 +44,15 @@ export function UserProfileModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
-      <div className="surface-card w-full max-w-md p-5 shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4"
+      onClick={onClose}
+    >
+      <div
+        ref={scrollContainerRef}
+        className="surface-card w-full max-w-md max-h-[90vh] overflow-y-auto p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Profile</h3>

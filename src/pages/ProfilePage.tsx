@@ -206,8 +206,11 @@ export function ProfilePage({
 
       {/* Edit Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
-          <div className="surface-card w-full max-w-md shadow-xl p-5">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4"
+          onClick={() => setEditing(false)}
+        >
+          <div className="surface-card w-full max-w-md shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h3>
               <button onClick={() => setEditing(false)} className="text-gray-400 dark:text-gray-500 text-xl">×</button>

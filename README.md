@@ -29,9 +29,6 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 
 ## Todo List
 
-- [ ] Add coaster details and stats pages.
-  Coaster search results show basic stats, but there is no dedicated coaster page yet showing photos, descriptions, popularity within the app's user base, etc.
-
 - [ ] Improve coaster discovery and search quality.
   Search currently works on a relatively small dataset and basic fields. Filtering, sorting, park/manufacturer facets, and better indexing will matter once the coaster catalog grows.
 
