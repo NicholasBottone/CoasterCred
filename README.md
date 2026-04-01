@@ -1,48 +1,51 @@
 # CoasterCred - Roller Coaster Social Review Platform
-  
-This is a project built with [Chef](https://chef.convex.dev) using [Convex](https://convex.dev) as its backend.
- You can find docs about Chef with useful information like how to deploy to production [here](https://docs.convex.dev/chef).
-  
-This project is connected to the Convex deployment named [`determined-crow-633`](https://dashboard.convex.dev/d/determined-crow-633).
+
+CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rides, build a personal ranked list through head-to-head comparisons, follow friends, and see who has been riding the most.
 
 ## Features
 
-🏠 Feed — Real-time activity stream showing your rides and friends' recent logs with coaster details, ratings, and notes.
+- 🏠 Feed — A social activity feed showing your rides and the recent ride logs of people you follow, including coaster details, ride dates, notes, and profile avatars.
+- 📋 My List — Your personal ranked coaster list. First-time coaster logs are placed into the list using Beli-style comparison choices, and you can still make manual up/down adjustments afterward.
+- 🔍 Search — Search the current coaster database, view coaster stats, log rides, add historical rides, and maintain per-coaster ride history with one ride log allowed per coaster per day.
+- 🏆 Rankings — A friends leaderboard showing who has logged the most unique coaster credits over the last 30 days, 365 days, or all time.
+- 👤 Profile — View and edit your display name, avatar URL, bio, and home park; see your unique coaster count and current #1 coaster; search for other users and follow/unfollow them.
 
-📋 My List — Your personal ranked coaster list with drag-up/down reordering. Gold/silver/bronze medals for top 3. Logging a coaster auto-adds it to your list.
+## Project Structure
 
-🔍 Search — Search coasters from the (currently hardcoded) database with stats. Click through to launch Coaster Detail page.
+- `src/` — Frontend application built with Vite, React, TypeScript, and Tailwind CSS.
+  - `src/pages/` — Top-level app destinations: Feed, My List, Search, Rankings, and Profile.
+  - `src/components/` — Shared UI pieces such as the avatar component.
+- `convex/` — Backend functions, schema, validation, and auth logic.
+  - `convex/schema.ts` — Application schema, including profiles, follows, coasters, ride logs, and rankings.
+  - `convex/auth.ts` — Convex Auth configuration for email/password sign-in.
 
-🏆 Leaderboard — View the rankings of which of your friends has been riding the most coasters lately.
+`npm run dev` starts the frontend and Convex backend locally.
 
-👤 Profile — View your stats, bio, home park, rankings, ride log, and who you follow. Follow/unfollow other users. Edit your profile.
+## Current Product Notes
 
-🎢 Coaster Detail Page — Tap any coaster to see full stats (height, speed, length, inversions, year), log a ride with notes, or edit/remove existing logs. The ranking process for the coaster is similar to Beli, where instead of explicitly assigning a score, you repeatedly choose between two coasters, choosing which is better, which will automatically build your ranked order for you.
-
-## Project structure
-  
-The frontend code is in the `app` directory and is built with [Vite](https://vitejs.dev/).
-  
-The backend code is in the `convex` directory.
-  
-`npm run dev` will start the frontend and backend servers.
-
-## App authentication
-
-Chef apps use [Convex Auth](https://auth.convex.dev/) with Anonymous auth for easy sign in. You may wish to change this before deploying your app.
-
-## Developing and deploying your app
-
-Check out the [Convex docs](https://docs.convex.dev/) for more information on how to develop with Convex.
-* If you're new to Convex, the [Overview](https://docs.convex.dev/understanding/) is a good place to start
-* Check out the [Hosting and Deployment](https://docs.convex.dev/production/) docs for how to deploy your app
-* Read the [Best Practices](https://docs.convex.dev/understanding/best-practices/) guide for tips on how to improve you app further
-
-## HTTP API
-
-User-defined http routes are defined in the `convex/router.ts` file. We split these routes into a separate file from `convex/http.ts` to allow us to prevent the LLM from modifying the authentication routes.
+- The coaster database is still seeded/hardcoded and supports custom user-added entries.
+- Avatar images currently load from user-supplied HTTPS URLs. Length/protocol validation is in place, but avatars are not yet proxied through first-party storage.
+- Ride history supports historical logging and repeat rides, but duplicate rides do not create duplicate leaderboard credits inside a selected ranking window.
 
 ## Todo List
-- [ ] Add more sophisticated user authentication 
-- [ ] Add a more sophisticated coaster database
-  - [ ] I would like to find a public database (like RCDB) of coasters with stats like height, speed, length, inversions, year, etc. If I can't find one, I may need to build a scraper to pull this data from somewhere like RCDB.
+
+- [ ] Replace the seed/custom coaster dataset with a real source of truth.
+  This app still relies on a small local seed plus user-entered custom coasters. We need a better ingestion pipeline, dedupe strategy, provenance fields, and moderation rules.
+
+- [ ] Expand profiles into fuller public social profiles.
+  The profile page supports editing and friend search, but it still lacks follower/following counts, public profile views, and deeper social browsing from the feed and leaderboard.
+
+- [ ] Improve coaster discovery and search quality.
+  Search currently works on a relatively small dataset and basic fields. Filtering, sorting, park/manufacturer facets, and better indexing will matter once the coaster catalog grows.
+
+- [ ] Add first-party avatar handling.
+  Avatar URLs are validated to HTTPS and length-limited, but the app still hotlinks third-party images directly. Longer term, avatars should be uploaded or proxied through app-controlled storage/CDN.
+
+- [ ] Harden feed and user-search scalability.
+  The current implementation is fine for a prototype, but some queries still do in-memory filtering or per-user/per-log fan-out work that will need optimization as the user base grows.
+
+- [ ] Add account recovery and verification flows.
+  Auth is now email/password only, but there is no password reset, email verification, or account-management UX yet.
+
+- [ ] Polish ride-history UX.
+  The core data model now supports repeat and historical rides, but there is room to improve editing, grouping by trip/date, and exposing richer ride history across the app.
