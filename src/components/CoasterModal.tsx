@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { dateInputValueToTimestamp, formatDate, todayDateInputValue } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
 import { ScoreBadge } from "./ScoreBadge";
+import { getCoasterTypeBadgeClasses } from "../lib/badges";
 
 export type CoasterSummary = {
   _id?: string;
@@ -150,11 +151,11 @@ export function CoasterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5">
+      <div className="surface-card w-full max-w-md p-5 shadow-xl">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{coaster.name}</h3>
-            <p className="text-sm text-gray-500">{coaster.park} · {coaster.location}</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{coaster.name}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{coaster.park} · {coaster.location}</p>
             {coaster.sourceUrl && (
               <a
                 href={coaster.sourceUrl}
@@ -167,15 +168,11 @@ export function CoasterModal({
             )}
           </div>
           <div className="flex items-start gap-2">
-            <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
-              coaster.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-              coaster.type === "Wood" ? "bg-amber-100 text-amber-700" :
-              "bg-blue-100 text-blue-700"
-            }`}>
+            <span className={getCoasterTypeBadgeClasses(coaster.type)}>
               {coaster.type}
             </span>
             {currentRanking?.score !== undefined && <ScoreBadge score={currentRanking.score} size="sm" />}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
           </div>
         </div>
 
@@ -188,7 +185,7 @@ export function CoasterModal({
           {coaster.manufacturer && <Stat label="Maker" value={coaster.manufacturer} />}
         </div>
 
-        <p className="mb-4 text-[11px] leading-4 text-gray-400">
+        <p className="mb-4 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
           Coaster data by{" "}
           <a
             href="https://coasterpedia.net/"
@@ -201,27 +198,27 @@ export function CoasterModal({
           , licensed under CC-BY-SA 3.0.
         </p>
 
-        <div className="border-t pt-4">
-          <p className="text-sm font-semibold text-gray-700 mb-3">
+        <div className="border-t border-gray-200 pt-4 dark:border-gray-800">
+          <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
             {rideHistory.length > 0
               ? "Add another ride to your history or re-rank this coaster"
               : "Log this ride and place it in your list"}
           </p>
 
           {typeof currentRank === "number" && currentRank >= 0 && (
-            <p className="mb-3 text-xs text-gray-500">
-              Currently ranked #{currentRank + 1} in your list.
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              Currently ranked #{currentRank + 1} in your list{typeof currentRanking?.score === "number" ? ` with a ${currentRanking.score.toFixed(1)}` : ""}.
             </p>
           )}
 
           <div className="mb-3">
-            <label className="text-xs text-gray-500 mb-1 block">Ride date</label>
+            <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">Ride date</label>
             <input
               type="date"
               value={rideDate}
               max={todayDateInputValue()}
               onChange={(e) => setRideDate(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="input-field"
             />
           </div>
 
@@ -231,48 +228,48 @@ export function CoasterModal({
             maxLength={500}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none mb-3"
+            className="input-field mb-3 resize-none"
           />
 
           {loadingData ? (
-            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
               Loading your current rankings...
             </div>
           ) : currentRank !== undefined && currentRank >= 0 && comparisonTarget === null ? (
-            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
               This coaster is already in your list.
             </div>
           ) : comparisonTarget ? (
-            <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+            <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 Which coaster is better?
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => void handleComparisonChoice("selected")}
                   disabled={saving}
-                  className="rounded-xl border border-primary/20 bg-white px-3 py-3 text-left shadow-sm transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                  className="rounded-xl border border-primary/20 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md disabled:opacity-50 dark:border-primary/30 dark:bg-gray-950 dark:hover:bg-primary/10"
                 >
-                  <p className="text-sm font-semibold text-gray-900">{coaster.name}</p>
-                  <p className="text-xs text-gray-500">{coaster.park}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{coaster.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{coaster.park}</p>
                 </button>
                 <button
                   onClick={() => void handleComparisonChoice("other")}
                   disabled={saving}
-                  className="rounded-xl border border-gray-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-gray-300 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-gray-300 hover:bg-gray-100 hover:shadow-md disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:hover:bg-gray-800"
                 >
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     {comparisonTarget.coaster?.name ?? "Unknown"}
                   </p>
-                  <p className="text-xs text-gray-500">{comparisonTarget.coaster?.park}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{comparisonTarget.coaster?.park}</p>
                 </button>
               </div>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Pick the coaster you’d place higher in your personal rankings.
               </p>
             </div>
           ) : (
-            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
               {rankedCoasters.length === 0
                 ? "This will become your first ranked coaster."
                 : "Start the comparison flow to place this coaster into your list."}
@@ -283,7 +280,7 @@ export function CoasterModal({
             <button
               onClick={() => void startComparisonFlow()}
               disabled={saving || loadingData}
-              className="flex-1 bg-primary text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
+              className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
             >
               {comparisonTarget
                 ? "Restart Comparisons"
@@ -295,7 +292,7 @@ export function CoasterModal({
               <button
                 onClick={() => setComparisonBounds({ low: 0, high: rankedCoasters.length })}
                 disabled={saving}
-                className="px-4 py-2.5 rounded-xl border border-primary/30 text-primary text-sm font-medium disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl border border-primary/30 text-primary text-sm font-medium transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
               >
                 Re-rank
               </button>
@@ -303,27 +300,27 @@ export function CoasterModal({
           </div>
 
           {rideHistory.length > 0 && (
-            <div className="mt-4 border-t pt-4">
+            <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-800">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-gray-800">Ride History</h4>
-                <span className="text-xs text-gray-400">{rideHistory.length} logged</span>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Ride History</h4>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{rideHistory.length} logged</span>
               </div>
               <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                 {rideHistory.map((log: any) => (
                   <div
                     key={log._id}
-                    className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                    className="surface-subtle interactive-lift flex items-start gap-3 px-3 py-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{formatDate(log.rideDate)}</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{formatDate(log.rideDate)}</p>
                       {log.notes && (
-                        <p className="text-xs text-gray-500 mt-0.5 break-words">{log.notes}</p>
+                        <p className="mt-0.5 break-words text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>
                       )}
                     </div>
                     <button
                       onClick={() => void handleRemove(log._id)}
                       disabled={saving}
-                      className="text-xs text-red-500 font-medium disabled:opacity-50"
+                      className="text-xs font-medium text-red-500 transition-colors hover:text-red-400 disabled:opacity-50"
                     >
                       Delete
                     </button>
@@ -340,9 +337,9 @@ export function CoasterModal({
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-gray-50 rounded-lg p-2 text-center">
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-sm font-semibold text-gray-800">{value}</p>
+    <div className="surface-subtle p-2 text-center">
+      <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
+      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{value}</p>
     </div>
   );
 }

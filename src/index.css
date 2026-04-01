@@ -12,6 +12,7 @@
 }
 
 body {
+  @apply bg-gray-50 text-gray-900 transition-colors duration-200 dark:bg-gray-950 dark:text-gray-100;
   font-family:
     "Inter Variable",
     ui-sans-serif,
@@ -32,9 +33,25 @@ body {
   background: var(--color-light);
 }
 
+.surface-card {
+  @apply rounded-2xl border border-gray-200 bg-white shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900;
+}
+
+.surface-subtle {
+  @apply rounded-xl border border-gray-100 bg-gray-50 transition-colors dark:border-gray-800 dark:bg-gray-800/80;
+}
+
+.input-field {
+  @apply w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500;
+}
+
+.interactive-lift {
+  @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+}
+
 /* only use this to update the style of the auth input fields. use a different class for all other input fields */
 .auth-input-field {
-  @apply w-full px-4 py-3 rounded-container bg-white border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow shadow-sm hover:shadow;
+  @apply w-full px-4 py-3 rounded-container bg-white border border-gray-200 text-gray-900 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow shadow-sm hover:shadow dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500;
 }
 
 /* only use this to update the style of the auth buttons. use the button class for all other buttons */

@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { ScoreBadge } from "../components/ScoreBadge";
+import { getCoasterTypeBadgeClasses, getRideEventBadgeClasses } from "../lib/badges";
 
 export function FeedPage({
   onViewPublicProfile,
@@ -35,7 +36,7 @@ export function FeedPage({
   return (
     <>
       <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-gray-800">Activity Feed</h2>
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Activity Feed</h2>
         {feed.map((item: any) => (
           <FeedCard
             key={item._id}
@@ -76,19 +77,17 @@ function FeedCard({
   const coaster = item.coaster;
   const user = item.user;
   const profile = item.profile;
-  const badgeClassName = item.isFirstRide
-    ? "bg-green-100 text-green-700"
-    : "bg-blue-100 text-blue-700";
+  const badgeClassName = getRideEventBadgeClasses(item.isFirstRide);
   const badgeLabel = item.isFirstRide
     ? "First ride 🎉"
     : `Ride #${item.rideOrdinal}`;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-4">
+    <div className="surface-card interactive-lift rounded-xl p-4">
       <div className="flex items-center gap-3 mb-3">
         <button
           onClick={() => onSelectUser(user?._id)}
-          className="flex items-center gap-3 min-w-0 text-left"
+          className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
         >
           <Avatar
             avatarUrl={profile?.avatarUrl}
@@ -97,38 +96,34 @@ function FeedCard({
             textClassName="text-sm"
           />
           <div className="min-w-0">
-            <p className="font-semibold text-gray-800 text-sm truncate">
+            <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
               {user?.name ?? "Unknown"}
             </p>
-            <p className="text-xs text-gray-400">{formatDistanceToNow(item._creationTime)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{formatDistanceToNow(item._creationTime)}</p>
           </div>
         </button>
-        <div className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${badgeClassName}`}>
+        <div className={`ml-auto ${badgeClassName}`}>
           {badgeLabel}
         </div>
       </div>
       <button
         onClick={() => onSelectCoaster(coaster)}
-        className="w-full bg-gray-50 rounded-lg p-3 text-left hover:bg-gray-100 transition-colors"
+        className="interactive-lift w-full surface-subtle p-3 text-left"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="font-bold text-gray-900">{coaster?.name ?? "Unknown Coaster"}</p>
-            <p className="text-xs text-gray-500">{coaster?.park} · {coaster?.location}</p>
+            <p className="font-bold text-gray-900 dark:text-gray-100">{coaster?.name ?? "Unknown Coaster"}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{coaster?.park} · {coaster?.location}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-              coaster?.type === "Wood" ? "bg-amber-100 text-amber-700" :
-              "bg-blue-100 text-blue-700"
-            }`}>
+            <span className={getCoasterTypeBadgeClasses(coaster?.type)}>
               {coaster?.type}
             </span>
             {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
           </div>
         </div>
         {item.notes && (
-          <p className="mt-2 text-sm text-gray-600 italic">"{item.notes}"</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">"{item.notes}"</p>
         )}
         <p className="mt-2 text-xs text-gray-400">
           Rode on {formatDate(item.rideDate)}

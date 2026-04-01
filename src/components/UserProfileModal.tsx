@@ -37,15 +37,15 @@ export function UserProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5">
+      <div className="surface-card w-full max-w-md p-5 shadow-xl">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Profile</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Profile</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {profileData?.isCurrentUser ? "Your public profile preview" : "Public profile preview"}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
         </div>
 
         {loading ? (
@@ -53,7 +53,7 @@ export function UserProfileModal({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : !profileData ? (
-          <p className="text-sm text-gray-400 text-center py-8">Profile not found</p>
+          <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">Profile not found</p>
         ) : (
           <>
             <div className="flex items-start gap-4 mb-4">
@@ -64,14 +64,14 @@ export function UserProfileModal({
                 textClassName="text-2xl"
               />
               <div className="flex-1 min-w-0">
-                <h4 className="text-lg font-bold text-gray-900 truncate">
+                <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">
                   {profileData?.user?.name ?? "Unknown rider"}
                 </h4>
                 {profileData?.profile?.homepark && (
-                  <p className="text-sm text-gray-500 mt-1">🏠 {profileData.profile.homepark}</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">🏠 {profileData.profile.homepark}</p>
                 )}
                 {profileData?.profile?.bio && (
-                  <p className="text-sm text-gray-600 mt-1">{profileData.profile.bio}</p>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{profileData.profile.bio}</p>
                 )}
               </div>
             </div>
@@ -82,20 +82,20 @@ export function UserProfileModal({
                   onClose();
                   onViewProfile(userId);
                 }}
-                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+                className="surface-subtle interactive-lift p-3 text-center"
               >
                 <p className="text-2xl font-bold text-primary">{profileData.uniqueCoasterCount}</p>
-                <p className="text-xs text-gray-500">Unique Coasters</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
               </button>
               <button
                 onClick={() => {
                   onClose();
                   onViewProfile(userId);
                 }}
-                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+                className="surface-subtle interactive-lift p-3 text-center"
               >
                 <p className="text-lg font-bold text-primary truncate">{profileData.topCoaster?.name ?? "—"}</p>
-                <p className="text-xs text-gray-500 mt-2">Current #1</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Current #1</p>
               </button>
             </div>
 
@@ -105,30 +105,30 @@ export function UserProfileModal({
                   onClose();
                   onViewProfile(userId);
                 }}
-                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+                className="surface-subtle interactive-lift p-3 text-center"
               >
                 <p className="text-2xl font-bold text-primary">{profileData.followerCount}</p>
-                <p className="text-xs text-gray-500">Followers</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Followers</p>
               </button>
               <button
                 onClick={() => {
                   onClose();
                   onViewProfile(userId);
                 }}
-                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+                className="surface-subtle interactive-lift p-3 text-center"
               >
                 <p className="text-2xl font-bold text-primary">{profileData.followingCount}</p>
-                <p className="text-xs text-gray-500">Following</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Following</p>
               </button>
             </div>
 
             {!profileData.isCurrentUser && (
               <button
                 onClick={() => void handleFollowToggle()}
-                className={`w-full mb-3 rounded-xl py-2.5 text-sm font-semibold ${
+                className={`mb-3 w-full rounded-xl py-2.5 text-sm font-semibold transition-all hover:-translate-y-0.5 ${
                   profileData.isFollowing
-                    ? "border border-red-200 text-red-500"
-                    : "bg-primary text-white"
+                    ? "border border-red-200 text-red-500 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                    : "bg-primary text-white hover:bg-primary-hover hover:shadow-md"
                 }`}
               >
                 {profileData.isFollowing ? "Unfollow" : "Follow"}
@@ -140,7 +140,7 @@ export function UserProfileModal({
                 onClose();
                 onViewProfile(userId);
               }}
-              className="w-full rounded-xl border border-primary/30 text-primary py-2.5 text-sm font-semibold"
+              className="w-full rounded-xl border border-primary/30 py-2.5 text-sm font-semibold text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
             >
               View Full Profile
             </button>

@@ -7,6 +7,7 @@ import { formatDate } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { ScoreBadge } from "../components/ScoreBadge";
+import { getCoasterTypeBadgeClasses } from "../lib/badges";
 
 const apiAny = api as any;
 const RANKINGS_PAGE_SIZE = 25;
@@ -60,7 +61,7 @@ export function PublicProfilePage({
   if (profileData === undefined || rankingsData === undefined) {
     return (
       <div className="max-w-lg mx-auto px-4 py-4">
-        <button onClick={onBack} className="text-sm text-primary font-medium mb-4">← Back</button>
+        <button onClick={onBack} className="mb-4 text-sm font-medium text-primary transition-colors hover:text-primary-hover">← Back</button>
         <div className="flex justify-center py-20">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -71,21 +72,21 @@ export function PublicProfilePage({
   if (!profileData) {
     return (
       <div className="max-w-lg mx-auto px-4 py-4">
-        <button onClick={onBack} className="text-sm text-primary font-medium mb-4">← Back</button>
-        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Profile not found</h2>
-          <p className="text-sm text-gray-500">This rider may no longer exist.</p>
+        <button onClick={onBack} className="mb-4 text-sm font-medium text-primary transition-colors hover:text-primary-hover">← Back</button>
+        <div className="surface-card p-8 text-center">
+          <h2 className="mb-2 text-lg font-bold text-gray-900 dark:text-gray-100">Profile not found</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">This rider may no longer exist.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <>
+      <>
       <div className="max-w-lg mx-auto px-4 py-4">
-        <button onClick={onBack} className="text-sm text-primary font-medium mb-4">← Back</button>
+        <button onClick={onBack} className="mb-4 text-sm font-medium text-primary transition-colors hover:text-primary-hover">← Back</button>
 
-        <div className="bg-white rounded-2xl border shadow-sm p-5 mb-4">
+        <div className="surface-card p-5 mb-4">
           <div className="flex items-start gap-4">
             <Avatar
               avatarUrl={profileData.profile?.avatarUrl}
@@ -94,19 +95,21 @@ export function PublicProfilePage({
               textClassName="text-2xl"
             />
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 truncate">{profileData.user?.name ?? "Unknown rider"}</h2>
+              <h2 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">{profileData.user?.name ?? "Unknown rider"}</h2>
               {profileData.profile?.homepark && (
-                <p className="text-sm text-gray-500 mt-0.5">🏠 {profileData.profile.homepark}</p>
+                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">🏠 {profileData.profile.homepark}</p>
               )}
               {profileData.profile?.bio && (
-                <p className="text-sm text-gray-600 mt-1">{profileData.profile.bio}</p>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{profileData.profile.bio}</p>
               )}
             </div>
             {!profileData.isCurrentUser && (
               <button
                 onClick={() => void handleFollowToggle()}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 ${
-                  profileData.isFollowing ? "bg-gray-100 text-gray-600" : "bg-primary text-white"
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-all hover:-translate-y-0.5 ${
+                  profileData.isFollowing
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    : "bg-primary text-white hover:bg-primary-hover hover:shadow-md"
                 }`}
               >
                 {profileData.isFollowing ? "Following" : "Follow"}
@@ -115,84 +118,80 @@ export function PublicProfilePage({
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
+            <div className="surface-subtle p-3 text-center">
               <p className="text-2xl font-bold text-primary">{profileData.uniqueCoasterCount}</p>
-              <p className="text-xs text-gray-500">Unique Coasters</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
             </div>
-            <div className="bg-gray-50 rounded-xl p-3 text-center">
+            <div className="surface-subtle p-3 text-center">
               <p className="text-lg font-bold text-primary truncate">{profileData.topCoaster?.name ?? "—"}</p>
-              <p className="text-xs text-gray-500 mt-2">Current #1</p>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Current #1</p>
             </div>
             <button
               onClick={() => setConnectionsKind("followers")}
-              className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+              className="surface-subtle interactive-lift p-3 text-center"
             >
               <p className="text-2xl font-bold text-primary">{profileData.followerCount}</p>
-              <p className="text-xs text-gray-500">Followers</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Followers</p>
             </button>
             <button
               onClick={() => setConnectionsKind("following")}
-              className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+              className="surface-subtle interactive-lift p-3 text-center"
             >
               <p className="text-2xl font-bold text-primary">{profileData.followingCount}</p>
-              <p className="text-xs text-gray-500">Following</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Following</p>
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border shadow-sm p-4 mb-4">
+        <div className="surface-card p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-800">Recent Rides</h3>
-            <span className="text-xs text-gray-400">Last 3</span>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100">Recent Rides</h3>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Last 3</span>
           </div>
           {profileData.recentRides.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No rides logged yet</p>
+            <p className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">No rides logged yet</p>
           ) : (
             <div className="flex flex-col gap-2">
               {profileData.recentRides.map((log: any) => (
-                <div key={log._id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
-                  <p className="text-sm font-semibold text-gray-900">{log.coaster?.name ?? "Unknown"}</p>
-                  <p className="text-xs text-gray-500">{log.coaster?.park} · {formatDate(log.rideDate)}</p>
-                  {log.notes && <p className="text-xs text-gray-500 mt-1">{log.notes}</p>}
+                <div key={log._id} className="surface-subtle interactive-lift px-3 py-3">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{log.coaster?.name ?? "Unknown"}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{log.coaster?.park} · {formatDate(log.rideDate)}</p>
+                  {log.notes && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border shadow-sm p-4">
+        <div className="surface-card p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="font-semibold text-gray-800">Ranked Coasters</h3>
-              <p className="text-xs text-gray-400">{rankingsData.totalCount} total</p>
+              <h3 className="font-semibold text-gray-800 dark:text-gray-100">Ranked Coasters</h3>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{rankingsData.totalCount} total</p>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               Page {Math.min(rankingsData.page + 1, rankingsData.pageCount)} of {rankingsData.pageCount}
             </p>
           </div>
 
           {rankingsData.items.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No rankings yet</p>
+            <p className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">No rankings yet</p>
           ) : (
             <div className="flex flex-col gap-2">
               {rankingsData.items.map((item: any) => (
-                <div key={item._id} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
+                <div key={item._id} className="surface-subtle interactive-lift flex items-center gap-3 px-3 py-3">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                     {item.rank}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {item.coaster?.name ?? "Unknown coaster"}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">
                       {item.coaster?.park} · {item.coaster?.location}
                     </p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                    item.coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-                    item.coaster?.type === "Wood" ? "bg-amber-100 text-amber-700" :
-                    "bg-blue-100 text-blue-700"
-                  }`}>
+                  <span className={getCoasterTypeBadgeClasses(item.coaster?.type)}>
                     {item.coaster?.type}
                   </span>
                   {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
@@ -206,7 +205,7 @@ export function PublicProfilePage({
               <button
                 onClick={() => setRankingsPage((page) => Math.max(0, page - 1))}
                 disabled={rankingsData.page === 0}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 disabled:opacity-40"
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:-translate-y-0.5 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-40"
               >
                 Previous
               </button>
@@ -215,7 +214,7 @@ export function PublicProfilePage({
                   setRankingsPage((page) => Math.min(rankingsData.pageCount - 1, page + 1))
                 }
                 disabled={rankingsData.page >= rankingsData.pageCount - 1}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 disabled:opacity-40"
+                className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-all hover:-translate-y-0.5 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 disabled:opacity-40"
               >
                 Next
               </button>

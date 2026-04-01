@@ -48,14 +48,14 @@ export function RankingsPage({
       <div className="max-w-lg mx-auto px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-800">Rankings</h2>
-            <p className="text-xs text-gray-400">{selectedWindow.description}</p>
+            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Rankings</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{selectedWindow.description}</p>
           </div>
           <div className="flex items-center gap-2">
             <select
               value={window}
               onChange={(e) => setWindow(e.target.value as LeaderboardWindow)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
               {WINDOW_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -63,7 +63,7 @@ export function RankingsPage({
                 </option>
               ))}
             </select>
-            <span className="text-sm text-gray-400">{leaderboard.length} riders</span>
+            <span className="text-sm text-gray-400 dark:text-gray-500">{leaderboard.length} riders</span>
           </div>
         </div>
 
@@ -71,8 +71,10 @@ export function RankingsPage({
           {leaderboard.map((entry: any, idx: number) => (
             <div
               key={entry.userId}
-              className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 ${
-                entry.isCurrentUser ? "bg-primary/5 border-primary/20" : "bg-white"
+              className={`rounded-xl border shadow-sm p-4 flex items-center gap-3 interactive-lift ${
+                entry.isCurrentUser
+                  ? "bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30"
+                  : "surface-card"
               }`}
             >
               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
@@ -90,7 +92,7 @@ export function RankingsPage({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900 truncate">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                       {entry.user?.name ?? "Unknown rider"}
                     </p>
                     {entry.isCurrentUser && (
@@ -99,12 +101,12 @@ export function RankingsPage({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {entry.profile?.homepark
                       ? `Home park: ${entry.profile.homepark}`
                       : "No home park added yet"}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {entry.lastRideAt
                       ? `Last ride ${formatDistanceToNow(entry.lastRideAt)}`
                       : "No rides logged yet"}

@@ -9,8 +9,12 @@ import { UserConnectionsModal } from "../components/UserConnectionsModal";
 
 export function ProfilePage({
   onViewPublicProfile,
+  themeMode,
+  onThemeModeChange,
 }: {
   onViewPublicProfile: (userId: string) => void;
+  themeMode: "auto" | "light" | "dark";
+  onThemeModeChange: (themeMode: "auto" | "light" | "dark") => void;
 }) {
   const myProfile = useQuery(api.profiles.getMyProfile);
   const myLogs = useQuery(api.rideLogs.getMyLogs);
@@ -75,7 +79,7 @@ export function ProfilePage({
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       {/* Profile Card */}
-      <div className="bg-white rounded-2xl border shadow-sm p-5 mb-4">
+      <div className="surface-card p-5 mb-4">
         <div className="flex items-start gap-4">
           <Avatar
             avatarUrl={profile?.avatarUrl}
@@ -85,67 +89,67 @@ export function ProfilePage({
             textClassName="text-2xl"
           />
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-900 truncate">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
               {user?.name ?? user?.email ?? "Enthusiast"}
             </h2>
             {user?.email && user?.name && (
-              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{user.email}</p>
             )}
             {profile?.homepark && (
-              <p className="text-sm text-gray-500 mt-0.5">🏠 {profile.homepark}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">🏠 {profile.homepark}</p>
             )}
             {profile?.bio && (
-              <p className="text-sm text-gray-600 mt-1">{profile.bio}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{profile.bio}</p>
             )}
           </div>
           <button
             onClick={handleEdit}
-            className="text-xs text-primary border border-primary/30 px-3 py-1.5 rounded-lg font-medium shrink-0"
+            className="shrink-0 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
           >
             Edit
           </button>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <div className="surface-subtle p-3 text-center">
             <p className="text-2xl font-bold text-primary">{uniqueCoasterCount}</p>
-            <p className="text-xs text-gray-500">Unique Coasters</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
           </div>
-          <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <div className="surface-subtle p-3 text-center">
             <p className="text-lg font-bold text-primary truncate">
               {myRankings && myRankings.length > 0
                 ? myRankings[0].coaster?.name ?? "—"
                 : "—"}
             </p>
-            <p className="text-xs text-gray-500 mt-2">Current #1</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Current #1</p>
           </div>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-3">
           <button
             onClick={() => setConnectionsKind("followers")}
-            className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+            className="surface-subtle interactive-lift p-3 text-center"
           >
             <p className="text-2xl font-bold text-primary">{followerCount ?? 0}</p>
-            <p className="text-xs text-gray-500">Followers</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Followers</p>
           </button>
           <button
             onClick={() => setConnectionsKind("following")}
-            className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+            className="surface-subtle interactive-lift p-3 text-center"
           >
             <p className="text-2xl font-bold text-primary">{followingCount ?? 0}</p>
-            <p className="text-xs text-gray-500">Following</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Following</p>
           </button>
         </div>
       </div>
 
       {/* Find Friends */}
-      <div className="bg-white rounded-2xl border shadow-sm p-4 mb-4">
+      <div className="surface-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">Find Friends</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Find Friends</h3>
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className="text-xs text-primary font-medium"
+            className="text-xs text-primary font-medium transition-colors hover:text-primary-hover"
           >
             {showSearch ? "Hide" : "Search"}
           </button>
@@ -153,21 +157,44 @@ export function ProfilePage({
         {showSearch && <UserSearch />}
       </div>
 
+      <div className="surface-card p-4 mb-4">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Appearance</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { value: "auto", label: "Auto" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ] as const).map((option) => (
+            <button
+              key={option.value}
+              onClick={() => onThemeModeChange(option.value)}
+              className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                themeMode === option.value
+                  ? "bg-primary text-white shadow-sm"
+                  : "surface-subtle text-gray-700 dark:text-gray-200 interactive-lift"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Recent Rides */}
-      <div className="bg-white rounded-2xl border shadow-sm p-4">
-        <h3 className="font-semibold text-gray-800 mb-3">Recent Rides</h3>
+      <div className="surface-card p-4">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Recent Rides</h3>
         {!myLogs || myLogs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No rides logged yet</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No rides logged yet</p>
         ) : (
           <div className="flex flex-col gap-2">
             {myLogs.slice(0, 10).map((log: any) => (
-              <div key={log._id} className="flex items-center gap-3 py-1">
+              <div key={log._id} className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
                 <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
                     {log.coaster?.name ?? "Unknown"}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {log.coaster?.park} · {formatDate(log.rideDate)}
                   </p>
                 </div>
@@ -180,10 +207,10 @@ export function ProfilePage({
       {/* Edit Modal */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-5">
+          <div className="surface-card w-full max-w-md shadow-xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Edit Profile</h3>
-              <button onClick={() => setEditing(false)} className="text-gray-400 text-xl">×</button>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h3>
+              <button onClick={() => setEditing(false)} className="text-gray-400 dark:text-gray-500 text-xl">×</button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
@@ -194,7 +221,7 @@ export function ProfilePage({
                   maxLength={40}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="How other riders will see you"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="input-field"
                 />
               </div>
               <div>
@@ -205,7 +232,7 @@ export function ProfilePage({
                   maxLength={500}
                   onChange={(e) => setAvatarUrl(e.target.value)}
                   placeholder="https://example.com/photo.jpg"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="input-field"
                 />
               </div>
               <div>
@@ -216,7 +243,7 @@ export function ProfilePage({
                   maxLength={80}
                   onChange={(e) => setHomepark(e.target.value)}
                   placeholder="e.g. Cedar Point"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="input-field"
                 />
               </div>
               <div>
@@ -227,13 +254,13 @@ export function ProfilePage({
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself..."
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  className="input-field resize-none"
                 />
               </div>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-primary text-white py-2.5 rounded-xl font-semibold text-sm disabled:opacity-50"
+                className="rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
               >
                 Save Profile
               </button>
@@ -271,7 +298,7 @@ function UserSearch() {
         placeholder="Search by display name or exact email..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 mb-2"
+        className="input-field mb-2"
       />
       {results && results.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -283,7 +310,7 @@ function UserSearch() {
         </div>
       )}
       {results && results.length === 0 && q.trim() && (
-        <p className="text-xs text-gray-400 text-center py-2">No users found</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">No users found</p>
       )}
     </div>
   );
@@ -309,7 +336,7 @@ function UserRow({ user }: { user: any }) {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
       <Avatar
         avatarUrl={user.profile?.avatarUrl}
         name={user.name}
@@ -317,13 +344,13 @@ function UserRow({ user }: { user: any }) {
         textClassName="text-sm"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">{user.name ?? "Enthusiast"}</p>
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{user.name ?? "Enthusiast"}</p>
       </div>
       <button
         onClick={handleToggle}
         className={`text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 ${
           isFollowing
-            ? "bg-gray-100 text-gray-600"
+            ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-200"
             : "bg-primary text-white"
         }`}
       >

@@ -43,5 +43,3 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 
 - [ ] Polish ride-history UX.
   The core data model now supports repeat and historical rides, but there is room to improve editing, grouping by trip/date, and exposing richer ride history across the app.
-
-- [ ] Dark mode.
