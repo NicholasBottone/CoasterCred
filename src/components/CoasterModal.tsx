@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -7,6 +7,8 @@ import { getErrorMessage } from "../lib/errors";
 import { ScoreBadge } from "./ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { Avatar } from "./Avatar";
+import { useScrollToTop } from "../hooks/useScrollToTop";
+import { ModalContainer } from "./ModalContainer";
 
 export type CoasterSummary = {
   _id?: string;
@@ -34,7 +36,7 @@ export function CoasterModal({
   coaster: CoasterSummary;
   onClose: () => void;
 }) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useScrollToTop([coaster._id, coaster.sourceId, coaster.imageUrl]);
   const [localCoasterId, setLocalCoasterId] = useState<string | undefined>(coaster._id);
   const [notes, setNotes] = useState("");
   const [rideDate, setRideDate] = useState(todayDateInputValue());
@@ -60,9 +62,6 @@ export function CoasterModal({
     setComparisonBounds(null);
     setIsLogOpen(false);
     setShowAllFollowedRiders(false);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
   }, [coaster._id, coaster.sourceId, coaster.imageUrl]);
 
   useEffect(() => {
@@ -184,15 +183,7 @@ export function CoasterModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        ref={scrollContainerRef}
-        className="surface-card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -493,8 +484,7 @@ export function CoasterModal({
           </a>
           , licensed under CC-BY-SA 3.0.
         </p>
-      </div>
-    </div>
+    </ModalContainer>
   );
 }
 

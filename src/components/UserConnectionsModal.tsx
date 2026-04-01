@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Avatar } from "./Avatar";
+import { useScrollToTop } from "../hooks/useScrollToTop";
+import { ModalContainer } from "./ModalContainer";
 
 const apiAny = api as any;
 
@@ -16,26 +17,12 @@ export function UserConnectionsModal({
   onClose: () => void;
   onSelectUser: (userId: string) => void;
 }) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useScrollToTop([userId, kind]);
   const connections = useQuery(apiAny.profiles.getUserConnections, { userId, kind });
   const title = kind === "followers" ? "Followers" : "Following";
 
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
-    }
-  }, [userId, kind]);
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4"
-      onClick={onClose}
-    >
-      <div
-        ref={scrollContainerRef}
-        className="surface-card w-full max-w-md max-h-[90vh] overflow-y-auto p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalContainer onClose={onClose} maxWidth="md" scrollRef={scrollRef}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
@@ -76,7 +63,6 @@ export function UserConnectionsModal({
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </ModalContainer>
   );
 }
