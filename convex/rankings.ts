@@ -4,6 +4,16 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { LIMITS, validateOptionalText } from "./validation";
 
+export function computeRankingScore(rank: number, totalCount: number) {
+  if (totalCount <= 1) {
+    return 10.0;
+  }
+
+  const percentile = (totalCount - rank) / (totalCount - 1);
+  const score = 1 + percentile * 9;
+  return Math.round(score * 10) / 10;
+}
+
 async function getExistingLogForRideDate(
   ctx: any,
   userId: Id<"users">,
@@ -27,6 +37,7 @@ export const getMyRankings = query({
       .query("rankings")
       .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
       .collect();
+    const totalCount = rankings.length;
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
         const coaster = await ctx.db.get(r.coasterId);
@@ -37,7 +48,7 @@ export const getMyRankings = query({
           )
           .collect();
         const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
-        return { ...r, coaster, log };
+        return { ...r, coaster, log, score: computeRankingScore(r.rank, totalCount) };
       })
     );
     return withCoasters.sort((a, b) => a.rank - b.rank);
@@ -51,6 +62,7 @@ export const getUserRankings = query({
       .query("rankings")
       .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
       .collect();
+    const totalCount = rankings.length;
     const withCoasters = await Promise.all(
       rankings.map(async (r) => {
         const coaster = await ctx.db.get(r.coasterId);
@@ -61,7 +73,7 @@ export const getUserRankings = query({
           )
           .collect();
         const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
-        return { ...r, coaster, log };
+        return { ...r, coaster, log, score: computeRankingScore(r.rank, totalCount) };
       })
     );
     return withCoasters.sort((a, b) => a.rank - b.rank);
@@ -91,6 +103,7 @@ export const getUserRankingsPage = query({
       pageItems.map(async (ranking) => ({
         ...ranking,
         coaster: await ctx.db.get(ranking.coasterId),
+        score: computeRankingScore(ranking.rank, totalCount),
       }))
     );
 

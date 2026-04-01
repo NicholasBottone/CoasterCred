@@ -51,7 +51,6 @@ const applicationTables = {
     riddenAt: v.number(),
     rideDate: v.optional(v.string()),
     notes: v.optional(v.string()),
-    rating: v.optional(v.number()), // 1-10
   })
     .index("by_user", ["userId"])
     .index("by_user_and_coaster", ["userId", "coasterId"])

@@ -5,6 +5,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 import { getErrorMessage } from "../lib/errors";
+import { ScoreBadge } from "../components/ScoreBadge";
 
 export function MyListPage() {
   const rankings = useQuery(api.rankings.getMyRankings);
@@ -75,6 +76,7 @@ export function MyListPage() {
                 }`}>
                   {item.coaster?.type}
                 </span>
+                {item.score !== undefined && <ScoreBadge score={item.score} size="sm" />}
               </button>
               <div className="flex flex-col gap-0.5 shrink-0">
                 <button

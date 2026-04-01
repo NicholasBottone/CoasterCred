@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { dateInputValueToTimestamp, formatDate, todayDateInputValue } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
+import { ScoreBadge } from "./ScoreBadge";
 
 export type CoasterSummary = {
   _id?: string;
@@ -60,6 +61,7 @@ export function CoasterModal({
   );
 
   const currentRank = rankings?.findIndex((item: any) => item.coasterId === localCoasterId);
+  const currentRanking = rankings?.find((item: any) => item.coasterId === localCoasterId);
   const comparisonIndex =
     comparisonBounds === null
       ? null
@@ -164,7 +166,17 @@ export function CoasterModal({
               </a>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          <div className="flex items-start gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
+              coaster.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
+              coaster.type === "Wood" ? "bg-amber-100 text-amber-700" :
+              "bg-blue-100 text-blue-700"
+            }`}>
+              {coaster.type}
+            </span>
+            {currentRanking?.score !== undefined && <ScoreBadge score={currentRanking.score} size="sm" />}
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-4">

@@ -5,6 +5,7 @@ import { formatDate, formatDistanceToNow } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 import { UserProfileModal } from "../components/UserProfileModal";
+import { ScoreBadge } from "../components/ScoreBadge";
 
 export function FeedPage({
   onViewPublicProfile,
@@ -111,17 +112,20 @@ function FeedCard({
         className="w-full bg-gray-50 rounded-lg p-3 text-left hover:bg-gray-100 transition-colors"
       >
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="font-bold text-gray-900">{coaster?.name ?? "Unknown Coaster"}</p>
             <p className="text-xs text-gray-500">{coaster?.park} · {coaster?.location}</p>
           </div>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-            coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
-            coaster?.type === "Wood" ? "bg-amber-100 text-amber-700" :
-            "bg-blue-100 text-blue-700"
-          }`}>
-            {coaster?.type}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              coaster?.type === "Hybrid" ? "bg-purple-100 text-purple-700" :
+              coaster?.type === "Wood" ? "bg-amber-100 text-amber-700" :
+              "bg-blue-100 text-blue-700"
+            }`}>
+              {coaster?.type}
+            </span>
+            {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
+          </div>
         </div>
         {item.notes && (
           <p className="mt-2 text-sm text-gray-600 italic">"{item.notes}"</p>

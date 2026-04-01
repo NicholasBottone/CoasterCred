@@ -8,6 +8,7 @@ import {
   validateOptionalText,
 } from "./validation";
 import { Id } from "./_generated/dataModel";
+import { computeRankingScore } from "./rankings";
 
 function toClientMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
@@ -66,6 +67,7 @@ async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerU
   const uniqueCoasterCount = new Set(logs.map((log: any) => String(log.coasterId))).size;
   const topRanking = rankings[0] ?? null;
   const topCoaster = topRanking ? await ctx.db.get(topRanking.coasterId) : null;
+  const topCoasterScore = topRanking ? computeRankingScore(topRanking.rank, rankings.length) : null;
 
   return {
     user: {
@@ -77,6 +79,7 @@ async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerU
     followingCount: following.length,
     uniqueCoasterCount,
     topCoaster,
+    topCoasterScore,
     isCurrentUser: viewerUserId === targetUserId,
     isFollowing,
   };

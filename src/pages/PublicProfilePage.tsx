@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { formatDate } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
+import { ScoreBadge } from "../components/ScoreBadge";
 
 const apiAny = api as any;
 const RANKINGS_PAGE_SIZE = 25;
@@ -120,7 +121,7 @@ export function PublicProfilePage({
             </div>
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-primary truncate">{profileData.topCoaster?.name ?? "—"}</p>
-              <p className="text-xs text-gray-500">Current #1</p>
+              <p className="text-xs text-gray-500 mt-2">Current #1</p>
             </div>
             <button
               onClick={() => setConnectionsKind("followers")}
@@ -194,6 +195,7 @@ export function PublicProfilePage({
                   }`}>
                     {item.coaster?.type}
                   </span>
+                  {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
                 </div>
               ))}
             </div>

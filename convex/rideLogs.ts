@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
+import { computeRankingScore } from "./rankings";
 
 async function getExistingLogForRideDate(
   ctx: any,
@@ -23,7 +24,6 @@ export const logRide = mutation({
     riddenAt: v.number(),
     rideDate: v.string(),
     notes: v.optional(v.string()),
-    rating: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -41,7 +41,10 @@ export const logRide = mutation({
 
     const logId = await ctx.db.insert("rideLogs", {
       userId,
-      ...args,
+      coasterId: args.coasterId,
+      riddenAt: args.riddenAt,
+      rideDate: args.rideDate,
+      notes: args.notes,
     });
 
     // Auto-add to ranking at the end
@@ -204,6 +207,11 @@ export const getFeed = query({
         const rideOrdinal = coasterLogs.filter(
           (coasterLog) => coasterLog.riddenAt <= log.riddenAt
         ).length;
+        const rankings = await ctx.db
+          .query("rankings")
+          .withIndex("by_user_and_rank", (q) => q.eq("userId", uid))
+          .collect();
+        const currentRanking = rankings.find((ranking) => ranking.coasterId === log.coasterId);
         allLogs.push({
           ...log,
           coaster,
@@ -216,6 +224,7 @@ export const getFeed = query({
           profile,
           rideOrdinal,
           isFirstRide: rideOrdinal === 1,
+          score: currentRanking ? computeRankingScore(currentRanking.rank, rankings.length) : null,
         });
       }
     }

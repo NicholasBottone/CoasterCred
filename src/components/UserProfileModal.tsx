@@ -94,10 +94,8 @@ export function UserProfileModal({
                 }}
                 className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
               >
-                <p className="text-lg font-bold text-primary truncate">
-                  {profileData.topCoaster?.name ?? "—"}
-                </p>
-                <p className="text-xs text-gray-500">Current #1</p>
+                <p className="text-lg font-bold text-primary truncate">{profileData.topCoaster?.name ?? "—"}</p>
+                <p className="text-xs text-gray-500 mt-2">Current #1</p>
               </button>
             </div>
 

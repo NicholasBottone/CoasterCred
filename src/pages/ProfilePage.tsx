@@ -117,7 +117,7 @@ export function ProfilePage({
                 ? myRankings[0].coaster?.name ?? "—"
                 : "—"}
             </p>
-            <p className="text-xs text-gray-500">Current #1</p>
+            <p className="text-xs text-gray-500 mt-2">Current #1</p>
           </div>
         </div>
 
