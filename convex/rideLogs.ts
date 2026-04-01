@@ -195,7 +195,23 @@ export const getFeed = query({
         .unique();
       for (const log of logs) {
         const coaster = await ctx.db.get(log.coasterId);
-        allLogs.push({ ...log, coaster, user, profile });
+        const coasterLogs = await ctx.db
+          .query("rideLogs")
+          .withIndex("by_user_and_coaster", (q) =>
+            q.eq("userId", uid).eq("coasterId", log.coasterId)
+          )
+          .collect();
+        const rideOrdinal = coasterLogs.filter(
+          (coasterLog) => coasterLog.riddenAt <= log.riddenAt
+        ).length;
+        allLogs.push({
+          ...log,
+          coaster,
+          user,
+          profile,
+          rideOrdinal,
+          isFirstRide: rideOrdinal === 1,
+        });
       }
     }
 
