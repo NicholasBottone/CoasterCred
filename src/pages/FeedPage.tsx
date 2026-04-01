@@ -68,7 +68,7 @@ function FeedCard({
     ? "bg-green-100 text-green-700"
     : "bg-blue-100 text-blue-700";
   const badgeLabel = item.isFirstRide
-    ? "First ride"
+    ? "First ride 🎉"
     : `Ride #${item.rideOrdinal}`;
 
   return (

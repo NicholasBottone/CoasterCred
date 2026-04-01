@@ -67,7 +67,7 @@ export function SearchPage() {
           >
             Coasterpedia
           </a>
-          .
+          , licensed under CC-BY-SA 3.0.
         </p>
       </div>
 

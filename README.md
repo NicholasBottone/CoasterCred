@@ -29,11 +29,14 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 
 ## Todo List
 
-- [ ] Replace the seed/custom coaster dataset with a real source of truth.
-  This app still relies on a small local seed plus user-entered custom coasters. We need a better ingestion pipeline, dedupe strategy, provenance fields, and moderation rules.
-
 - [ ] Expand profiles into fuller public social profiles.
   The profile page supports editing and friend search, but it still lacks follower/following counts, public profile views, and deeper social browsing from the feed and leaderboard.
+
+- [ ] Add Beli-style rating system (1-10 score)
+  The current rating system is a ranked list with no ties, as is Beli, but Beli will automatically/algorithmically assign a 1-10 score to each coaster based on its position in the ranked list.
+
+- [ ] Add coaster details and stats pages.
+  Coaster search results show basic stats, but there is no dedicated coaster page yet showing photos, descriptions, popularity within the app's user base, etc.
 
 - [ ] Improve coaster discovery and search quality.
   Search currently works on a relatively small dataset and basic fields. Filtering, sorting, park/manufacturer facets, and better indexing will matter once the coaster catalog grows.

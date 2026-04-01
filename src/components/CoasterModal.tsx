@@ -176,6 +176,19 @@ export function CoasterModal({
           {coaster.manufacturer && <Stat label="Maker" value={coaster.manufacturer} />}
         </div>
 
+        <p className="mb-4 text-[11px] leading-4 text-gray-400">
+          Coaster data by{" "}
+          <a
+            href="https://coasterpedia.net/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            Coasterpedia
+          </a>
+          , licensed under CC-BY-SA 3.0.
+        </p>
+
         <div className="border-t pt-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">
             {rideHistory.length > 0
