@@ -13,7 +13,11 @@ const WINDOW_OPTIONS = [
 
 type LeaderboardWindow = (typeof WINDOW_OPTIONS)[number]["value"];
 
-export function RankingsPage() {
+export function RankingsPage({
+  onViewPublicProfile,
+}: {
+  onViewPublicProfile: (userId: string) => void;
+}) {
   const [window, setWindow] = useState<LeaderboardWindow>("30d");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const leaderboard = useQuery(api.rankings.getFriendLeaderboard, { window });
@@ -118,7 +122,14 @@ export function RankingsPage() {
       </div>
 
       {selectedUserId && (
-        <UserProfileModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+        <UserProfileModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+          onViewProfile={(userId) => {
+            setSelectedUserId(null);
+            onViewPublicProfile(userId);
+          }}
+        />
       )}
     </>
   );

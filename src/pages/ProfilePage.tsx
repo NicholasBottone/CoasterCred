@@ -5,11 +5,24 @@ import { toast } from "sonner";
 import { formatDate } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
+import { UserConnectionsModal } from "../components/UserConnectionsModal";
 
-export function ProfilePage() {
+export function ProfilePage({
+  onViewPublicProfile,
+}: {
+  onViewPublicProfile: (userId: string) => void;
+}) {
   const myProfile = useQuery(api.profiles.getMyProfile);
   const myLogs = useQuery(api.rideLogs.getMyLogs);
   const myRankings = useQuery(api.rankings.getMyRankings);
+  const followerCount = useQuery(
+    api.profiles.getFollowers,
+    myProfile?.user?._id ? { userId: myProfile.user._id as any } : "skip",
+  );
+  const followingCount = useQuery(
+    api.profiles.getFollowing,
+    myProfile?.user?._id ? { userId: myProfile.user._id as any } : "skip",
+  );
   const upsertProfile = useMutation(api.profiles.upsertProfile);
 
   const [editing, setEditing] = useState(false);
@@ -19,6 +32,7 @@ export function ProfilePage() {
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [connectionsKind, setConnectionsKind] = useState<"followers" | "following" | null>(null);
 
   const handleEdit = () => {
     setDisplayName(myProfile?.user?.name ?? "");
@@ -105,6 +119,23 @@ export function ProfilePage() {
             </p>
             <p className="text-xs text-gray-500">Current #1</p>
           </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setConnectionsKind("followers")}
+            className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+          >
+            <p className="text-2xl font-bold text-primary">{followerCount ?? 0}</p>
+            <p className="text-xs text-gray-500">Followers</p>
+          </button>
+          <button
+            onClick={() => setConnectionsKind("following")}
+            className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+          >
+            <p className="text-2xl font-bold text-primary">{followingCount ?? 0}</p>
+            <p className="text-xs text-gray-500">Following</p>
+          </button>
         </div>
       </div>
 
@@ -209,6 +240,18 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {connectionsKind && myProfile?.user?._id && (
+        <UserConnectionsModal
+          userId={myProfile.user._id}
+          kind={connectionsKind}
+          onClose={() => setConnectionsKind(null)}
+          onSelectUser={(userId) => {
+            setConnectionsKind(null);
+            onViewPublicProfile(userId);
+          }}
+        />
       )}
     </div>
   );

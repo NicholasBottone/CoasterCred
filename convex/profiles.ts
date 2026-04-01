@@ -7,12 +7,79 @@ import {
   validateDisplayName,
   validateOptionalText,
 } from "./validation";
+import { Id } from "./_generated/dataModel";
 
 function toClientMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
     return error.message;
   }
   return fallback;
+}
+
+async function getViewerRelationship(ctx: any, viewerUserId: Id<"users"> | null, targetUserId: Id<"users">) {
+  if (!viewerUserId || viewerUserId === targetUserId) {
+    return false;
+  }
+
+  const follow = await ctx.db
+    .query("follows")
+    .withIndex("by_follower_and_following", (q: any) =>
+      q.eq("followerId", viewerUserId).eq("followingId", targetUserId)
+    )
+    .unique();
+
+  return !!follow;
+}
+
+async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerUserId: Id<"users"> | null) {
+  const user = await ctx.db.get(targetUserId);
+  const profile = await ctx.db
+    .query("userProfiles")
+    .withIndex("by_userId", (q: any) => q.eq("userId", targetUserId))
+    .unique();
+
+  if (!user) {
+    return null;
+  }
+
+  const [followers, following, logs, rankings, isFollowing] = await Promise.all([
+    ctx.db
+      .query("follows")
+      .withIndex("by_following", (q: any) => q.eq("followingId", targetUserId))
+      .collect(),
+    ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q: any) => q.eq("followerId", targetUserId))
+      .collect(),
+    ctx.db
+      .query("rideLogs")
+      .withIndex("by_user_and_riddenAt", (q: any) => q.eq("userId", targetUserId))
+      .order("desc")
+      .collect(),
+    ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q: any) => q.eq("userId", targetUserId))
+      .collect(),
+    getViewerRelationship(ctx, viewerUserId, targetUserId),
+  ]);
+
+  const uniqueCoasterCount = new Set(logs.map((log: any) => String(log.coasterId))).size;
+  const topRanking = rankings[0] ?? null;
+  const topCoaster = topRanking ? await ctx.db.get(topRanking.coasterId) : null;
+
+  return {
+    user: {
+      _id: user._id,
+      name: user.name,
+    },
+    profile,
+    followerCount: followers.length,
+    followingCount: following.length,
+    uniqueCoasterCount,
+    topCoaster,
+    isCurrentUser: viewerUserId === targetUserId,
+    isFollowing,
+  };
 }
 
 export const getMyProfile = query({
@@ -51,6 +118,88 @@ export const getProfile = query({
             },
       profile,
     };
+  },
+});
+
+export const getPublicProfilePreview = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getAuthUserId(ctx);
+    return await getPublicUserSummary(ctx, args.userId, viewerUserId);
+  },
+});
+
+export const getPublicProfilePage = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getAuthUserId(ctx);
+    const summary = await getPublicUserSummary(ctx, args.userId, viewerUserId);
+    if (!summary) {
+      return null;
+    }
+
+    const recentLogs = await ctx.db
+      .query("rideLogs")
+      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(3);
+
+    const recentRides = await Promise.all(
+      recentLogs.map(async (log) => ({
+        ...log,
+        coaster: await ctx.db.get(log.coasterId),
+      }))
+    );
+
+    return {
+      ...summary,
+      recentRides,
+    };
+  },
+});
+
+export const getUserConnections = query({
+  args: {
+    userId: v.id("users"),
+    kind: v.union(v.literal("followers"), v.literal("following")),
+  },
+  handler: async (ctx, args) => {
+    const follows = await ctx.db
+      .query("follows")
+      .withIndex(args.kind === "followers" ? "by_following" : "by_follower", (q) =>
+        args.kind === "followers"
+          ? q.eq("followingId", args.userId)
+          : q.eq("followerId", args.userId)
+      )
+      .collect();
+
+    const userIds = follows.map((follow) =>
+      args.kind === "followers" ? follow.followerId : follow.followingId
+    );
+
+    const users = await Promise.all(
+      userIds.map(async (userId) => {
+        const user = await ctx.db.get(userId);
+        const profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .unique();
+        if (!user) {
+          return null;
+        }
+        return {
+          user: {
+            _id: user._id,
+            name: user.name,
+          },
+          profile,
+        };
+      })
+    );
+
+    return users
+      .filter(Boolean)
+      .sort((a: any, b: any) => (a.user.name ?? "").localeCompare(b.user.name ?? ""));
   },
 });
 

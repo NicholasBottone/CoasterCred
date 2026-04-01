@@ -2,37 +2,36 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { Avatar } from "./Avatar";
-import { formatDate } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
+
+const apiAny = api as any;
 
 export function UserProfileModal({
   userId,
   onClose,
+  onViewProfile,
 }: {
   userId: string;
   onClose: () => void;
+  onViewProfile: (userId: string) => void;
 }) {
-  const myProfile = useQuery(api.profiles.getMyProfile);
-  const profileData = useQuery(api.profiles.getProfile, { userId: userId as any });
-  const userLogs = useQuery(api.rideLogs.getUserLogs, { userId: userId as any });
-  const userRankings = useQuery(api.rankings.getUserRankings, { userId: userId as any });
-  const isFollowing = useQuery(api.profiles.isFollowing, { targetUserId: userId as any });
+  const profileData = useQuery(apiAny.profiles.getPublicProfilePreview, { userId });
+  const follow = useMutation(api.profiles.follow);
   const unfollow = useMutation(api.profiles.unfollow);
 
-  const isCurrentUser = myProfile?.user?._id === userId;
-  const loading =
-    profileData === undefined ||
-    userLogs === undefined ||
-    userRankings === undefined ||
-    (!isCurrentUser && isFollowing === undefined);
+  const loading = profileData === undefined;
 
-  const handleUnfollow = async () => {
+  const handleFollowToggle = async () => {
     try {
-      await unfollow({ targetUserId: userId as any });
-      toast.success("Unfollowed");
-      onClose();
+      if (profileData?.isFollowing) {
+        await unfollow({ targetUserId: userId as any });
+        toast.success("Unfollowed");
+      } else {
+        await follow({ targetUserId: userId as any });
+        toast.success("Following!");
+      }
     } catch (e: any) {
-      toast.error(getErrorMessage(e, "Could not unfollow"));
+      toast.error(getErrorMessage(e, "Could not update follow status"));
     }
   };
 
@@ -43,7 +42,7 @@ export function UserProfileModal({
           <div>
             <h3 className="text-lg font-bold text-gray-900">Profile</h3>
             <p className="text-sm text-gray-500">
-              {isCurrentUser ? "Your coaster stats" : "Recent activity and details"}
+              {profileData?.isCurrentUser ? "Your public profile preview" : "Public profile preview"}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -53,13 +52,14 @@ export function UserProfileModal({
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
+        ) : !profileData ? (
+          <p className="text-sm text-gray-400 text-center py-8">Profile not found</p>
         ) : (
           <>
             <div className="flex items-start gap-4 mb-4">
               <Avatar
                 avatarUrl={profileData?.profile?.avatarUrl}
                 name={profileData?.user?.name}
-                email={profileData?.user?.email}
                 sizeClassName="w-16 h-16"
                 textClassName="text-2xl"
               />
@@ -67,9 +67,6 @@ export function UserProfileModal({
                 <h4 className="text-lg font-bold text-gray-900 truncate">
                   {profileData?.user?.name ?? "Unknown rider"}
                 </h4>
-                {isCurrentUser && profileData?.user?.email && (
-                  <p className="text-xs text-gray-400 truncate">{profileData.user.email}</p>
-                )}
                 {profileData?.profile?.homepark && (
                   <p className="text-sm text-gray-500 mt-1">🏠 {profileData.profile.homepark}</p>
                 )}
@@ -80,52 +77,75 @@ export function UserProfileModal({
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-primary">{new Set((userLogs ?? []).map((log: any) => log.coasterId)).size}</p>
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewProfile(userId);
+                }}
+                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+              >
+                <p className="text-2xl font-bold text-primary">{profileData.uniqueCoasterCount}</p>
                 <p className="text-xs text-gray-500">Unique Coasters</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 text-center">
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewProfile(userId);
+                }}
+                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+              >
                 <p className="text-lg font-bold text-primary truncate">
-                  {userRankings && userRankings.length > 0
-                    ? userRankings[0].coaster?.name ?? "—"
-                    : "—"}
+                  {profileData.topCoaster?.name ?? "—"}
                 </p>
                 <p className="text-xs text-gray-500">Current #1</p>
-              </div>
+              </button>
             </div>
 
-            {!isCurrentUser && isFollowing && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
               <button
-                onClick={() => void handleUnfollow()}
-                className="w-full mb-4 rounded-xl border border-red-200 text-red-500 py-2.5 text-sm font-semibold"
+                onClick={() => {
+                  onClose();
+                  onViewProfile(userId);
+                }}
+                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
               >
-                Unfollow
+                <p className="text-2xl font-bold text-primary">{profileData.followerCount}</p>
+                <p className="text-xs text-gray-500">Followers</p>
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewProfile(userId);
+                }}
+                className="bg-gray-50 rounded-xl p-3 text-center hover:bg-gray-100 transition-colors"
+              >
+                <p className="text-2xl font-bold text-primary">{profileData.followingCount}</p>
+                <p className="text-xs text-gray-500">Following</p>
+              </button>
+            </div>
+
+            {!profileData.isCurrentUser && (
+              <button
+                onClick={() => void handleFollowToggle()}
+                className={`w-full mb-3 rounded-xl py-2.5 text-sm font-semibold ${
+                  profileData.isFollowing
+                    ? "border border-red-200 text-red-500"
+                    : "bg-primary text-white"
+                }`}
+              >
+                {profileData.isFollowing ? "Unfollow" : "Follow"}
               </button>
             )}
 
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-gray-800">Recent Rides</h4>
-                <span className="text-xs text-gray-400">{(userLogs ?? []).length} total</span>
-              </div>
-              {!userLogs || userLogs.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">No rides logged yet</p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-56 overflow-y-auto">
-                  {userLogs.slice(0, 8).map((log: any) => (
-                    <div key={log._id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
-                      <p className="text-sm font-medium text-gray-800">{log.coaster?.name ?? "Unknown"}</p>
-                      <p className="text-xs text-gray-400">
-                        {log.coaster?.park} · {formatDate(log.rideDate)}
-                      </p>
-                      {log.notes && (
-                        <p className="text-xs text-gray-500 mt-1">{log.notes}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => {
+                onClose();
+                onViewProfile(userId);
+              }}
+              className="w-full rounded-xl border border-primary/30 text-primary py-2.5 text-sm font-semibold"
+            >
+              View Full Profile
+            </button>
           </>
         )}
       </div>

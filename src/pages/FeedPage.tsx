@@ -6,7 +6,11 @@ import { Avatar } from "../components/Avatar";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 import { UserProfileModal } from "../components/UserProfileModal";
 
-export function FeedPage() {
+export function FeedPage({
+  onViewPublicProfile,
+}: {
+  onViewPublicProfile: (userId: string) => void;
+}) {
   const feed = useQuery(api.rideLogs.getFeed);
   const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -46,7 +50,14 @@ export function FeedPage() {
       )}
 
       {selectedUserId && (
-        <UserProfileModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+        <UserProfileModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+          onViewProfile={(userId) => {
+            setSelectedUserId(null);
+            onViewPublicProfile(userId);
+          }}
+        />
       )}
     </>
   );

@@ -68,6 +68,42 @@ export const getUserRankings = query({
   },
 });
 
+export const getUserRankingsPage = query({
+  args: {
+    userId: v.id("users"),
+    page: v.number(),
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const rankings = await ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const safeLimit = Math.max(1, Math.min(args.limit, 50));
+    const safePage = Math.max(0, args.page);
+    const totalCount = rankings.length;
+    const pageCount = Math.max(1, Math.ceil(totalCount / safeLimit));
+    const start = safePage * safeLimit;
+    const pageItems = rankings.slice(start, start + safeLimit);
+
+    const items = await Promise.all(
+      pageItems.map(async (ranking) => ({
+        ...ranking,
+        coaster: await ctx.db.get(ranking.coasterId),
+      }))
+    );
+
+    return {
+      items,
+      page: safePage,
+      limit: safeLimit,
+      totalCount,
+      pageCount,
+    };
+  },
+});
+
 export const getFriendLeaderboard = query({
   args: {
     window: v.union(v.literal("30d"), v.literal("365d"), v.literal("all")),
