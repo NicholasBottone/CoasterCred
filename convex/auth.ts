@@ -34,13 +34,20 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, args) {
       const db = ctx.db as any;
+      const user = await db.get(args.userId);
       const existingProfile = await db
         .query("userProfiles")
         .withIndex("by_userId", (q: any) => q.eq("userId", args.userId))
         .unique();
 
+      const profilePatch = {
+        displayName: user?.name,
+      };
+
       if (!existingProfile) {
-        await db.insert("userProfiles", { userId: args.userId });
+        await db.insert("userProfiles", { userId: args.userId, ...profilePatch });
+      } else {
+        await db.patch(existingProfile._id, profilePatch);
       }
     },
   },

@@ -231,6 +231,7 @@ export const upsertProfile = mutation({
     let profilePatch;
     try {
       profilePatch = {
+        displayName: trimmedName,
         bio: validateOptionalText(args.bio, "Bio", LIMITS.bio),
         homepark: validateOptionalText(args.homepark, "Home park", LIMITS.homepark),
         avatarUrl: validateAvatarUrl(args.avatarUrl),
@@ -334,20 +335,36 @@ export const searchUsers = query({
     const allUsers = await ctx.db.query("users").collect();
     const lower = queryText.toLowerCase();
     const hasExactEmailMatch = lower.includes("@");
-    const matches = allUsers
-      .filter(
-        (u) =>
-          u.name?.toLowerCase().includes(lower) ||
-          (hasExactEmailMatch && u.email?.toLowerCase() === lower)
-      )
-      .slice(0, 10);
+    if (hasExactEmailMatch) {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", lower))
+        .unique();
+      if (!user) {
+        return [];
+      }
+      const profile = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .unique();
+      return [{
+        _id: user._id,
+        name: user.name,
+        profile,
+      }];
+    }
 
-    return await Promise.all(
-      matches.map(async (user) => {
-        const profile = await ctx.db
-          .query("userProfiles")
-          .withIndex("by_userId", (q) => q.eq("userId", user._id))
-          .unique();
+    const matches = await ctx.db
+      .query("userProfiles")
+      .withSearchIndex("search_displayName", (q) => q.search("displayName", queryText))
+      .take(10);
+
+    const users = await Promise.all(
+      matches.map(async (profile) => {
+        const user = await ctx.db.get(profile.userId);
+        if (!user) {
+          return null;
+        }
         return {
           _id: user._id,
           name: user.name,
@@ -355,6 +372,8 @@ export const searchUsers = query({
         };
       })
     );
+
+    return users.filter(Boolean);
   },
 });
 

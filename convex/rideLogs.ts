@@ -4,6 +4,9 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { computeRankingScore } from "./rankings";
 
+const FEED_LIMIT = 50;
+const FEED_SCAN_LIMIT = 250;
+
 async function getExistingLogForRideDate(
   ctx: any,
   userId: Id<"users">,
@@ -182,54 +185,81 @@ export const getFeed = query({
       userId,
       ...follows.map((f) => f.followingId),
     ];
+    const followingSet = new Set(followingIds.map((id) => String(id)));
+    const recentLogs = await ctx.db.query("rideLogs").order("desc").take(FEED_SCAN_LIMIT);
 
-    const allLogs: Array<Record<string, unknown>> = [];
-
-    for (const uid of followingIds) {
-      const logs = await ctx.db
-        .query("rideLogs")
-        .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", uid))
-        .order("desc")
-        .take(10);
-      const user = await ctx.db.get(uid);
-      const profile = await ctx.db
-        .query("userProfiles")
-        .withIndex("by_userId", (q) => q.eq("userId", uid))
-        .unique();
-      for (const log of logs) {
-        const coaster = await ctx.db.get(log.coasterId);
-        const coasterLogs = await ctx.db
-          .query("rideLogs")
-          .withIndex("by_user_and_coaster", (q) =>
-            q.eq("userId", uid).eq("coasterId", log.coasterId)
-          )
-          .collect();
-        const rideOrdinal = coasterLogs.filter(
-          (coasterLog) => coasterLog.riddenAt <= log.riddenAt
-        ).length;
-        const rankings = await ctx.db
-          .query("rankings")
-          .withIndex("by_user_and_rank", (q) => q.eq("userId", uid))
-          .collect();
-        const currentRanking = rankings.find((ranking) => ranking.coasterId === log.coasterId);
-        allLogs.push({
-          ...log,
-          coaster,
-          user: user
-            ? {
-                _id: user._id,
-                name: user.name,
-              }
-            : null,
-          profile,
-          rideOrdinal,
-          isFirstRide: rideOrdinal === 1,
-          score: currentRanking ? computeRankingScore(currentRanking.rank, rankings.length) : null,
-        });
-      }
+    const candidateLogs = [];
+    for (const log of recentLogs) {
+      if (!followingSet.has(String(log.userId))) continue;
+      candidateLogs.push(log);
+      if (candidateLogs.length >= FEED_LIMIT) break;
     }
 
-    allLogs.sort((a, b) => (b._creationTime as number) - (a._creationTime as number));
-    return allLogs.slice(0, 50);
+    const uniqueUserIds = [...new Set(candidateLogs.map((log) => String(log.userId)))];
+    const uniqueCoasterIds = [...new Set(candidateLogs.map((log) => String(log.coasterId)))];
+    const uniquePairKeys = [
+      ...new Set(candidateLogs.map((log) => `${String(log.userId)}:${String(log.coasterId)}`)),
+    ];
+
+    const userEntries = await Promise.all(
+      uniqueUserIds.map(async (id) => {
+        const nextUserId = id as Id<"users">;
+        const user = await ctx.db.get(nextUserId);
+        const profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_userId", (q) => q.eq("userId", nextUserId))
+          .unique();
+        const rankings = await ctx.db
+          .query("rankings")
+          .withIndex("by_user_and_rank", (q) => q.eq("userId", nextUserId))
+          .collect();
+        return [id, { user, profile, rankings }] as const;
+      })
+    );
+    const userMap = new Map(userEntries);
+
+    const coasterEntries = await Promise.all(
+      uniqueCoasterIds.map(async (id) => [id, await ctx.db.get(id as Id<"coasters">)] as const)
+    );
+    const coasterMap = new Map(coasterEntries);
+
+    const pairHistoryEntries = await Promise.all(
+      uniquePairKeys.map(async (key) => {
+        const [rawUserId, rawCoasterId] = key.split(":");
+        const logs = await ctx.db
+          .query("rideLogs")
+          .withIndex("by_user_and_coaster", (q) =>
+            q.eq("userId", rawUserId as Id<"users">).eq("coasterId", rawCoasterId as Id<"coasters">)
+          )
+          .collect();
+        return [key, logs] as const;
+      })
+    );
+    const pairHistoryMap = new Map(pairHistoryEntries);
+
+    return candidateLogs.map((log) => {
+      const userData = userMap.get(String(log.userId));
+      const coaster = coasterMap.get(String(log.coasterId)) ?? null;
+      const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
+      const pairHistory = pairHistoryMap.get(pairKey) ?? [];
+      const rideOrdinal = pairHistory.filter((historyLog) => historyLog.riddenAt <= log.riddenAt).length;
+      const rankings = userData?.rankings ?? [];
+      const currentRanking = rankings.find((ranking) => ranking.coasterId === log.coasterId);
+
+      return {
+        ...log,
+        coaster,
+        user: userData?.user
+          ? {
+              _id: userData.user._id,
+              name: userData.user.name,
+            }
+          : null,
+        profile: userData?.profile ?? null,
+        rideOrdinal,
+        isFirstRide: rideOrdinal === 1,
+        score: currentRanking ? computeRankingScore(currentRanking.rank, rankings.length) : null,
+      };
+    });
   },
 });

@@ -5,11 +5,17 @@ import { authTables } from "@convex-dev/auth/server";
 const applicationTables = {
   userProfiles: defineTable({
     userId: v.id("users"),
+    displayName: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     homepark: v.optional(v.string()),
     coasterCount: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .searchIndex("search_displayName", {
+      searchField: "displayName",
+      filterFields: ["userId"],
+    }),
 
   follows: defineTable({
     followerId: v.id("users"),
