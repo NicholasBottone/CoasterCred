@@ -8,6 +8,7 @@ import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 
 const apiAny = api as any;
 const RANKINGS_PAGE_SIZE = 25;
@@ -23,6 +24,7 @@ export function PublicProfilePage({
 }) {
   const [rankingsPage, setRankingsPage] = useState(0);
   const [connectionsKind, setConnectionsKind] = useState<"followers" | "following" | null>(null);
+  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
   const profileData = useQuery(apiAny.profiles.getPublicProfilePage, { userId });
   const rankingsData = useQuery(apiAny.rankings.getUserRankingsPage, {
     userId,
@@ -56,6 +58,11 @@ export function PublicProfilePage({
     setConnectionsKind(null);
     setRankingsPage(0);
     onViewProfile(nextUserId);
+  };
+
+  const openCoaster = (coaster: any) => {
+    if (!coaster) return;
+    setSelectedCoaster(coaster as CoasterSummary);
   };
 
   if (profileData === undefined || rankingsData === undefined) {
@@ -153,11 +160,15 @@ export function PublicProfilePage({
           ) : (
             <div className="flex flex-col gap-2">
               {profileData.recentRides.map((log: any) => (
-                <div key={log._id} className="surface-subtle interactive-lift px-3 py-3">
+                <button
+                  key={log._id}
+                  onClick={() => openCoaster(log.coaster)}
+                  className="surface-subtle interactive-lift px-3 py-3 text-left"
+                >
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{log.coaster?.name ?? "Unknown"}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{log.coaster?.park} · {formatDate(log.rideDate)}</p>
                   {log.notes && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -179,7 +190,11 @@ export function PublicProfilePage({
           ) : (
             <div className="flex flex-col gap-2">
               {rankingsData.items.map((item: any) => (
-                <div key={item._id} className="surface-subtle interactive-lift flex items-center gap-3 px-3 py-3">
+                <button
+                  key={item._id}
+                  onClick={() => openCoaster(item.coaster)}
+                  className="surface-subtle interactive-lift flex w-full items-center gap-3 px-3 py-3 text-left"
+                >
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                     {item.rank}
                   </div>
@@ -195,7 +210,7 @@ export function PublicProfilePage({
                     {item.coaster?.type}
                   </span>
                   {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -229,6 +244,12 @@ export function PublicProfilePage({
           kind={connectionsKind}
           onClose={() => setConnectionsKind(null)}
           onSelectUser={openProfileFromConnections}
+        />
+      )}
+      {selectedCoaster && (
+        <CoasterModal
+          coaster={selectedCoaster}
+          onClose={() => setSelectedCoaster(null)}
         />
       )}
     </>
