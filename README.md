@@ -32,11 +32,5 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 - [ ] Improve coaster discovery and search quality.
   Search currently works on a relatively small dataset and basic fields. Filtering, sorting, park/manufacturer facets, and better indexing will matter once the coaster catalog grows.
 
-- [ ] Add first-party avatar handling.
-  Avatar URLs are validated to HTTPS and length-limited, but the app still hotlinks third-party images directly. Longer term, avatars should be uploaded or proxied through app-controlled storage/CDN.
-
-- [ ] Add account recovery and verification flows.
-  Auth is now email/password only, but there is no password reset, email verification, or account-management UX yet.
-
 - [ ] Polish ride-history UX.
   The core data model now supports repeat and historical rides, but there is room to improve editing, grouping by trip/date, and exposing richer ride history across the app.

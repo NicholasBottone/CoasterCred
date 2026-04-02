@@ -1,7 +1,8 @@
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
+import { api } from "../convex/_generated/api";
 import { FeedPage } from "./pages/FeedPage";
 import { RankingsPage } from "./pages/RankingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -9,6 +10,7 @@ import { SearchPage } from "./pages/SearchPage";
 import { MyListPage } from "./pages/MyListPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { AppShell, type Tab } from "./components/AppShell";
+import { Avatar } from "./components/Avatar";
 import { DemoApp } from "./demo/DemoApp";
 
 type ThemeMode = "auto" | "light" | "dark";
@@ -70,7 +72,7 @@ function AuthenticatedApp({
         setPublicProfileUserId(null);
         setTab(nextTab);
       }}
-      headerAction={<SignOutButton />}
+      headerAction={<AuthenticatedHeaderActions />}
     >
       {publicProfileUserId ? (
         <PublicProfilePage
@@ -94,5 +96,21 @@ function AuthenticatedApp({
         </>
       )}
     </AppShell>
+  );
+}
+
+function AuthenticatedHeaderActions() {
+  const myProfile = useQuery(api.profiles.getMyProfile);
+
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar
+        avatarUrl={myProfile?.profile?.avatarUrl ?? myProfile?.user?.image}
+        name={myProfile?.user?.name}
+        sizeClassName="w-9 h-9"
+        textClassName="text-sm"
+      />
+      <SignOutButton />
+    </div>
   );
 }
