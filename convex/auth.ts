@@ -86,7 +86,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (userId) {
         await db.patch(userId, userPatch);
       } else {
-        userId = await db.insert("users", userPatch);
+        userId = await db.insert("users", { ...userPatch, role: null });
       }
 
       if (!userId) {

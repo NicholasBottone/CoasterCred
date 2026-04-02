@@ -9,6 +9,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { SearchPage } from "./pages/SearchPage";
 import { MyListPage } from "./pages/MyListPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
+import { AdminPage } from "./pages/AdminPage";
 import { AppShell, type Tab } from "./components/AppShell";
 import { Avatar } from "./components/Avatar";
 import { DemoApp } from "./demo/DemoApp";
@@ -79,6 +80,17 @@ function AuthenticatedApp({
 }) {
   const [tab, setTab] = useState<Tab>("feed");
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
+  const myProfile = useQuery(api.profiles.getMyProfile);
+  const isAdmin = myProfile?.user?.role === "admin";
+  const availableTabs: Tab[] = isAdmin
+    ? ["feed", "myList", "search", "rankings", "profile", "admin"]
+    : ["feed", "myList", "search", "rankings", "profile"];
+
+  useEffect(() => {
+    if (tab === "admin" && myProfile !== undefined && !isAdmin) {
+      setTab("feed");
+    }
+  }, [isAdmin, myProfile, tab]);
 
   return (
     <AppShell
@@ -88,6 +100,7 @@ function AuthenticatedApp({
         setTab(nextTab);
       }}
       headerAction={<AuthenticatedHeaderActions />}
+      availableTabs={availableTabs}
     >
       {publicProfileUserId ? (
         <PublicProfilePage
@@ -101,6 +114,7 @@ function AuthenticatedApp({
           {tab === "myList" && <MyListPage />}
           {tab === "search" && <SearchPage />}
           {tab === "rankings" && <RankingsPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
+          {tab === "admin" && <AdminPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
           {tab === "profile" && (
             <ProfilePage
               onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}

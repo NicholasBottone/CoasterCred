@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as coasterpedia from "../coasterpedia.js";
 import type * as coasters from "../coasters.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
@@ -25,7 +27,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
+  coasterpedia: typeof coasterpedia;
   coasters: typeof coasters;
   crons: typeof crons;
   http: typeof http;

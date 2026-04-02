@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Tab = "feed" | "myList" | "search" | "rankings" | "profile";
+export type Tab = "feed" | "myList" | "search" | "rankings" | "profile" | "admin";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "feed", label: "Feed", icon: "🏠" },
@@ -8,6 +8,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "search", label: "Search", icon: "🔍" },
   { id: "rankings", label: "Rankings", icon: "🏆" },
   { id: "profile", label: "Profile", icon: "👤" },
+  { id: "admin", label: "Admin", icon: "🛠️" },
 ];
 
 export function AppShell({
@@ -16,13 +17,17 @@ export function AppShell({
   children,
   headerAction,
   banner,
+  availableTabs,
 }: {
   tab: Tab;
   onSelectTab: (tab: Tab) => void;
   children: ReactNode;
   headerAction?: ReactNode;
   banner?: ReactNode;
+  availableTabs?: Tab[];
 }) {
+  const visibleNavItems = NAV_ITEMS.filter((item) => availableTabs?.includes(item.id) ?? true);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
@@ -39,7 +44,7 @@ export function AppShell({
       <main className="flex-1 pb-20">{children}</main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onSelectTab(item.id)}

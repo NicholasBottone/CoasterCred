@@ -29,3 +29,14 @@ export function formatDate(dateValue?: string | null): string {
     year: "numeric",
   });
 }
+
+export function formatDateTime(timestamp?: number | null): string {
+  if (!timestamp) return "Never";
+  return new Date(timestamp).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
