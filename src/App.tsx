@@ -80,17 +80,17 @@ function AuthenticatedApp({
 }) {
   const [tab, setTab] = useState<Tab>("feed");
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
-  const myProfile = useQuery(api.profiles.getMyProfile);
-  const isAdmin = myProfile?.user?.role === "admin";
+  const viewerShell = useQuery(api.profiles.getViewerShell);
+  const isAdmin = viewerShell?.isAdmin ?? false;
   const availableTabs: Tab[] = isAdmin
     ? ["feed", "myList", "search", "rankings", "profile", "admin"]
     : ["feed", "myList", "search", "rankings", "profile"];
 
   useEffect(() => {
-    if (tab === "admin" && myProfile !== undefined && !isAdmin) {
+    if (tab === "admin" && viewerShell !== undefined && !isAdmin) {
       setTab("feed");
     }
-  }, [isAdmin, myProfile, tab]);
+  }, [isAdmin, tab, viewerShell]);
 
   return (
     <AppShell
@@ -99,7 +99,7 @@ function AuthenticatedApp({
         setPublicProfileUserId(null);
         setTab(nextTab);
       }}
-      headerAction={<AuthenticatedHeaderActions />}
+      headerAction={<AuthenticatedHeaderActions viewerShell={viewerShell} />}
       availableTabs={availableTabs}
     >
       {publicProfileUserId ? (
@@ -120,6 +120,7 @@ function AuthenticatedApp({
               onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
               themeMode={themeMode}
               onThemeModeChange={onThemeModeChange}
+              viewerShell={viewerShell ?? null}
             />
           )}
         </>
@@ -128,14 +129,12 @@ function AuthenticatedApp({
   );
 }
 
-function AuthenticatedHeaderActions() {
-  const myProfile = useQuery(api.profiles.getMyProfile);
-
+function AuthenticatedHeaderActions({ viewerShell }: { viewerShell: any }) {
   return (
     <div className="flex items-center gap-3">
       <Avatar
-        avatarUrl={myProfile?.profile?.avatarUrl ?? myProfile?.user?.image}
-        name={myProfile?.user?.name}
+        avatarUrl={viewerShell?.profile?.avatarUrl ?? viewerShell?.user?.image}
+        name={viewerShell?.user?.name}
         sizeClassName="w-9 h-9"
         textClassName="text-sm"
       />

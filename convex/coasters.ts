@@ -137,7 +137,7 @@ export const getCoasterProfile = query({
     }
 
     const viewerUserId = await getAuthUserId(ctx);
-    if (!localCoaster || !viewerUserId) {
+    if (!viewerUserId) {
       return {
         localCoaster,
         appStats: {
@@ -151,13 +151,52 @@ export const getCoasterProfile = query({
           currentScore: null,
           rideHistory: [],
         },
+        myRankings: [],
         followedRiders: [],
         followedRiderCount: 0,
         averageFollowedRiderScore: null,
       };
     }
 
-    const [coasterLogs, myLogs, myRanking, myAllRankings, follows] = await Promise.all([
+    const myAllRankings = await ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", viewerUserId))
+      .collect();
+    const myRankingCoasterIds = [...new Set(myAllRankings.map((ranking) => String(ranking.coasterId)))];
+    const myRankingCoasterEntries = await Promise.all(
+      myRankingCoasterIds.map(async (coasterId) => [
+        coasterId,
+        await ctx.db.get(coasterId as Id<"coasters">),
+      ] as const),
+    );
+    const myRankingCoasterMap = new Map(myRankingCoasterEntries);
+
+    if (!localCoaster) {
+      return {
+        localCoaster,
+        appStats: {
+          uniqueRiderCount: 0,
+          totalLogCount: 0,
+        },
+        myStats: {
+          hasRidden: false,
+          rideCount: 0,
+          currentRank: null,
+          currentScore: null,
+          rideHistory: [],
+        },
+        myRankings: myAllRankings.map((ranking) => ({
+          ...ranking,
+          coaster: myRankingCoasterMap.get(String(ranking.coasterId)) ?? null,
+          score: computeRankingScore(ranking.rank, myAllRankings.length),
+        })),
+        followedRiders: [],
+        followedRiderCount: 0,
+        averageFollowedRiderScore: null,
+      };
+    }
+
+    const [coasterLogs, myLogs, myRanking, follows] = await Promise.all([
       ctx.db
         .query("rideLogs")
         .withIndex("by_coaster", (q) => q.eq("coasterId", localCoaster._id))
@@ -174,10 +213,6 @@ export const getCoasterProfile = query({
           q.eq("userId", viewerUserId).eq("coasterId", localCoaster._id)
         )
         .unique(),
-      ctx.db
-        .query("rankings")
-        .withIndex("by_user_and_rank", (q) => q.eq("userId", viewerUserId))
-        .collect(),
       ctx.db
         .query("follows")
         .withIndex("by_follower", (q) => q.eq("followerId", viewerUserId))
@@ -287,6 +322,11 @@ export const getCoasterProfile = query({
             : null,
         rideHistory: myLogs.sort((a, b) => b.riddenAt - a.riddenAt),
       },
+      myRankings: myAllRankings.map((ranking) => ({
+        ...ranking,
+        coaster: myRankingCoasterMap.get(String(ranking.coasterId)) ?? null,
+        score: computeRankingScore(ranking.rank, myAllRankings.length),
+      })),
       followedRiders,
       followedRiderCount: followedRiders.length,
       averageFollowedRiderScore,

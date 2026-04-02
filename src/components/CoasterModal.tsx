@@ -54,7 +54,6 @@ export function CoasterModal({
     source: coaster.source,
     sourceId: coaster.sourceId,
   });
-  const rankings = useQuery(api.rankings.getMyRankings);
   const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
   const removeLog = useMutation(api.rideLogs.removeLog);
   const materializeCoaster = useAction(api.coasters.materializeCoasterpediaCoaster);
@@ -76,7 +75,6 @@ export function CoasterModal({
   }, [localCoasterId, profileData?.localCoaster?._id]);
 
   const loadingData =
-    rankings === undefined ||
     profileData === undefined ||
     (localCoasterId !== undefined && profileData?.myStats === undefined);
 
@@ -86,11 +84,11 @@ export function CoasterModal({
   const visibleFollowedRiders = showAllFollowedRiders ? followedRiders : followedRiders.slice(0, 5);
 
   const rankedCoasters = useMemo(
-    () => (rankings ?? []).filter((item: any) => item.coasterId !== localCoasterId),
-    [localCoasterId, rankings],
+    () => (profileData?.myRankings ?? []).filter((item: any) => item.coasterId !== localCoasterId),
+    [localCoasterId, profileData?.myRankings],
   );
 
-  const currentRanking = rankings?.find((item: any) => item.coasterId === localCoasterId);
+  const currentRanking = profileData?.myRankings?.find((item: any) => item.coasterId === localCoasterId);
   const comparisonIndex =
     comparisonBounds === null
       ? null

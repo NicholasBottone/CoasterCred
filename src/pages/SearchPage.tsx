@@ -52,6 +52,13 @@ export function SearchPage() {
   const displayResults = search.trim()
     ? results
     : ((topCoasters ?? []) as CoasterSummary[]);
+  const visibleLocalCoasterIds = displayResults
+    .map((coaster) => coaster._id)
+    .filter((coasterId): coasterId is string => Boolean(coasterId));
+  const myRideCounts = useQuery(
+    api.rideLogs.getMyRideCountsForCoasters,
+    visibleLocalCoasterIds.length > 0 ? { coasterIds: visibleLocalCoasterIds as any } : "skip",
+  );
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
@@ -90,6 +97,7 @@ export function SearchPage() {
             <CoasterCard
               key={coaster._id ?? `${coaster.source ?? "local"}:${coaster.sourceId ?? coaster.name}`}
               coaster={coaster}
+              rideCount={coaster._id ? myRideCounts?.[coaster._id] ?? 0 : 0}
               onClick={() => setSelectedCoaster(coaster)}
             />
           ))}
@@ -111,13 +119,15 @@ export function SearchPage() {
   );
 }
 
-function CoasterCard({ coaster, onClick }: { coaster: CoasterSummary; onClick: () => void }) {
-  const myLogs = useQuery(
-    api.rideLogs.getMyLogsForCoaster,
-    coaster._id ? { coasterId: coaster._id as any } : "skip",
-  );
-  const rideCount = myLogs?.length ?? 0;
-
+function CoasterCard({
+  coaster,
+  rideCount,
+  onClick,
+}: {
+  coaster: CoasterSummary;
+  rideCount: number;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}

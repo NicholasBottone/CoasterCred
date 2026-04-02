@@ -11,22 +11,14 @@ export function ProfilePage({
   onViewPublicProfile,
   themeMode,
   onThemeModeChange,
+  viewerShell,
 }: {
   onViewPublicProfile: (userId: string) => void;
   themeMode: "auto" | "light" | "dark";
   onThemeModeChange: (themeMode: "auto" | "light" | "dark") => void;
+  viewerShell: any;
 }) {
-  const myProfile = useQuery(api.profiles.getMyProfile);
-  const myLogs = useQuery(api.rideLogs.getMyLogs);
-  const myRankings = useQuery(api.rankings.getMyRankings);
-  const followerCount = useQuery(
-    api.profiles.getFollowers,
-    myProfile?.user?._id ? { userId: myProfile.user._id as any } : "skip",
-  );
-  const followingCount = useQuery(
-    api.profiles.getFollowing,
-    myProfile?.user?._id ? { userId: myProfile.user._id as any } : "skip",
-  );
+  const dashboard = useQuery(api.profiles.getMyProfileDashboard);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
 
   const [editing, setEditing] = useState(false);
@@ -61,7 +53,7 @@ export function ProfilePage({
     }
   };
 
-  if (myProfile === undefined) {
+  if (dashboard === undefined) {
     return (
       <div className="flex justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -69,10 +61,11 @@ export function ProfilePage({
     );
   }
 
-  const user = myProfile?.user;
-  const profile = myProfile?.profile;
-  const uniqueCoasterCount = myLogs ? new Set(myLogs.map((log: any) => log.coasterId)).size : 0;
-  const authProvider = myProfile?.authProvider;
+  const myProfile = dashboard;
+  const user = dashboard?.user;
+  const profile = dashboard?.profile;
+  const uniqueCoasterCount = dashboard?.uniqueCoasterCount ?? 0;
+  const authProvider = dashboard?.authProvider;
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
@@ -118,9 +111,7 @@ export function ProfilePage({
           </div>
           <div className="surface-subtle p-3 text-center">
             <p className="text-lg font-bold text-primary truncate">
-              {myRankings && myRankings.length > 0
-                ? myRankings[0].coaster?.name ?? "—"
-                : "—"}
+              {dashboard?.topCoaster?.name ?? "—"}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Current #1</p>
           </div>
@@ -131,14 +122,14 @@ export function ProfilePage({
             onClick={() => setConnectionsKind("followers")}
             className="surface-subtle interactive-lift p-3 text-center"
           >
-            <p className="text-2xl font-bold text-primary">{followerCount ?? 0}</p>
+            <p className="text-2xl font-bold text-primary">{dashboard?.followerCount ?? 0}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Followers</p>
           </button>
           <button
             onClick={() => setConnectionsKind("following")}
             className="surface-subtle interactive-lift p-3 text-center"
           >
-            <p className="text-2xl font-bold text-primary">{followingCount ?? 0}</p>
+            <p className="text-2xl font-bold text-primary">{dashboard?.followingCount ?? 0}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Following</p>
           </button>
         </div>
@@ -155,7 +146,7 @@ export function ProfilePage({
             {showSearch ? "Hide" : "Search"}
           </button>
         </div>
-        {showSearch && <UserSearch />}
+        {showSearch && <UserSearch viewerUserId={viewerShell?.user?._id ?? dashboard?.user?._id ?? null} />}
       </div>
 
       <div className="surface-card p-4 mb-4">
@@ -184,11 +175,11 @@ export function ProfilePage({
       {/* Recent Rides */}
       <div className="surface-card p-4">
         <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Recent Rides</h3>
-        {!myLogs || myLogs.length === 0 ? (
+        {!dashboard?.recentRides || dashboard.recentRides.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No rides logged yet</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {myLogs.slice(0, 10).map((log: any) => (
+            {dashboard.recentRides.map((log: any) => (
               <div key={log._id} className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
                 <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -304,11 +295,10 @@ function GoogleProviderIcon({ className }: { className?: string }) {
   );
 }
 
-function UserSearch() {
+function UserSearch({ viewerUserId }: { viewerUserId: string | null }) {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const results = useQuery(api.profiles.searchUsers, { q: debouncedQ });
-  const myProfile = useQuery(api.profiles.getMyProfile);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -330,7 +320,7 @@ function UserSearch() {
       {results && results.length > 0 && (
         <div className="flex flex-col gap-2">
           {results
-            .filter((u: any) => u._id !== myProfile?.user?._id)
+            .filter((u: any) => u._id !== viewerUserId)
             .map((u: any) => (
               <UserRow key={u._id} user={u} />
             ))}
@@ -344,13 +334,12 @@ function UserSearch() {
 }
 
 function UserRow({ user }: { user: any }) {
-  const isFollowing = useQuery(api.profiles.isFollowing, { targetUserId: user._id });
   const follow = useMutation(api.profiles.follow);
   const unfollow = useMutation(api.profiles.unfollow);
 
   const handleToggle = async () => {
     try {
-      if (isFollowing) {
+      if (user.isFollowing) {
         await unfollow({ targetUserId: user._id });
         toast.success("Unfollowed");
       } else {
@@ -379,12 +368,12 @@ function UserRow({ user }: { user: any }) {
       <button
         onClick={handleToggle}
         className={`text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 ${
-          isFollowing
+          user.isFollowing
             ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-200"
             : "bg-primary text-white"
         }`}
       >
-        {isFollowing ? "Following" : "Follow"}
+        {user.isFollowing ? "Following" : "Follow"}
       </button>
     </div>
   );

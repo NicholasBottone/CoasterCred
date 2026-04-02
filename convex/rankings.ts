@@ -33,24 +33,39 @@ export const getMyRankings = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const rankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
-      .collect();
+    const [rankings, logs] = await Promise.all([
+      ctx.db
+        .query("rankings")
+        .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+        .collect(),
+      ctx.db
+        .query("rideLogs")
+        .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
+        .order("desc")
+        .collect(),
+    ]);
     const totalCount = rankings.length;
-    const withCoasters = await Promise.all(
-      rankings.map(async (r) => {
-        const coaster = await ctx.db.get(r.coasterId);
-        const logs = await ctx.db
-          .query("rideLogs")
-          .withIndex("by_user_and_coaster", (q) =>
-            q.eq("userId", userId).eq("coasterId", r.coasterId)
-          )
-          .collect();
-        const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
-        return { ...r, coaster, log, score: computeRankingScore(r.rank, totalCount) };
-      })
+    const coasterIds = [...new Set(rankings.map((ranking) => String(ranking.coasterId)))];
+    const coasterEntries = await Promise.all(
+      coasterIds.map(async (coasterId) => [coasterId, await ctx.db.get(coasterId as Id<"coasters">)] as const),
     );
+    const coasterMap = new Map(coasterEntries);
+    const latestLogByCoasterId = new Map<string, (typeof logs)[number]>();
+    for (const log of logs) {
+      const key = String(log.coasterId);
+      if (!latestLogByCoasterId.has(key)) {
+        latestLogByCoasterId.set(key, log);
+      }
+    }
+    const withCoasters = rankings.map((ranking) => {
+      const coasterId = String(ranking.coasterId);
+      return {
+        ...ranking,
+        coaster: coasterMap.get(coasterId) ?? null,
+        log: latestLogByCoasterId.get(coasterId) ?? null,
+        score: computeRankingScore(ranking.rank, totalCount),
+      };
+    });
     return withCoasters.sort((a, b) => a.rank - b.rank);
   },
 });

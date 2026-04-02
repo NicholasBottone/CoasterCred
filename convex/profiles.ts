@@ -7,7 +7,6 @@ import {
   validateOptionalText,
 } from "./validation";
 import type { Id } from "./_generated/dataModel";
-import { computeRankingScore } from "./rankings";
 
 function toClientMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
@@ -44,6 +43,42 @@ function isPresent<T>(value: T | null): value is T {
   return value !== null;
 }
 
+async function getUserProfile(ctx: QueryCtx, userId: Id<"users">) {
+  return await ctx.db
+    .query("userProfiles")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+}
+
+async function getFollowCount(
+  ctx: QueryCtx,
+  kind: "followers" | "following",
+  userId: Id<"users">,
+) {
+  return (
+    await ctx.db
+      .query("follows")
+      .withIndex(kind === "followers" ? "by_following" : "by_follower", (q) =>
+        kind === "followers" ? q.eq("followingId", userId) : q.eq("followerId", userId),
+      )
+      .collect()
+  ).length;
+}
+
+async function getViewerShellData(ctx: QueryCtx, userId: Id<"users">) {
+  const [user, profile, authProvider] = await Promise.all([
+    ctx.db.get(userId),
+    getUserProfile(ctx, userId),
+    getPrimaryAuthProvider(ctx, userId),
+  ]);
+  return {
+    user,
+    profile,
+    authProvider,
+    isAdmin: user?.role === "admin",
+  };
+}
+
 async function getViewerRelationship(
   ctx: QueryCtx,
   viewerUserId: Id<"users"> | null,
@@ -69,24 +104,15 @@ async function getPublicUserSummary(
   viewerUserId: Id<"users"> | null,
 ) {
   const user = await ctx.db.get(targetUserId);
-  const profile = await ctx.db
-    .query("userProfiles")
-    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
-    .unique();
+  const profile = await getUserProfile(ctx, targetUserId);
 
   if (!user) {
     return null;
   }
 
-  const [followers, following, logs, rankings, isFollowing] = await Promise.all([
-    ctx.db
-      .query("follows")
-      .withIndex("by_following", (q) => q.eq("followingId", targetUserId))
-      .collect(),
-    ctx.db
-      .query("follows")
-      .withIndex("by_follower", (q) => q.eq("followerId", targetUserId))
-      .collect(),
+  const [followerCount, followingCount, logs, topRanking, isFollowing] = await Promise.all([
+    getFollowCount(ctx, "followers", targetUserId),
+    getFollowCount(ctx, "following", targetUserId),
     ctx.db
       .query("rideLogs")
       .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", targetUserId))
@@ -95,14 +121,13 @@ async function getPublicUserSummary(
     ctx.db
       .query("rankings")
       .withIndex("by_user_and_rank", (q) => q.eq("userId", targetUserId))
-      .collect(),
+      .take(1),
     getViewerRelationship(ctx, viewerUserId, targetUserId),
   ]);
 
   const uniqueCoasterCount = new Set(logs.map((log) => String(log.coasterId))).size;
-  const topRanking = rankings[0] ?? null;
-  const topCoaster = topRanking ? await ctx.db.get(topRanking.coasterId) : null;
-  const topCoasterScore = topRanking ? computeRankingScore(topRanking.rank, rankings.length) : null;
+  const topRankingEntry = topRanking[0] ?? null;
+  const topCoaster = topRankingEntry ? await ctx.db.get(topRankingEntry.coasterId) : null;
 
   return {
     user: {
@@ -111,30 +136,66 @@ async function getPublicUserSummary(
       image: user.image,
     },
     profile,
-    followerCount: followers.length,
-    followingCount: following.length,
+    followerCount,
+    followingCount,
     uniqueCoasterCount,
     topCoaster,
-    topCoasterScore,
     isCurrentUser: viewerUserId === targetUserId,
     isFollowing,
   };
 }
 
-export const getMyProfile = query({
+export const getViewerShell = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    const [user, profile, authProvider] = await Promise.all([
-      ctx.db.get(userId),
+    return await getViewerShellData(ctx, userId);
+  },
+});
+
+export const getMyProfile = getViewerShell;
+
+export const getMyProfileDashboard = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const [viewer, logs, topRanking, followerCount, followingCount] = await Promise.all([
+      getViewerShellData(ctx, userId),
       ctx.db
-        .query("userProfiles")
-        .withIndex("by_userId", (q) => q.eq("userId", userId))
-        .unique(),
-      getPrimaryAuthProvider(ctx, userId),
+        .query("rideLogs")
+        .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
+        .order("desc")
+        .collect(),
+      ctx.db
+        .query("rankings")
+        .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+        .take(1),
+      getFollowCount(ctx, "followers", userId),
+      getFollowCount(ctx, "following", userId),
     ]);
-    return { user, profile, authProvider };
+
+    const recentLogs = logs.slice(0, 10);
+    const uniqueCoasterCount = new Set(logs.map((log) => String(log.coasterId))).size;
+    const coasterIds = [...new Set([...recentLogs.map((log) => log.coasterId), ...topRanking.map((r) => r.coasterId)])];
+    const coasterEntries = await Promise.all(
+      coasterIds.map(async (coasterId) => [String(coasterId), await ctx.db.get(coasterId)] as const),
+    );
+    const coasterMap = new Map(coasterEntries);
+
+    return {
+      ...viewer,
+      uniqueCoasterCount,
+      followerCount,
+      followingCount,
+      topCoaster: topRanking[0] ? coasterMap.get(String(topRanking[0].coasterId)) ?? null : null,
+      recentRides: recentLogs.map((log) => ({
+        ...log,
+        coaster: coasterMap.get(String(log.coasterId)) ?? null,
+      })),
+    };
   },
 });
 
@@ -161,12 +222,14 @@ export const getPublicProfilePage = query({
       .order("desc")
       .take(3);
 
-    const recentRides = await Promise.all(
-      recentLogs.map(async (log) => ({
-        ...log,
-        coaster: await ctx.db.get(log.coasterId),
-      }))
+    const coasterEntries = await Promise.all(
+      recentLogs.map(async (log) => [String(log.coasterId), await ctx.db.get(log.coasterId)] as const),
     );
+    const coasterMap = new Map(coasterEntries);
+    const recentRides = recentLogs.map((log) => ({
+      ...log,
+      coaster: coasterMap.get(String(log.coasterId)) ?? null,
+    }));
 
     return {
       ...summary,
@@ -188,7 +251,7 @@ export const getUserConnections = query({
           ? q.eq("followingId", args.userId)
           : q.eq("followerId", args.userId)
       )
-      .collect();
+      .take(200);
 
     const userIds = follows.map((follow) =>
       args.kind === "followers" ? follow.followerId : follow.followingId
@@ -197,10 +260,7 @@ export const getUserConnections = query({
     const users = await Promise.all(
       userIds.map(async (userId) => {
         const user = await ctx.db.get(userId);
-        const profile = await ctx.db
-          .query("userProfiles")
-          .withIndex("by_userId", (q) => q.eq("userId", userId))
-          .unique();
+        const profile = await getUserProfile(ctx, userId);
         if (!user) {
           return null;
         }
@@ -266,24 +326,12 @@ export const upsertProfile = mutation({
 
 export const getFollowers = query({
   args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const follows = await ctx.db
-      .query("follows")
-      .withIndex("by_following", (q) => q.eq("followingId", args.userId))
-      .collect();
-    return follows.length;
-  },
+  handler: async (ctx, args) => await getFollowCount(ctx, "followers", args.userId),
 });
 
 export const getFollowing = query({
   args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const follows = await ctx.db
-      .query("follows")
-      .withIndex("by_follower", (q) => q.eq("followerId", args.userId))
-      .collect();
-    return follows.length;
-  },
+  handler: async (ctx, args) => await getFollowCount(ctx, "following", args.userId),
 });
 
 export const isFollowing = query({
@@ -344,6 +392,7 @@ export const searchUsers = query({
   handler: async (ctx, args) => {
     const queryText = args.q.trim();
     if (!queryText) return [];
+    const viewerUserId = await getAuthUserId(ctx);
 
     const handleQuery = queryText.toLowerCase().replace(/^@/, "");
     if (handleQuery && !handleQuery.includes(" ")) {
@@ -352,6 +401,15 @@ export const searchUsers = query({
         .withIndex("by_usernameLower", (q) => q.eq("usernameLower", handleQuery))
         .collect();
       if (profiles.length > 0) {
+        const followState = viewerUserId
+          ? await Promise.all(
+              profiles.map(async (profile) => [
+                String(profile.userId),
+                await getViewerRelationship(ctx, viewerUserId, profile.userId),
+              ] as const),
+            )
+          : [];
+        const followMap = new Map(followState);
         const users = await Promise.all(
           profiles.map(async (profile) => {
             const user = await ctx.db.get(profile.userId);
@@ -362,6 +420,7 @@ export const searchUsers = query({
               _id: user._id,
               name: user.name,
               profile,
+              isFollowing: followMap.get(String(user._id)) ?? false,
             };
           })
         );
@@ -369,10 +428,20 @@ export const searchUsers = query({
       }
     }
 
-      const matches = await ctx.db
+    const matches = await ctx.db
       .query("userProfiles")
       .withSearchIndex("search_displayName", (q) => q.search("displayName", queryText))
       .take(10);
+
+    const followState = viewerUserId
+      ? await Promise.all(
+          matches.map(async (profile) => [
+            String(profile.userId),
+            await getViewerRelationship(ctx, viewerUserId, profile.userId),
+          ] as const),
+        )
+      : [];
+    const followMap = new Map(followState);
 
     const users = await Promise.all(
       matches.map(async (profile) => {
@@ -384,6 +453,7 @@ export const searchUsers = query({
           _id: user._id,
           name: user.name,
           profile,
+          isFollowing: followMap.get(String(user._id)) ?? false,
         };
       })
     );
