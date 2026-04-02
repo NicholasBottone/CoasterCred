@@ -1,4 +1,4 @@
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
@@ -18,6 +18,7 @@ type ThemeMode = "auto" | "light" | "dark";
 const THEME_STORAGE_KEY = "coastercred-theme";
 
 export default function App() {
+  const { isLoading } = useConvexAuth();
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") return "auto";
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -44,6 +45,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      {isLoading && <AuthLoadingScreen />}
       <Authenticated>
         <AuthenticatedApp themeMode={themeMode} onThemeModeChange={setThemeMode} />
       </Authenticated>
@@ -51,6 +53,19 @@ export default function App() {
         <DemoApp />
       </Unauthenticated>
       <Toaster />
+    </div>
+  );
+}
+
+function AuthLoadingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <div className="flex items-center gap-3 text-primary">
+        <span className="text-3xl">🎢</span>
+        <span className="text-2xl font-bold">CoasterCred</span>
+      </div>
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+      <p className="text-sm text-gray-500 dark:text-gray-400">Signing you in...</p>
     </div>
   );
 }

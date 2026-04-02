@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, type QueryCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
@@ -6,7 +6,7 @@ import {
   validateDisplayName,
   validateOptionalText,
 } from "./validation";
-import { Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { computeRankingScore } from "./rankings";
 
 function toClientMessage(error: unknown, fallback: string) {
@@ -16,14 +16,46 @@ function toClientMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
-async function getViewerRelationship(ctx: any, viewerUserId: Id<"users"> | null, targetUserId: Id<"users">) {
+async function getPrimaryAuthProvider(ctx: QueryCtx, userId: Id<"users">) {
+  const googleAccount = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (q) =>
+      q.eq("userId", userId).eq("provider", "google")
+    )
+    .unique();
+  if (googleAccount) {
+    return "google" as const;
+  }
+
+  const discordAccount = await ctx.db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (q) =>
+      q.eq("userId", userId).eq("provider", "discord")
+    )
+    .unique();
+  if (discordAccount) {
+    return "discord" as const;
+  }
+
+  return null;
+}
+
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+async function getViewerRelationship(
+  ctx: QueryCtx,
+  viewerUserId: Id<"users"> | null,
+  targetUserId: Id<"users">,
+) {
   if (!viewerUserId || viewerUserId === targetUserId) {
     return false;
   }
 
   const follow = await ctx.db
     .query("follows")
-    .withIndex("by_follower_and_following", (q: any) =>
+    .withIndex("by_follower_and_following", (q) =>
       q.eq("followerId", viewerUserId).eq("followingId", targetUserId)
     )
     .unique();
@@ -31,11 +63,15 @@ async function getViewerRelationship(ctx: any, viewerUserId: Id<"users"> | null,
   return !!follow;
 }
 
-async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerUserId: Id<"users"> | null) {
+async function getPublicUserSummary(
+  ctx: QueryCtx,
+  targetUserId: Id<"users">,
+  viewerUserId: Id<"users"> | null,
+) {
   const user = await ctx.db.get(targetUserId);
   const profile = await ctx.db
     .query("userProfiles")
-    .withIndex("by_userId", (q: any) => q.eq("userId", targetUserId))
+    .withIndex("by_userId", (q) => q.eq("userId", targetUserId))
     .unique();
 
   if (!user) {
@@ -45,25 +81,25 @@ async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerU
   const [followers, following, logs, rankings, isFollowing] = await Promise.all([
     ctx.db
       .query("follows")
-      .withIndex("by_following", (q: any) => q.eq("followingId", targetUserId))
+      .withIndex("by_following", (q) => q.eq("followingId", targetUserId))
       .collect(),
     ctx.db
       .query("follows")
-      .withIndex("by_follower", (q: any) => q.eq("followerId", targetUserId))
+      .withIndex("by_follower", (q) => q.eq("followerId", targetUserId))
       .collect(),
     ctx.db
       .query("rideLogs")
-      .withIndex("by_user_and_riddenAt", (q: any) => q.eq("userId", targetUserId))
+      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", targetUserId))
       .order("desc")
       .collect(),
     ctx.db
       .query("rankings")
-      .withIndex("by_user_and_rank", (q: any) => q.eq("userId", targetUserId))
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", targetUserId))
       .collect(),
     getViewerRelationship(ctx, viewerUserId, targetUserId),
   ]);
 
-  const uniqueCoasterCount = new Set(logs.map((log: any) => String(log.coasterId))).size;
+  const uniqueCoasterCount = new Set(logs.map((log) => String(log.coasterId))).size;
   const topRanking = rankings[0] ?? null;
   const topCoaster = topRanking ? await ctx.db.get(topRanking.coasterId) : null;
   const topCoasterScore = topRanking ? computeRankingScore(topRanking.rank, rankings.length) : null;
@@ -90,12 +126,15 @@ export const getMyProfile = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    const user = await ctx.db.get(userId);
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .unique();
-    return { user, profile };
+    const [user, profile, authProvider] = await Promise.all([
+      ctx.db.get(userId),
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique(),
+      getPrimaryAuthProvider(ctx, userId),
+    ]);
+    return { user, profile, authProvider };
   },
 });
 
@@ -177,8 +216,8 @@ export const getUserConnections = query({
     );
 
     return users
-      .filter(Boolean)
-      .sort((a: any, b: any) => (a.user.name ?? "").localeCompare(b.user.name ?? ""));
+      .filter(isPresent)
+      .sort((a, b) => (a.user.name ?? "").localeCompare(b.user.name ?? ""));
   },
 });
 
@@ -308,26 +347,29 @@ export const searchUsers = query({
 
     const handleQuery = queryText.toLowerCase().replace(/^@/, "");
     if (handleQuery && !handleQuery.includes(" ")) {
-      const profile = await ctx.db
+      const profiles = await ctx.db
         .query("userProfiles")
         .withIndex("by_usernameLower", (q) => q.eq("usernameLower", handleQuery))
-        .unique();
-      if (profile) {
-        const user = await ctx.db.get(profile.userId);
-        if (!user) {
-          return [];
-        }
-        return [
-          {
-            _id: user._id,
-            name: user.name,
-            profile,
-          },
-        ];
+        .collect();
+      if (profiles.length > 0) {
+        const users = await Promise.all(
+          profiles.map(async (profile) => {
+            const user = await ctx.db.get(profile.userId);
+            if (!user) {
+              return null;
+            }
+            return {
+              _id: user._id,
+              name: user.name,
+              profile,
+            };
+          })
+        );
+        return users.filter(Boolean);
       }
     }
 
-    const matches = await ctx.db
+      const matches = await ctx.db
       .query("userProfiles")
       .withSearchIndex("search_displayName", (q) => q.search("displayName", queryText))
       .take(10);
@@ -346,6 +388,6 @@ export const searchUsers = query({
       })
     );
 
-    return users.filter(Boolean);
+    return users.filter(isPresent);
   },
 });

@@ -1,5 +1,7 @@
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import Discord from "@auth/core/providers/discord";
+import Google from "@auth/core/providers/google";
+import type { MutationCtx } from "./_generated/server";
 import { validateDisplayName } from "./validation";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
@@ -34,16 +36,36 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         };
       },
     }),
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      profile(profile) {
+        const email = typeof profile.email === "string" ? profile.email.trim() : "";
+        const atIndex = email.indexOf("@");
+        const username =
+          atIndex > 0 ? email.slice(0, atIndex).trim() : "";
+
+        return {
+          id: profile.sub,
+          name: profile.name,
+          image: profile.picture,
+          username,
+          authProviderService: "google",
+          authProviderId: profile.sub,
+        };
+      },
+    }),
   ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
-      const db = ctx.db as any;
+      const db = (ctx as MutationCtx).db;
+      const existingUserId = args.existingUserId;
       const existingProfile =
-        args.existingUserId === null
+        existingUserId === null
           ? null
           : await db
               .query("userProfiles")
-              .withIndex("by_userId", (q: any) => q.eq("userId", args.existingUserId))
+              .withIndex("by_userId", (q) => q.eq("userId", existingUserId))
               .unique();
 
       const username = String(args.profile.username ?? "").trim();
@@ -55,27 +77,20 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         String(args.profile.name ?? username).trim(),
       );
       const avatarUrl = typeof args.profile.image === "string" ? args.profile.image : undefined;
-      const authProviderService =
-        typeof args.profile.authProviderService === "string"
-          ? args.profile.authProviderService
-          : "discord";
-      const authProviderId =
-        typeof args.profile.authProviderId === "string"
-          ? args.profile.authProviderId
-          : typeof args.profile.id === "string"
-            ? args.profile.id
-            : undefined;
-
       const userPatch = {
         name: existingProfile?.displayName ?? seededDisplayName,
         image: avatarUrl,
       };
 
-      let userId = args.existingUserId;
+      let userId = existingUserId;
       if (userId) {
         await db.patch(userId, userPatch);
       } else {
         userId = await db.insert("users", userPatch);
+      }
+
+      if (!userId) {
+        throw new Error("Could not create user");
       }
 
       const profilePatch = {
@@ -87,17 +102,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
       const currentProfile = await db
         .query("userProfiles")
-        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
         .unique();
 
       if (!currentProfile) {
         await db.insert("userProfiles", { userId, ...profilePatch });
       } else {
         await db.patch(currentProfile._id, profilePatch);
-      }
-
-      if (!userId) {
-        throw new Error("Could not create user");
       }
 
       return userId;
