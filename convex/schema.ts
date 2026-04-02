@@ -9,11 +9,8 @@ const applicationTables = {
     username: v.optional(v.string()),
     usernameLower: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    authProviderService: v.optional(v.string()),
-    authProviderId: v.optional(v.string()),
     bio: v.optional(v.string()),
     homepark: v.optional(v.string()),
-    coasterCount: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_usernameLower", ["usernameLower"])
@@ -49,7 +46,6 @@ const applicationTables = {
     lengthFt: v.optional(v.number()),
     inversions: v.optional(v.number()),
     yearOpened: v.optional(v.number()),
-    rcdbId: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
   })
     .index("by_name", ["name"])

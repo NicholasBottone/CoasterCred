@@ -161,19 +161,6 @@ function buildApiUrl(params: Record<string, string>) {
   return `${COASTERPEDIA_API}?${searchParams.toString()}`;
 }
 
-export const search = query({
-  args: { q: v.string() },
-  handler: async (ctx, args) => {
-    if (!args.q.trim()) {
-      return await ctx.db.query("coasters").order("asc").take(30);
-    }
-    return await ctx.db
-      .query("coasters")
-      .withSearchIndex("search_coasters", (q) => q.search("name", args.q))
-      .take(20);
-  },
-});
-
 export const searchCoasterpedia = action({
   args: { q: v.string() },
   handler: async (ctx, args) => {
@@ -453,21 +440,6 @@ export const getCoasterProfile = query({
       followedRiderCount: followedRiders.length,
       averageFollowedRiderScore,
     };
-  },
-});
-
-export const get = query({
-  args: { id: v.id("coasters") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const getMany = query({
-  args: { ids: v.array(v.id("coasters")) },
-  handler: async (ctx, args) => {
-    const results = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
-    return results.filter(Boolean);
   },
 });
 

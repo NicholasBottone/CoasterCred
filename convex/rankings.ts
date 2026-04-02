@@ -55,31 +55,6 @@ export const getMyRankings = query({
   },
 });
 
-export const getUserRankings = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const rankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
-      .collect();
-    const totalCount = rankings.length;
-    const withCoasters = await Promise.all(
-      rankings.map(async (r) => {
-        const coaster = await ctx.db.get(r.coasterId);
-        const logs = await ctx.db
-          .query("rideLogs")
-          .withIndex("by_user_and_coaster", (q) =>
-            q.eq("userId", args.userId).eq("coasterId", r.coasterId)
-          )
-          .collect();
-        const log = logs.sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
-        return { ...r, coaster, log, score: computeRankingScore(r.rank, totalCount) };
-      })
-    );
-    return withCoasters.sort((a, b) => a.rank - b.rank);
-  },
-});
-
 export const getUserRankingsPage = query({
   args: {
     userId: v.id("users"),
@@ -189,29 +164,6 @@ export const getFriendLeaderboard = query({
         }
         return b.totalRideCount - a.totalRideCount;
       });
-  },
-});
-
-export const reorderRankings = mutation({
-  args: {
-    orderedCoasterIds: v.array(v.id("coasters")),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Not authenticated");
-
-    const existingRankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    for (let i = 0; i < args.orderedCoasterIds.length; i++) {
-      const coasterId = args.orderedCoasterIds[i];
-      const existing = existingRankings.find((r) => r.coasterId === coasterId);
-      if (existing) {
-        await ctx.db.patch(existing._id, { rank: i + 1 });
-      }
-    }
   },
 });
 

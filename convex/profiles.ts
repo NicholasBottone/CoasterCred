@@ -99,32 +99,6 @@ export const getMyProfile = query({
   },
 });
 
-export const getProfile = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const authUserId = await getAuthUserId(ctx);
-    const user = await ctx.db.get(args.userId);
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
-    if (!user) {
-      return { user: null, profile };
-    }
-    return {
-      user:
-        authUserId === args.userId
-          ? user
-          : {
-              _id: user._id,
-              name: user.name,
-              image: user.image,
-            },
-      profile,
-    };
-  },
-});
-
 export const getPublicProfilePreview = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -373,35 +347,5 @@ export const searchUsers = query({
     );
 
     return users.filter(Boolean);
-  },
-});
-
-export const getFollowingList = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const follows = await ctx.db
-      .query("follows")
-      .withIndex("by_follower", (q) => q.eq("followerId", args.userId))
-      .collect();
-    const users = await Promise.all(
-      follows.map(async (f) => {
-        const user = await ctx.db.get(f.followingId);
-        const profile = await ctx.db
-          .query("userProfiles")
-          .withIndex("by_userId", (q) => q.eq("userId", f.followingId))
-          .unique();
-        return {
-          user: user
-            ? {
-                _id: user._id,
-                name: user.name,
-                image: user.image,
-              }
-            : null,
-          profile,
-        };
-      })
-    );
-    return users.filter((u) => u.user !== null);
   },
 });

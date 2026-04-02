@@ -23,7 +23,7 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 
 ## Current Product Notes
 
-- The coaster database is still seeded/hardcoded and supports custom user-added entries.
+- Coaster records are materialized from Coasterpedia on demand as riders search and log them.
 - Avatar images currently load from user-supplied HTTPS URLs. Length/protocol validation is in place, but avatars are not yet proxied through first-party storage.
 - Ride history supports historical logging and repeat rides, but duplicate rides do not create duplicate leaderboard credits inside a selected ranking window.
 

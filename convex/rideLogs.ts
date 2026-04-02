@@ -21,60 +21,6 @@ async function getExistingLogForRideDate(
     .unique();
 }
 
-export const logRide = mutation({
-  args: {
-    coasterId: v.id("coasters"),
-    riddenAt: v.number(),
-    rideDate: v.string(),
-    notes: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Not authenticated");
-
-    const existingForDay = await getExistingLogForRideDate(
-      ctx,
-      userId,
-      args.coasterId,
-      args.rideDate,
-    );
-    if (existingForDay) {
-      throw new ConvexError("You already logged this coaster for that date");
-    }
-
-    const logId = await ctx.db.insert("rideLogs", {
-      userId,
-      coasterId: args.coasterId,
-      riddenAt: args.riddenAt,
-      rideDate: args.rideDate,
-      notes: args.notes,
-    });
-
-    // Auto-add to ranking at the end
-    const existingRankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    const alreadyRanked = existingRankings.find(
-      (r) => r.coasterId === args.coasterId
-    );
-    if (!alreadyRanked) {
-      const maxRank = existingRankings.reduce(
-        (max, r) => Math.max(max, r.rank),
-        0
-      );
-      await ctx.db.insert("rankings", {
-        userId,
-        coasterId: args.coasterId,
-        rank: maxRank + 1,
-      });
-    }
-
-    return logId;
-  },
-});
-
 export const removeLog = mutation({
   args: { logId: v.id("rideLogs") },
   handler: async (ctx, args) => {

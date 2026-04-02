@@ -16,7 +16,6 @@ import type * as profiles from "../profiles.js";
 import type * as rankings from "../rankings.js";
 import type * as rideLogs from "../rideLogs.js";
 import type * as router from "../router.js";
-import type * as seed from "../seed.js";
 import type * as validation from "../validation.js";
 
 import type {
@@ -34,7 +33,6 @@ declare const fullApi: ApiFromModules<{
   rankings: typeof rankings;
   rideLogs: typeof rideLogs;
   router: typeof router;
-  seed: typeof seed;
   validation: typeof validation;
 }>;
 
