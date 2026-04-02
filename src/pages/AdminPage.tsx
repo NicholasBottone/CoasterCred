@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { Avatar } from "../components/Avatar";
 import { formatDateTime, formatDistanceToNow } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
+import { getCoasterTypeBadgeClasses } from "../lib/badges";
 
 export function AdminPage({
   onViewPublicProfile,
@@ -17,7 +18,14 @@ export function AdminPage({
     adminAccess?.isAdmin ? {} : "skip",
   );
   const syncCoaster = useAction(api.admin.syncCoaster);
+  const linkAndSyncCoaster = useAction(api.admin.linkAndSyncCoaster);
+  const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
   const [syncingCoasterId, setSyncingCoasterId] = useState<string | null>(null);
+  const [matchingCoasterId, setMatchingCoasterId] = useState<string | null>(null);
+  const [matchQuery, setMatchQuery] = useState("");
+  const [matchResults, setMatchResults] = useState<any[]>([]);
+  const [searchingMatches, setSearchingMatches] = useState(false);
+  const [linkingCoasterId, setLinkingCoasterId] = useState<string | null>(null);
 
   const handleSync = async (coasterId: string) => {
     setSyncingCoasterId(coasterId);
@@ -28,6 +36,49 @@ export function AdminPage({
       toast.error(getErrorMessage(error, "Could not sync coaster"));
     } finally {
       setSyncingCoasterId(null);
+    }
+  };
+
+  const openMatcher = (coaster: {
+    _id: string;
+    name: string;
+    park: string;
+  }) => {
+    setMatchingCoasterId(coaster._id);
+    setMatchQuery(`${coaster.name} ${coaster.park}`.trim());
+    setMatchResults([]);
+  };
+
+  const runMatchSearch = async () => {
+    const queryText = matchQuery.trim();
+    if (!queryText) {
+      setMatchResults([]);
+      return;
+    }
+
+    setSearchingMatches(true);
+    try {
+      const results = await searchCoasterpedia({ q: queryText });
+      setMatchResults(results as any[]);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not search Coasterpedia"));
+    } finally {
+      setSearchingMatches(false);
+    }
+  };
+
+  const handleLinkAndSync = async (coasterId: string, sourceId: string) => {
+    setLinkingCoasterId(coasterId);
+    try {
+      const result = await linkAndSyncCoaster({ coasterId: coasterId as any, sourceId });
+      toast.success(`Linked and synced ${result.name}`);
+      setMatchingCoasterId(null);
+      setMatchQuery("");
+      setMatchResults([]);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not link this coaster to Coasterpedia"));
+    } finally {
+      setLinkingCoasterId(null);
     }
   };
 
@@ -88,49 +139,159 @@ export function AdminPage({
             ) : (
               dashboard.staleCoasters.map((coaster) => {
                 const isSyncing = syncingCoasterId === coaster._id;
+                const isMatching = matchingCoasterId === coaster._id;
+                const isLinking = linkingCoasterId === coaster._id;
                 return (
                   <div
                     key={coaster._id}
-                    className="surface-subtle flex flex-col gap-3 rounded-2xl p-4 md:flex-row md:items-center md:justify-between"
+                    className="surface-subtle flex flex-col gap-3 rounded-2xl p-4"
                   >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {coaster.name}
-                        </h3>
-                        <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                          {coaster.lastSyncedAt
-                            ? formatDistanceToNow(coaster.lastSyncedAt)
-                            : "Never synced"}
-                        </span>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {coaster.name}
+                          </h3>
+                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                            {coaster.lastSyncedAt
+                              ? formatDistanceToNow(coaster.lastSyncedAt)
+                              : "Never synced"}
+                          </span>
+                          {!coaster.canSync && (
+                            <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+                              Needs Coasterpedia match
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {coaster.park} · {coaster.location}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                          Last synced: {formatDateTime(coaster.lastSyncedAt)}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                          Source: {coaster.source ?? "local"}
+                        </p>
                       </div>
-                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {coaster.park} · {coaster.location}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                        Last synced: {formatDateTime(coaster.lastSyncedAt)}
-                      </p>
+
+                      <div className="flex items-center gap-2">
+                        {coaster.sourceUrl && (
+                          <a
+                            href={coaster.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            View source
+                          </a>
+                        )}
+                        {coaster.canSync ? (
+                          <button
+                            onClick={() => handleSync(coaster._id)}
+                            disabled={isSyncing}
+                            className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isSyncing ? "Syncing..." : "Sync now"}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openMatcher(coaster)}
+                            className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
+                          >
+                            Match on Coasterpedia
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {coaster.sourceUrl && (
-                        <a
-                          href={coaster.sourceUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                        >
-                          View source
-                        </a>
-                      )}
-                      <button
-                        onClick={() => handleSync(coaster._id)}
-                        disabled={isSyncing}
-                        className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isSyncing ? "Syncing..." : "Sync now"}
-                      </button>
-                    </div>
+                    {isMatching && (
+                      <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+                        <div className="flex flex-col gap-3 md:flex-row">
+                          <input
+                            type="text"
+                            value={matchQuery}
+                            onChange={(event) => setMatchQuery(event.target.value)}
+                            placeholder="Search Coasterpedia"
+                            className="input-field flex-1"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={runMatchSearch}
+                              disabled={searchingMatches}
+                              className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {searchingMatches ? "Searching..." : "Search"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMatchingCoasterId(null);
+                                setMatchResults([]);
+                              }}
+                              className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="mt-3 text-xs text-sky-800 dark:text-sky-200">
+                          Choose the matching Coasterpedia coaster. This keeps the existing CoasterCred coaster ID,
+                          but replaces its catalog fields and records that it is now synced from Coasterpedia.
+                        </p>
+
+                        <div className="mt-3 flex flex-col gap-2">
+                          {matchResults.map((result) => (
+                            <div
+                              key={result.sourceId}
+                              className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-white p-3 dark:border-sky-900 dark:bg-gray-950/40 md:flex-row md:items-center md:justify-between"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {result.name}
+                                  </p>
+                                  <span className={getCoasterTypeBadgeClasses(result.type)}>
+                                    {result.type}
+                                  </span>
+                                  {result._id && (
+                                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                      Already linked elsewhere
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  {result.park} · {result.location}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {result.sourceUrl && (
+                                  <a
+                                    href={result.sourceUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                                  >
+                                    View source
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => handleLinkAndSync(coaster._id, result.sourceId)}
+                                  disabled={isLinking || !!result._id}
+                                  className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isLinking ? "Linking..." : "Use this match"}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {!searchingMatches && matchResults.length === 0 && (
+                            <div className="rounded-xl border border-dashed border-sky-200 px-3 py-4 text-sm text-sky-800 dark:border-sky-900 dark:text-sky-200">
+                              Search Coasterpedia to find a matching source for this coaster.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })

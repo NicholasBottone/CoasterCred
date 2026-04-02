@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   action,
+  internalMutation,
   internalQuery,
   query,
   type ActionCtx,
@@ -16,7 +17,7 @@ import {
   normalizeCoaster,
 } from "./coasterpedia";
 
-const STALE_SYNC_WINDOW_DAYS = 30;
+const STALE_SYNC_WINDOW_DAYS = 365;
 const STALE_SYNC_WINDOW_MS = STALE_SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 async function getViewerRole(ctx: QueryCtx) {
@@ -40,6 +41,72 @@ export const getUserRole = internalQuery({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     return user?.role ?? null;
+  },
+});
+
+export const patchCoasterFromImport = internalMutation({
+  args: {
+    coasterId: v.id("coasters"),
+    source: v.string(),
+    sourceId: v.string(),
+    sourceUrl: v.optional(v.string()),
+    lastSyncedAt: v.number(),
+    name: v.string(),
+    park: v.string(),
+    location: v.string(),
+    type: v.string(),
+    manufacturer: v.optional(v.string()),
+    product: v.optional(v.string()),
+    propulsion: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    status: v.optional(v.string()),
+    heightFt: v.optional(v.number()),
+    speedMph: v.optional(v.number()),
+    lengthFt: v.optional(v.number()),
+    inversions: v.optional(v.number()),
+    yearOpened: v.optional(v.number()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const coaster = await ctx.db.get(args.coasterId);
+    if (!coaster) {
+      throw new ConvexError("Coaster not found");
+    }
+
+    const existingLinkedCoaster = await ctx.db
+      .query("coasters")
+      .withIndex("by_source_and_sourceId", (q) =>
+        q.eq("source", args.source).eq("sourceId", args.sourceId),
+      )
+      .unique();
+
+    if (existingLinkedCoaster && existingLinkedCoaster._id !== args.coasterId) {
+      throw new ConvexError("This Coasterpedia entry is already linked to another coaster");
+    }
+
+    await ctx.db.patch(args.coasterId, {
+      source: args.source,
+      sourceId: args.sourceId,
+      sourceUrl: args.sourceUrl,
+      lastSyncedAt: args.lastSyncedAt,
+      name: args.name,
+      park: args.park,
+      location: args.location,
+      type: args.type,
+      manufacturer: args.manufacturer,
+      product: args.product,
+      propulsion: args.propulsion,
+      durationSeconds: args.durationSeconds,
+      status: args.status,
+      heightFt: args.heightFt,
+      speedMph: args.speedMph,
+      lengthFt: args.lengthFt,
+      inversions: args.inversions,
+      yearOpened: args.yearOpened,
+      imageUrl: args.imageUrl,
+    });
+
+    return args.coasterId;
   },
 });
 
@@ -120,8 +187,9 @@ export const getDashboard = query({
     const staleCoasters = coasters
       .filter(
         (coaster) =>
-          coaster.source === COASTERPEDIA_SOURCE &&
-          (!coaster.lastSyncedAt || coaster.lastSyncedAt < staleBefore),
+          (coaster.lastSyncedAt === undefined ||
+            coaster.lastSyncedAt === null ||
+            coaster.lastSyncedAt < staleBefore),
       )
       .sort((a, b) => (a.lastSyncedAt ?? 0) - (b.lastSyncedAt ?? 0))
       .map((coaster) => ({
@@ -129,10 +197,15 @@ export const getDashboard = query({
         name: coaster.name,
         park: coaster.park,
         location: coaster.location,
+        source: coaster.source ?? null,
         sourceId: coaster.sourceId ?? null,
         sourceUrl: coaster.sourceUrl ?? null,
         lastSyncedAt: coaster.lastSyncedAt ?? null,
         staleForMs: coaster.lastSyncedAt ? now - coaster.lastSyncedAt : null,
+        canSync:
+          coaster.source === COASTERPEDIA_SOURCE &&
+          coaster.sourceId !== undefined &&
+          coaster.sourceId !== null,
       }));
 
     const usersByNewest = users
@@ -259,6 +332,59 @@ export const syncCoaster = action({
     return {
       coasterId: syncedId,
       name: coaster.name,
+      lastSyncedAt: coaster.lastSyncedAt,
+    };
+  },
+});
+
+export const linkAndSyncCoaster = action({
+  args: {
+    coasterId: v.id("coasters"),
+    sourceId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminAction(ctx);
+
+    let details: unknown;
+    try {
+      details = await fetchJson(
+        buildApiUrl({
+          action: "query",
+          pageids: args.sourceId,
+          prop: "info|revisions",
+          inprop: "url",
+          rvprop: "content",
+          rvslots: "main",
+        }),
+      );
+    } catch {
+      throw new ConvexError("Could not load this coaster right now");
+    }
+
+    const page = (details as any).query?.pages?.[args.sourceId];
+    if (!page) {
+      throw new ConvexError("Could not find this coaster on Coasterpedia");
+    }
+
+    let coaster;
+    try {
+      coaster = normalizeCoaster(page);
+    } catch {
+      throw new ConvexError("Could not parse this coaster from Coasterpedia");
+    }
+
+    const coasterId: Id<"coasters"> = await ctx.runMutation(
+      internal.admin.patchCoasterFromImport,
+      {
+        coasterId: args.coasterId,
+        ...coaster,
+      },
+    );
+
+    return {
+      coasterId,
+      name: coaster.name,
+      linkedSourceId: coaster.sourceId,
       lastSyncedAt: coaster.lastSyncedAt,
     };
   },
