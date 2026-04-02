@@ -27,7 +27,7 @@ export function MyListPage() {
         <div className="text-5xl mb-4">🏆</div>
         <h2 className="text-xl font-semibold text-gray-700 mb-2">No rankings yet</h2>
         <p className="text-gray-500 text-sm">
-          Log a ride in the Explore tab to start building your rankings!
+          Log a ride in the Search tab to start building your rankings!
         </p>
       </div>
     );
