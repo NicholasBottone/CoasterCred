@@ -19,6 +19,10 @@ type ImportedCoaster = {
   location: string;
   type: string;
   manufacturer?: string;
+  product?: string;
+  propulsion?: string;
+  durationSeconds?: number;
+  status?: string;
   heightFt?: number;
   speedMph?: number;
   lengthFt?: number;
@@ -58,6 +62,24 @@ function parseNumber(value: string | undefined) {
   if (!value) return undefined;
   const cleaned = cleanWikiText(value).match(/-?\d+(\.\d+)?/);
   return cleaned ? Number(cleaned[0]) : undefined;
+}
+
+function parseDurationSeconds(value: string | undefined) {
+  const cleaned = cleanWikiText(value);
+  if (!cleaned) return undefined;
+
+  const match = cleaned.match(/^(?:(\d+):)?(\d{1,2})$/);
+  if (!match) return undefined;
+
+  const minutes = Number(match[1] ?? 0);
+  const seconds = Number(match[2]);
+  return minutes * 60 + seconds;
+}
+
+function formatStatus(value: string | undefined) {
+  const cleaned = cleanWikiText(value).trim();
+  if (!cleaned) return undefined;
+  return cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function deriveType(fields: Record<string, string>) {
@@ -104,6 +126,10 @@ function normalizeCoaster(page: any): ImportedCoaster {
     location,
     type: deriveType(fields),
     manufacturer: cleanWikiText(fields.manufacturer) || undefined,
+    product: cleanWikiText(fields.product) || undefined,
+    propulsion: cleanWikiText(fields.propulsion ?? fields["lift/launch"]) || undefined,
+    durationSeconds: parseDurationSeconds(fields.duration),
+    status: formatStatus(fields.status),
     heightFt: parseNumber(fields.height),
     speedMph: parseNumber(fields.speed),
     lengthFt: parseNumber(fields.length),
@@ -495,6 +521,10 @@ export const upsertImportedCoaster = internalMutation({
     location: v.string(),
     type: v.string(),
     manufacturer: v.optional(v.string()),
+    product: v.optional(v.string()),
+    propulsion: v.optional(v.string()),
+    durationSeconds: v.optional(v.number()),
+    status: v.optional(v.string()),
     heightFt: v.optional(v.number()),
     speedMph: v.optional(v.number()),
     lengthFt: v.optional(v.number()),

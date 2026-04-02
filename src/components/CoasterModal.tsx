@@ -21,6 +21,10 @@ export type CoasterSummary = {
   location: string;
   type: string;
   manufacturer?: string;
+  product?: string;
+  propulsion?: string;
+  durationSeconds?: number;
+  status?: string;
   heightFt?: number;
   speedMph?: number;
   lengthFt?: number;
@@ -191,6 +195,11 @@ export function CoasterModal({
                 {displayCoaster.name}
               </h3>
               <span className={getCoasterTypeBadgeClasses(displayCoaster.type)}>{displayCoaster.type}</span>
+              {displayCoaster.status && displayCoaster.status.toLowerCase() !== "active" && (
+                <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  {displayCoaster.status}
+                </span>
+              )}
               {typeof profileData?.myStats?.currentScore === "number" && (
                 <ScoreBadge score={profileData.myStats.currentScore} size="sm" />
               )}
@@ -224,6 +233,11 @@ export function CoasterModal({
           {displayCoaster.lengthFt && <Stat label="Length" value={`${displayCoaster.lengthFt}ft`} />}
           {displayCoaster.yearOpened && <Stat label="Opened" value={displayCoaster.yearOpened} />}
           {displayCoaster.manufacturer && <Stat label="Maker" value={displayCoaster.manufacturer} />}
+          {displayCoaster.product && <Stat label="Product" value={displayCoaster.product} />}
+          {displayCoaster.propulsion && <Stat label="Propulsion" value={displayCoaster.propulsion} />}
+          {displayCoaster.durationSeconds !== undefined && (
+            <Stat label="Duration" value={`${displayCoaster.durationSeconds}s`} />
+          )}
         </div>
 
         <div className="mb-4 grid gap-4 md:grid-cols-2">
