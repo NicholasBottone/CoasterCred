@@ -195,7 +195,7 @@ export function CoasterModal({
                 {displayCoaster.name}
               </h3>
               <span className={getCoasterTypeBadgeClasses(displayCoaster.type)}>{displayCoaster.type}</span>
-              {displayCoaster.status && displayCoaster.status.toLowerCase() !== "active" && (
+              {displayCoaster.status && displayCoaster.status.toLowerCase() !== "operating" && (
                 <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
                   {displayCoaster.status}
                 </span>
