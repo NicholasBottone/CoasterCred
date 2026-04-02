@@ -2,7 +2,6 @@ export const LIMITS = {
   displayName: 40,
   bio: 280,
   homepark: 80,
-  avatarUrl: 500,
   notes: 500,
 } as const;
 
@@ -29,22 +28,4 @@ export function validateOptionalText(
     throw new Error(`${fieldName} must be ${maxLength} characters or fewer`);
   }
   return trimmed;
-}
-
-export function validateAvatarUrl(value: string | undefined) {
-  const trimmed = validateOptionalText(value, "Avatar URL", LIMITS.avatarUrl);
-  if (!trimmed) return undefined;
-
-  let url: URL;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    throw new Error("Avatar URL must be a valid URL");
-  }
-
-  if (url.protocol !== "https:") {
-    throw new Error("Avatar URL must use https");
-  }
-
-  return url.toString();
 }

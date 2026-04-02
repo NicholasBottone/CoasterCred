@@ -3,7 +3,6 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import {
   LIMITS,
-  validateAvatarUrl,
   validateDisplayName,
   validateOptionalText,
 } from "./validation";
@@ -73,6 +72,7 @@ async function getPublicUserSummary(ctx: any, targetUserId: Id<"users">, viewerU
     user: {
       _id: user._id,
       name: user.name,
+      image: user.image,
     },
     profile,
     followerCount: followers.length,
@@ -118,6 +118,7 @@ export const getProfile = query({
           : {
               _id: user._id,
               name: user.name,
+              image: user.image,
             },
       profile,
     };
@@ -194,6 +195,7 @@ export const getUserConnections = query({
           user: {
             _id: user._id,
             name: user.name,
+            image: user.image,
           },
           profile,
         };
@@ -211,7 +213,6 @@ export const upsertProfile = mutation({
     name: v.optional(v.string()),
     bio: v.optional(v.string()),
     homepark: v.optional(v.string()),
-    avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -234,7 +235,6 @@ export const upsertProfile = mutation({
         displayName: trimmedName,
         bio: validateOptionalText(args.bio, "Bio", LIMITS.bio),
         homepark: validateOptionalText(args.homepark, "Home park", LIMITS.homepark),
-        avatarUrl: validateAvatarUrl(args.avatarUrl),
       };
     } catch (error) {
       throw new ConvexError(toClientMessage(error, "Could not update profile"));
@@ -332,26 +332,25 @@ export const searchUsers = query({
     const queryText = args.q.trim();
     if (!queryText) return [];
 
-    const allUsers = await ctx.db.query("users").collect();
-    const lower = queryText.toLowerCase();
-    const hasExactEmailMatch = lower.includes("@");
-    if (hasExactEmailMatch) {
-      const user = await ctx.db
-        .query("users")
-        .withIndex("email", (q) => q.eq("email", lower))
-        .unique();
-      if (!user) {
-        return [];
-      }
+    const handleQuery = queryText.toLowerCase().replace(/^@/, "");
+    if (handleQuery && !handleQuery.includes(" ")) {
       const profile = await ctx.db
         .query("userProfiles")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
+        .withIndex("by_usernameLower", (q) => q.eq("usernameLower", handleQuery))
         .unique();
-      return [{
-        _id: user._id,
-        name: user.name,
-        profile,
-      }];
+      if (profile) {
+        const user = await ctx.db.get(profile.userId);
+        if (!user) {
+          return [];
+        }
+        return [
+          {
+            _id: user._id,
+            name: user.name,
+            profile,
+          },
+        ];
+      }
     }
 
     const matches = await ctx.db
@@ -396,6 +395,7 @@ export const getFollowingList = query({
             ? {
                 _id: user._id,
                 name: user.name,
+                image: user.image,
               }
             : null,
           profile,

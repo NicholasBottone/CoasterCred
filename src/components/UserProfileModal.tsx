@@ -60,7 +60,7 @@ export function UserProfileModal({
           <>
             <div className="flex items-start gap-4 mb-4">
               <Avatar
-                avatarUrl={profileData?.profile?.avatarUrl}
+                avatarUrl={profileData?.profile?.avatarUrl ?? profileData?.user?.image}
                 name={profileData?.user?.name}
                 sizeClassName="w-16 h-16"
                 textClassName="text-2xl"
@@ -69,6 +69,9 @@ export function UserProfileModal({
                 <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">
                   {profileData?.user?.name ?? "Unknown rider"}
                 </h4>
+                {profileData?.profile?.username && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">@{profileData.profile.username}</p>
+                )}
                 {profileData?.profile?.homepark && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">🏠 {profileData.profile.homepark}</p>
                 )}

@@ -31,7 +31,6 @@ export function ProfilePage({
 
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,7 +39,6 @@ export function ProfilePage({
 
   const handleEdit = () => {
     setDisplayName(myProfile?.user?.name ?? "");
-    setAvatarUrl(myProfile?.profile?.avatarUrl ?? "");
     setBio(myProfile?.profile?.bio ?? "");
     setHomepark(myProfile?.profile?.homepark ?? "");
     setEditing(true);
@@ -51,7 +49,6 @@ export function ProfilePage({
     try {
       await upsertProfile({
         name: displayName.trim(),
-        avatarUrl: avatarUrl.trim() || undefined,
         bio: bio || undefined,
         homepark: homepark || undefined,
       });
@@ -82,18 +79,17 @@ export function ProfilePage({
       <div className="surface-card p-5 mb-4">
         <div className="flex items-start gap-4">
           <Avatar
-            avatarUrl={profile?.avatarUrl}
+            avatarUrl={profile?.avatarUrl ?? user?.image}
             name={user?.name}
-            email={user?.email}
             sizeClassName="w-16 h-16"
             textClassName="text-2xl"
           />
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
-              {user?.name ?? user?.email ?? "Enthusiast"}
+              {user?.name ?? "Enthusiast"}
             </h2>
-            {user?.email && user?.name && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{user.email}</p>
+            {profile?.username && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">@{profile.username}</p>
             )}
             {profile?.homepark && (
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">🏠 {profile.homepark}</p>
@@ -228,15 +224,10 @@ export function ProfilePage({
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Avatar URL</label>
-                <input
-                  type="url"
-                  value={avatarUrl}
-                  maxLength={500}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  className="input-field"
-                />
+                <label className="text-xs text-gray-500 mb-1 block">Connected username</label>
+                <div className="input-field bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                  {profile?.username ? `@${profile.username}` : "Connected account"}
+                </div>
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Home Park</label>
@@ -298,7 +289,7 @@ function UserSearch() {
     <div>
       <input
         type="text"
-        placeholder="Search by display name or exact email..."
+        placeholder="Search by display name or exact username..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="input-field mb-2"
@@ -348,6 +339,9 @@ function UserRow({ user }: { user: any }) {
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{user.name ?? "Enthusiast"}</p>
+        {user.profile?.username && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">@{user.profile.username}</p>
+        )}
       </div>
       <button
         onClick={handleToggle}

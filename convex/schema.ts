@@ -6,12 +6,17 @@ const applicationTables = {
   userProfiles: defineTable({
     userId: v.id("users"),
     displayName: v.optional(v.string()),
-    bio: v.optional(v.string()),
+    username: v.optional(v.string()),
+    usernameLower: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
+    authProviderService: v.optional(v.string()),
+    authProviderId: v.optional(v.string()),
+    bio: v.optional(v.string()),
     homepark: v.optional(v.string()),
     coasterCount: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
+    .index("by_usernameLower", ["usernameLower"])
     .searchIndex("search_displayName", {
       searchField: "displayName",
       filterFields: ["userId"],

@@ -1,54 +1,109 @@
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
-import { Password } from "@convex-dev/auth/providers/Password";
+import Discord from "@auth/core/providers/discord";
 import { query } from "./_generated/server";
 import { validateDisplayName } from "./validation";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    Password({
-      profile: ((params: any) => {
-        const email = String(params.email ?? "").trim().toLowerCase();
-        const name = String(params.name ?? "").trim();
-
-        if (!email) {
-          throw new Error("Email is required");
+    Discord({
+      clientId: process.env.AUTH_DISCORD_ID,
+      clientSecret: process.env.AUTH_DISCORD_SECRET,
+      authorization: {
+        params: {
+          scope: "identify",
+        },
+      },
+      profile(profile) {
+        if (profile.avatar === null) {
+          const defaultAvatarNumber =
+            profile.discriminator === "0"
+              ? Number(BigInt(profile.id) >> BigInt(22)) % 6
+              : parseInt(profile.discriminator) % 5;
+          profile.image_url = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarNumber}.png`;
+        } else {
+          const format = profile.avatar.startsWith("a_") ? "gif" : "png";
+          profile.image_url = `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.${format}`;
         }
 
-        if (params.flow === "signUp") {
-          return { email, name: validateDisplayName(name) };
-        }
-
-        return { email };
-      }) as any,
-      validatePasswordRequirements: (password) => {
-        if (password.length < 8) {
-          throw new Error("Password must be at least 8 characters long");
-        }
-
-        if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-          throw new Error("Password must include at least one letter and one number");
-        }
+        return {
+          id: profile.id,
+          name: profile.global_name ?? profile.username,
+          image: profile.image_url,
+          username: profile.username,
+          authProviderService: "discord",
+          authProviderId: profile.id,
+        };
       },
     }),
   ],
   callbacks: {
-    async afterUserCreatedOrUpdated(ctx, args) {
+    async createOrUpdateUser(ctx, args) {
       const db = ctx.db as any;
-      const user = await db.get(args.userId);
-      const existingProfile = await db
-        .query("userProfiles")
-        .withIndex("by_userId", (q: any) => q.eq("userId", args.userId))
-        .unique();
+      const existingProfile =
+        args.existingUserId === null
+          ? null
+          : await db
+              .query("userProfiles")
+              .withIndex("by_userId", (q: any) => q.eq("userId", args.existingUserId))
+              .unique();
 
-      const profilePatch = {
-        displayName: user?.name,
+      const username = String(args.profile.username ?? "").trim();
+      if (!username) {
+        throw new Error("Provider username is required");
+      }
+
+      const seededDisplayName = validateDisplayName(
+        String(args.profile.name ?? username).trim(),
+      );
+      const avatarUrl = typeof args.profile.image === "string" ? args.profile.image : undefined;
+      const authProviderService =
+        typeof args.profile.authProviderService === "string"
+          ? args.profile.authProviderService
+          : "discord";
+      const authProviderId =
+        typeof args.profile.authProviderId === "string"
+          ? args.profile.authProviderId
+          : typeof args.profile.id === "string"
+            ? args.profile.id
+            : undefined;
+
+      const userPatch = {
+        name: existingProfile?.displayName ?? seededDisplayName,
+        image: avatarUrl,
       };
 
-      if (!existingProfile) {
-        await db.insert("userProfiles", { userId: args.userId, ...profilePatch });
+      let userId = args.existingUserId;
+      if (userId) {
+        await db.patch(userId, userPatch);
       } else {
-        await db.patch(existingProfile._id, profilePatch);
+        userId = await db.insert("users", userPatch);
       }
+
+      const profilePatch = {
+        displayName: existingProfile?.displayName ?? seededDisplayName,
+        username,
+        usernameLower: username.toLowerCase(),
+        avatarUrl,
+        authProviderService,
+        authProviderId,
+      };
+
+      const currentProfile = await db
+        .query("userProfiles")
+        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+        .unique();
+
+      if (!currentProfile) {
+        await db.insert("userProfiles", { userId, ...profilePatch });
+      } else {
+        await db.patch(currentProfile._id, profilePatch);
+      }
+
+      if (!userId) {
+        throw new Error("Could not create user");
+      }
+
+      return userId;
     },
   },
 });
