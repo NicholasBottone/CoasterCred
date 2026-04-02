@@ -77,10 +77,19 @@ function FeedCard({
   const coaster = item.coaster;
   const user = item.user;
   const profile = item.profile;
-  const badgeClassName = getRideEventBadgeClasses(item.isFirstRide);
-  const badgeLabel = item.isFirstRide
-    ? "First ride 🎉"
-    : `Ride #${item.rideOrdinal}`;
+  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+  const rideDateTimestamp = item.rideDate
+    ? new Date(`${item.rideDate}T12:00:00`).getTime()
+    : Number.NaN;
+  const isHistoricalRide =
+    Number.isFinite(rideDateTimestamp) && item._creationTime - rideDateTimestamp >= ninetyDaysMs;
+  const badgeVariant = isHistoricalRide ? "historical" : item.isFirstRide ? "first" : "repeat";
+  const badgeClassName = getRideEventBadgeClasses(badgeVariant);
+  const badgeLabel = isHistoricalRide
+    ? "Logged a past ride"
+    : item.isFirstRide
+      ? "First ride 🎉"
+      : `Ride #${item.rideOrdinal}`;
 
   return (
     <div className="surface-card interactive-lift rounded-xl p-4">

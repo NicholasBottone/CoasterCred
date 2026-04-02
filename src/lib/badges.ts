@@ -13,11 +13,15 @@ export function getCoasterTypeBadgeClasses(type?: string) {
   return `${base} bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/25`;
 }
 
-export function getRideEventBadgeClasses(isFirstRide: boolean) {
+export function getRideEventBadgeClasses(variant: "historical" | "first" | "repeat") {
   const base =
     "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1";
 
-  if (isFirstRide) {
+  if (variant === "historical") {
+    return `${base} bg-gray-100 text-gray-600 ring-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700`;
+  }
+
+  if (variant === "first") {
     return `${base} bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25`;
   }
 
