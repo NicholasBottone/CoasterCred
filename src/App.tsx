@@ -1,6 +1,6 @@
 import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
 import { Toaster } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
 import { api } from "../convex/_generated/api";
 import { FeedPage } from "./pages/FeedPage";
@@ -82,9 +82,7 @@ function AuthenticatedApp({
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const viewerShell = useQuery(api.profiles.getViewerShell);
   const isAdmin = viewerShell?.isAdmin ?? false;
-  const availableTabs: Tab[] = isAdmin
-    ? ["feed", "myList", "search", "rankings", "profile", "admin"]
-    : ["feed", "myList", "search", "rankings", "profile"];
+  const availableTabs: Tab[] = ["feed", "myList", "search", "rankings", "profile"];
 
   useEffect(() => {
     if (tab === "admin" && viewerShell !== undefined && !isAdmin) {
@@ -99,7 +97,16 @@ function AuthenticatedApp({
         setPublicProfileUserId(null);
         setTab(nextTab);
       }}
-      headerAction={<AuthenticatedHeaderActions viewerShell={viewerShell} />}
+      headerAction={
+        <AuthenticatedHeaderActions
+          isAdmin={isAdmin}
+          viewerShell={viewerShell}
+          onOpenAdmin={() => {
+            setPublicProfileUserId(null);
+            setTab("admin");
+          }}
+        />
+      }
       availableTabs={availableTabs}
     >
       {publicProfileUserId ? (
@@ -129,16 +136,93 @@ function AuthenticatedApp({
   );
 }
 
-function AuthenticatedHeaderActions({ viewerShell }: { viewerShell: any }) {
+function AuthenticatedHeaderActions({
+  isAdmin,
+  viewerShell,
+  onOpenAdmin,
+}: {
+  isAdmin: boolean;
+  viewerShell: any;
+  onOpenAdmin: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
-    <div className="flex items-center gap-3">
-      <Avatar
-        avatarUrl={viewerShell?.profile?.avatarUrl ?? viewerShell?.user?.image}
-        name={viewerShell?.user?.name}
-        sizeClassName="w-9 h-9"
-        textClassName="text-sm"
-      />
-      <SignOutButton />
+    <div
+      ref={menuRef}
+      className="relative flex shrink-0 items-center"
+      onMouseEnter={() => setMenuOpen(true)}
+    >
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label="Open profile menu"
+        className={`rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+          menuOpen ? "ring-2 ring-primary/20" : ""
+        }`}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <Avatar
+          avatarUrl={viewerShell?.profile?.avatarUrl ?? viewerShell?.user?.image}
+          name={viewerShell?.user?.name}
+          sizeClassName="h-8 w-8 sm:h-9 sm:w-9"
+          textClassName="text-sm"
+        />
+      </button>
+
+      <div
+        className={`absolute right-0 top-full z-30 mt-2 w-40 origin-top-right rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg transition-all dark:border-gray-700 dark:bg-gray-900 ${
+          menuOpen
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-1 opacity-0"
+        }`}
+        role="menu"
+        aria-label="Profile menu"
+      >
+        {isAdmin && (
+          <button
+            type="button"
+            className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+            onClick={() => {
+              setMenuOpen(false);
+              onOpenAdmin();
+            }}
+            role="menuitem"
+          >
+            Admin
+          </button>
+        )}
+        <SignOutButton
+          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+          onClick={() => setMenuOpen(false)}
+          role="menuitem"
+        />
+      </div>
     </div>
   );
 }

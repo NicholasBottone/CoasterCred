@@ -8,7 +8,6 @@ const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "search", label: "Search", icon: "🔍" },
   { id: "rankings", label: "Rankings", icon: "🏆" },
   { id: "profile", label: "Profile", icon: "👤" },
-  { id: "admin", label: "Admin", icon: "🛠️" },
 ];
 
 export function AppShell({
@@ -31,19 +30,19 @@ export function AppShell({
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
-        <div className="flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🎢</span>
-            <span className="text-xl font-bold text-primary">CoasterCred</span>
+        <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-xl sm:text-2xl">🎢</span>
+            <span className="truncate text-lg font-bold text-primary sm:text-xl">CoasterCred</span>
           </div>
           {headerAction}
         </div>
         {banner}
       </header>
 
-      <main className="flex-1 pb-20">{children}</main>
+      <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom,0px)+0.75rem)]">{children}</main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
