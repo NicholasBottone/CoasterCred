@@ -6,6 +6,7 @@ import { formatDate } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
+import { MemberSearchPanel } from "../components/MemberSearchPanel";
 
 export function ProfilePage({
   onViewPublicProfile,
@@ -146,7 +147,9 @@ export function ProfilePage({
             {showSearch ? "Hide" : "Search"}
           </button>
         </div>
-        {showSearch && <UserSearch viewerUserId={viewerShell?.user?._id ?? dashboard?.user?._id ?? null} />}
+        {showSearch && (
+          <MemberSearchPanel viewerUserId={viewerShell?.user?._id ?? dashboard?.user?._id ?? null} />
+        )}
       </div>
 
       <div className="surface-card p-4 mb-4">
@@ -292,89 +295,5 @@ function GoogleProviderIcon({ className }: { className?: string }) {
     <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="currentColor">
       <path d="M21.35 11.1H12v2.98h5.38c-.48 3.04-3.08 4.34-5.37 4.34a6.42 6.42 0 0 1 0-12.84 5.9 5.9 0 0 1 4.16 1.64l2.12-2.16A8.93 8.93 0 0 0 12 2.5a9.5 9.5 0 1 0 0 19 8.62 8.62 0 0 0 8.98-8.98 7.4 7.4 0 0 0-.13-1.42Z" />
     </svg>
-  );
-}
-
-function UserSearch({ viewerUserId }: { viewerUserId: string | null }) {
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const results = useQuery(api.profiles.searchUsers, { q: debouncedQ });
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedQ(q.trim());
-    }, 250);
-
-    return () => clearTimeout(timeout);
-  }, [q]);
-
-  return (
-    <div>
-      <input
-        type="text"
-        placeholder="Search by display name or exact username..."
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="input-field mb-2"
-      />
-      {results && results.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {results
-            .filter((u: any) => u._id !== viewerUserId)
-            .map((u: any) => (
-              <UserRow key={u._id} user={u} />
-            ))}
-        </div>
-      )}
-      {results && results.length === 0 && q.trim() && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-2">No users found</p>
-      )}
-    </div>
-  );
-}
-
-function UserRow({ user }: { user: any }) {
-  const follow = useMutation(api.profiles.follow);
-  const unfollow = useMutation(api.profiles.unfollow);
-
-  const handleToggle = async () => {
-    try {
-      if (user.isFollowing) {
-        await unfollow({ targetUserId: user._id });
-        toast.success("Unfollowed");
-      } else {
-        await follow({ targetUserId: user._id });
-        toast.success("Following!");
-      }
-    } catch (e: any) {
-      toast.error(getErrorMessage(e, "Could not update follow status"));
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
-      <Avatar
-        avatarUrl={user.profile?.avatarUrl}
-        name={user.name}
-        sizeClassName="w-8 h-8"
-        textClassName="text-sm"
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{user.name ?? "Enthusiast"}</p>
-        {user.profile?.username && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">@{user.profile.username}</p>
-        )}
-      </div>
-      <button
-        onClick={handleToggle}
-        className={`text-xs px-3 py-1.5 rounded-lg font-medium shrink-0 ${
-          user.isFollowing
-            ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-200"
-            : "bg-primary text-white"
-        }`}
-      >
-        {user.isFollowing ? "Following" : "Follow"}
-      </button>
-    </div>
   );
 }

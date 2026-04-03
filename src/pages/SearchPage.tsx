@@ -5,8 +5,50 @@ import { toast } from "sonner";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
 import { getErrorMessage } from "../lib/errors";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { MemberSearchPanel } from "../components/MemberSearchPanel";
 
 export function SearchPage() {
+  const [mode, setMode] = useState<"coasters" | "members">("coasters");
+  const viewerShell = useQuery(api.profiles.getViewerShell);
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-4">
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Search</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {([
+            { id: "coasters", label: "Coasters" },
+            { id: "members", label: "Members" },
+          ] as const).map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setMode(option.id)}
+              className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                mode === option.id
+                  ? "bg-primary text-white shadow-sm"
+                  : "surface-subtle interactive-lift text-gray-700 dark:text-gray-200"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === "coasters" ? (
+        <CoasterSearchPanel />
+      ) : (
+        <MemberSearchPanel
+          viewerUserId={viewerShell?.user?._id ?? null}
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
+
+function CoasterSearchPanel() {
   const [search, setSearch] = useState("");
   const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
   const [results, setResults] = useState<CoasterSummary[]>([]);
@@ -71,11 +113,12 @@ export function SearchPage() {
   );
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
+    <>
       <div className="mb-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Search Coasters</h2>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Search by coaster name or park to log a ride.</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Search by coaster name or park to log a ride.
+        </p>
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
           Coaster data by{" "}
           <a
             href="https://coasterpedia.net/"
@@ -92,15 +135,15 @@ export function SearchPage() {
       <input
         ref={inputRef}
         type="text"
-        placeholder="Search for a coaster or a member"
+        placeholder="Search for a coaster"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="input-field px-4 py-2.5 mb-4"
+        className="input-field mb-4 px-4 py-2.5"
       />
 
       {searching || (!topCoasters && !search.trim()) ? (
         <div className="flex justify-center py-10">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -113,20 +156,15 @@ export function SearchPage() {
             />
           ))}
           {displayResults.length === 0 && (
-      <p className="text-center text-gray-400 dark:text-gray-500 py-8 text-sm">
+            <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
               {search.trim() ? "No coasters found" : "No local coasters yet"}
             </p>
           )}
         </div>
       )}
 
-      {selectedCoaster && (
-        <CoasterModal
-          coaster={selectedCoaster}
-          onClose={() => setSelectedCoaster(null)}
-        />
-      )}
-    </div>
+      {selectedCoaster && <CoasterModal coaster={selectedCoaster} onClose={() => setSelectedCoaster(null)} />}
+    </>
   );
 }
 
