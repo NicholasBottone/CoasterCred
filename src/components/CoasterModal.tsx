@@ -89,6 +89,7 @@ export function CoasterModal({
   );
 
   const currentRanking = profileData?.myRankings?.find((item: any) => item.coasterId === localCoasterId);
+  const hasCurrentRank = typeof profileData?.myStats?.currentRank === "number";
   const comparisonIndex =
     comparisonBounds === null
       ? null
@@ -454,7 +455,9 @@ export function CoasterModal({
                 </div>
               ) : (
                 <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-                  {rankedCoasters.length === 0
+                  {hasCurrentRank
+                    ? "Logging another ride adds it to your history. Use Re-rank if you want to move it in your list."
+                    : rankedCoasters.length === 0
                     ? "This will become your first ranked coaster."
                     : "Open the comparison flow to place this coaster into your list."}
                 </div>
@@ -468,11 +471,11 @@ export function CoasterModal({
                 >
                   {comparisonTarget
                     ? "Restart Comparisons"
-                    : typeof profileData?.myStats?.currentRank === "number"
+                    : hasCurrentRank
                       ? "Log Ride"
                       : "Log and Rank Ride"}
                 </button>
-                {typeof profileData?.myStats?.currentRank === "number" && (
+                {hasCurrentRank && (
                   <button
                     onClick={() => setComparisonBounds({ low: 0, high: rankedCoasters.length })}
                     disabled={saving}
