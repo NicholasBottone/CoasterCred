@@ -37,6 +37,7 @@ export default defineConfig(({ mode }) => ({
       },
       devOptions: {
         enabled: true,
+        suppressWarnings: true,
       },
     }),
     // The code below enables dev tools like taking screenshots of your site
