@@ -15,8 +15,8 @@ export default defineConfig(({ mode }) => ({
         short_name: "CoasterCred",
         description:
           "CoasterCred is a social coaster ranking app where you log rides, compare coasters head-to-head, and see how your friends stack their favorites.",
-        theme_color: "#f97316",
-        background_color: "#ffffff",
+        theme_color: "#ffffff",
+        background_color: "#f9fafb",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
