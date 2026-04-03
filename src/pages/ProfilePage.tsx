@@ -7,6 +7,7 @@ import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { MemberSearchPanel } from "../components/MemberSearchPanel";
+import { SignOutButton } from "../SignOutButton";
 
 export function ProfilePage({
   onViewPublicProfile,
@@ -197,6 +198,10 @@ export function ProfilePage({
             ))}
           </div>
         )}
+      </div>
+
+      <div className="surface-card mt-4 p-4">
+        <SignOutButton className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800" />
       </div>
 
       {/* Edit Modal */}
