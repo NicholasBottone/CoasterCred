@@ -40,9 +40,9 @@ export function AppShell({
         {banner}
       </header>
 
-      <main className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom,0px)+0.75rem)]">{children}</main>
+      <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+0.375rem)]">{children}</main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.375rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.125rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
