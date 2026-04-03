@@ -48,8 +48,8 @@ export function RankingsPage({
       <div className="max-w-lg mx-auto px-4 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Rankings</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{selectedWindow.description}</p>
+            <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">Rankings</h2>
+            <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">{selectedWindow.description}</p>
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -63,7 +63,7 @@ export function RankingsPage({
                 </option>
               ))}
             </select>
-            <span className="text-sm text-gray-400 dark:text-gray-500">{leaderboard.length} riders</span>
+            <span className="ui-copy-disabled text-sm text-gray-400 dark:text-gray-500">{leaderboard.length} riders</span>
           </div>
         </div>
 

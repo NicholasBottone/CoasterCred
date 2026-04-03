@@ -40,6 +40,7 @@ export function MemberSearchPanel({
     <div>
       <input
         ref={inputRef}
+        data-search-autofocus={autoFocus ? "true" : undefined}
         type="text"
         placeholder="Search by display name or exact username..."
         value={q}

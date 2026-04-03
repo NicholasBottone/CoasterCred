@@ -1,4 +1,5 @@
 import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
+import { flushSync } from "react-dom";
 import { Toaster } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
@@ -17,6 +18,12 @@ import { DemoApp } from "./demo/DemoApp";
 type ThemeMode = "auto" | "light" | "dark";
 
 const THEME_STORAGE_KEY = "coastercred-theme";
+
+function focusSearchInput() {
+  const input = document.querySelector<HTMLInputElement>('[data-search-autofocus="true"]');
+  input?.focus();
+  input?.select();
+}
 
 export default function App() {
   const { isLoading } = useConvexAuth();
@@ -90,13 +97,24 @@ function AuthenticatedApp({
     }
   }, [isAdmin, tab, viewerShell]);
 
+  const handleSelectTab = (nextTab: Tab) => {
+    if (nextTab === "search") {
+      flushSync(() => {
+        setPublicProfileUserId(null);
+        setTab("search");
+      });
+      focusSearchInput();
+      return;
+    }
+
+    setPublicProfileUserId(null);
+    setTab(nextTab);
+  };
+
   return (
     <AppShell
       tab={tab}
-      onSelectTab={(nextTab) => {
-        setPublicProfileUserId(null);
-        setTab(nextTab);
-      }}
+      onSelectTab={handleSelectTab}
       headerAction={
         <AuthenticatedHeaderActions
           isAdmin={isAdmin}
@@ -120,10 +138,7 @@ function AuthenticatedApp({
           {tab === "feed" && (
             <FeedPage
               onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
-              onOpenSearch={() => {
-                setPublicProfileUserId(null);
-                setTab("search");
-              }}
+              onOpenSearch={() => handleSelectTab("search")}
             />
           )}
           {tab === "myList" && <MyListPage />}

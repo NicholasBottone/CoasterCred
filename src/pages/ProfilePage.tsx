@@ -109,13 +109,13 @@ export function ProfilePage({
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="surface-subtle p-3 text-center">
             <p className="text-2xl font-bold text-primary">{uniqueCoasterCount}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
+            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
           </div>
           <div className="surface-subtle p-3 text-center">
             <p className="text-lg font-bold text-primary truncate">
               {dashboard?.topCoaster?.name ?? "—"}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Current #1</p>
+            <p className="ui-copy-disabled mt-2 text-xs text-gray-500 dark:text-gray-400">Current #1</p>
           </div>
         </div>
 
@@ -125,14 +125,14 @@ export function ProfilePage({
             className="surface-subtle interactive-lift p-3 text-center"
           >
             <p className="text-2xl font-bold text-primary">{dashboard?.followerCount ?? 0}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Followers</p>
+            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Followers</p>
           </button>
           <button
             onClick={() => setConnectionsKind("following")}
             className="surface-subtle interactive-lift p-3 text-center"
           >
             <p className="text-2xl font-bold text-primary">{dashboard?.followingCount ?? 0}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Following</p>
+            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Following</p>
           </button>
         </div>
       </div>
@@ -140,7 +140,7 @@ export function ProfilePage({
       {/* Find Friends */}
       <div className="surface-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Find Friends</h3>
+          <h3 className="ui-copy-disabled font-semibold text-gray-800 dark:text-gray-100">Find Friends</h3>
           <button
             onClick={() => setShowSearch(!showSearch)}
             className="text-xs text-primary font-medium transition-colors hover:text-primary-hover"
@@ -154,7 +154,7 @@ export function ProfilePage({
       </div>
 
       <div className="surface-card p-4 mb-4">
-        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Appearance</h3>
+        <h3 className="ui-copy-disabled mb-3 font-semibold text-gray-800 dark:text-gray-100">Appearance</h3>
         <div className="grid grid-cols-3 gap-2">
           {([
             { value: "auto", label: "Auto" },
@@ -178,7 +178,7 @@ export function ProfilePage({
 
       {/* Recent Rides */}
       <div className="surface-card p-4">
-        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-3">Recent Rides</h3>
+        <h3 className="ui-copy-disabled mb-3 font-semibold text-gray-800 dark:text-gray-100">Recent Rides</h3>
         {!dashboard?.recentRides || dashboard.recentRides.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No rides logged yet</p>
         ) : (

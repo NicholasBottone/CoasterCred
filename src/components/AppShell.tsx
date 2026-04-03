@@ -28,8 +28,8 @@ export function AppShell({
   const visibleNavItems = NAV_ITEMS.filter((item) => availableTabs?.includes(item.id) ?? true);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      <header className="app-chrome sticky top-0 z-20 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
         <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xl sm:text-2xl">🎢</span>
@@ -40,9 +40,11 @@ export function AppShell({
         {banner}
       </header>
 
-      <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+0.375rem)]">{children}</main>
+      <main className="flex-1 overflow-y-auto overscroll-none pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+0.375rem)]">
+        {children}
+      </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.125rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+      <nav className="app-chrome fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.125rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
         {visibleNavItems.map((item) => (
           <button
             key={item.id}

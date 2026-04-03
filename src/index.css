@@ -7,6 +7,17 @@
   --color-dark: #171717;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 .accent-text {
   @apply text-slate-600;
 }
@@ -33,6 +44,32 @@ body {
   background: var(--color-light);
 }
 
+button,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+.app-chrome,
+.app-chrome * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.ui-copy-disabled {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .surface-card {
   @apply rounded-2xl border border-gray-200 bg-white shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900;
 }
@@ -42,7 +79,7 @@ body {
 }
 
 .input-field {
-  @apply w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500;
+  @apply w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 shadow-sm outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500 sm:text-sm;
 }
 
 .interactive-lift {
@@ -51,7 +88,7 @@ body {
 
 /* only use this to update the style of the auth input fields. use a different class for all other input fields */
 .auth-input-field {
-  @apply w-full px-4 py-3 rounded-container bg-white border border-gray-200 text-gray-900 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-shadow shadow-sm hover:shadow dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500;
+  @apply w-full rounded-container border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none transition-shadow shadow-sm hover:shadow focus:border-primary focus:ring-1 focus:ring-primary dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500;
 }
 
 /* only use this to update the style of the auth buttons. use the button class for all other buttons */

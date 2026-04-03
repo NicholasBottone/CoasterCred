@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
+import { flushSync } from "react-dom";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
@@ -7,14 +8,26 @@ import { getErrorMessage } from "../lib/errors";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { MemberSearchPanel } from "../components/MemberSearchPanel";
 
+function focusSearchInput() {
+  const input = document.querySelector<HTMLInputElement>('[data-search-autofocus="true"]');
+  input?.focus();
+  input?.select();
+}
+
 export function SearchPage() {
   const [mode, setMode] = useState<"coasters" | "members">("coasters");
   const viewerShell = useQuery(api.profiles.getViewerShell);
 
+  const handleSelectMode = (nextMode: "coasters" | "members") => {
+    flushSync(() => {
+      setMode(nextMode);
+    });
+    focusSearchInput();
+  };
+
   return (
     <div className="max-w-lg mx-auto px-4 py-4">
       <div className="mb-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Search</h2>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {([
             { id: "coasters", label: "Coasters" },
@@ -23,7 +36,7 @@ export function SearchPage() {
             <button
               key={option.id}
               type="button"
-              onClick={() => setMode(option.id)}
+              onClick={() => handleSelectMode(option.id)}
               className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                 mode === option.id
                   ? "bg-primary text-white shadow-sm"
@@ -114,11 +127,20 @@ function CoasterSearchPanel() {
 
   return (
     <>
+      <input
+        ref={inputRef}
+        data-search-autofocus="true"
+        type="text"
+        placeholder="Search for a coaster"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="input-field mb-2 px-4 py-2.5"
+      />
       <div className="mb-4">
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          Search by coaster name or park to log a ride.
+        <p className="ui-copy-disabled mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Search by coaster name (or coaster name + park) to log a ride.
         </p>
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+        <p className="ui-copy-disabled mt-1 text-xs text-gray-400 dark:text-gray-500">
           Coaster data by{" "}
           <a
             href="https://coasterpedia.net/"
@@ -131,16 +153,6 @@ function CoasterSearchPanel() {
           , licensed under CC-BY-SA 3.0.
         </p>
       </div>
-
-      <input
-        ref={inputRef}
-        type="text"
-        placeholder="Search for a coaster"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="input-field mb-4 px-4 py-2.5"
-      />
-
       {searching || (!topCoasters && !search.trim()) ? (
         <div className="flex justify-center py-10">
           <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>

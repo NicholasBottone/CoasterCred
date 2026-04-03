@@ -45,10 +45,10 @@ export function MyListPage() {
     <>
       <div className="max-w-lg mx-auto px-4 py-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">My List</h2>
-          <span className="text-sm text-gray-400 dark:text-gray-500">{rankings.length} coasters</span>
+          <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">My List</h2>
+          <span className="ui-copy-disabled text-sm text-gray-400 dark:text-gray-500">{rankings.length} coasters</span>
         </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+        <p className="ui-copy-disabled mb-3 text-xs text-gray-400 dark:text-gray-500">
           Head-to-head logging builds your list. Use arrows here for quick manual tweaks.
         </p>
         <div className="flex flex-col gap-2">

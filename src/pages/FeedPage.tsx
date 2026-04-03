@@ -47,7 +47,7 @@ export function FeedPage({
           <span aria-hidden="true" className="text-base leading-none">🔍</span>
           <span>Search for a coaster or a member</span>
         </button>
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Activity Feed</h2>
+        <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">Activity Feed</h2>
         {feed.map((item: any) => (
           <FeedCard
             key={item._id}
