@@ -10,8 +10,10 @@ import { getCoasterTypeBadgeClasses, getRideEventBadgeClasses } from "../lib/bad
 
 export function FeedPage({
   onViewPublicProfile,
+  onOpenSearch,
 }: {
   onViewPublicProfile: (userId: string) => void;
+  onOpenSearch: () => void;
 }) {
   const feed = useQuery(api.rideLogs.getFeed);
   const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
@@ -36,6 +38,15 @@ export function FeedPage({
   return (
     <>
       <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className="surface-card flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-gray-500 transition-colors hover:border-primary/30 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          aria-label="Search for a coaster or a member"
+        >
+          <span aria-hidden="true" className="text-base leading-none">🔍</span>
+          <span>Search for a coaster or a member</span>
+        </button>
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Activity Feed</h2>
         {feed.map((item: any) => (
           <FeedCard

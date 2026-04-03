@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -11,9 +11,19 @@ export function SearchPage() {
   const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
   const [results, setResults] = useState<CoasterSummary[]>([]);
   const [searching, setSearching] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const topCoasters = useQuery(api.coasters.getTopCoasters);
   const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     const queryText = search.trim();
@@ -80,8 +90,9 @@ export function SearchPage() {
       </div>
 
       <input
+        ref={inputRef}
         type="text"
-        placeholder="Search coasters..."
+        placeholder="Search for a coaster or a member"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="input-field px-4 py-2.5 mb-4"

@@ -117,7 +117,15 @@ function AuthenticatedApp({
         />
       ) : (
         <>
-          {tab === "feed" && <FeedPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
+          {tab === "feed" && (
+            <FeedPage
+              onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
+              onOpenSearch={() => {
+                setPublicProfileUserId(null);
+                setTab("search");
+              }}
+            />
+          )}
           {tab === "myList" && <MyListPage />}
           {tab === "search" && <SearchPage />}
           {tab === "rankings" && <RankingsPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
