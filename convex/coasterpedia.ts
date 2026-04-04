@@ -37,7 +37,9 @@ function cleanWikiText(value: string | undefined) {
 }
 
 function parseInfobox(wikitext: string) {
-  const match = wikitext.match(/\{\{Infobox roller coaster([\s\S]*?)\n\}\}/i);
+  const match = wikitext.match(
+    /\{\{Infobox (?:roller coaster|coaster multitrack)([\s\S]*?)\n\}\}/i,
+  );
   if (!match) {
     throw new Error("Could not find coaster infobox");
   }
@@ -152,4 +154,47 @@ export function buildApiUrl(params: Record<string, string>) {
     ...params,
   });
   return `${COASTERPEDIA_API}?${searchParams.toString()}`;
+}
+
+export async function fetchCoasterpediaPages(params: Record<string, string>) {
+  const details = await fetchJson(
+    buildApiUrl({
+      action: "query",
+      prop: "info|revisions",
+      inprop: "url",
+      rvprop: "content",
+      rvslots: "main",
+      redirects: "1",
+      ...params,
+    }),
+  );
+  return Object.values((details as any).query?.pages ?? {}) as any[];
+}
+
+export async function searchCoasterpediaTitles(queryText: string) {
+  const openSearchResults = (await fetchJson(
+    buildApiUrl({
+      action: "opensearch",
+      search: queryText,
+      limit: "8",
+      namespace: "0",
+    }),
+  )) as [string, string[], string[], string[]];
+
+  return (openSearchResults[1] ?? []).filter(Boolean);
+}
+
+export async function fetchCoasterpediaPageById(sourceId: string) {
+  const details = await fetchJson(
+    buildApiUrl({
+      action: "query",
+      pageids: sourceId,
+      prop: "info|revisions",
+      inprop: "url",
+      rvprop: "content",
+      rvslots: "main",
+    }),
+  );
+
+  return (details as any).query?.pages?.[sourceId] ?? null;
 }
