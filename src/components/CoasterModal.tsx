@@ -47,13 +47,32 @@ export function CoasterModal({
   const [saving, setSaving] = useState(false);
   const [comparisonBounds, setComparisonBounds] = useState<{ low: number; high: number } | null>(null);
   const [isLogOpen, setIsLogOpen] = useState(false);
+  const [isRideHistoryOpen, setIsRideHistoryOpen] = useState(false);
+  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [showAllFollowedRiders, setShowAllFollowedRiders] = useState(false);
+  const [rideHistoryLimit, setRideHistoryLimit] = useState(10);
+  const [shouldLoadComparisonList, setShouldLoadComparisonList] = useState(false);
+  const [isRerankRequested, setIsRerankRequested] = useState(false);
 
   const profileData = useQuery(api.coasters.getCoasterProfile, {
     coasterId: localCoasterId ? (localCoasterId as any) : undefined,
     source: coaster.source,
     sourceId: coaster.sourceId,
   });
+  const rideHistory = useQuery(
+    api.rideLogs.getMyLogsForCoaster,
+    localCoasterId && isRideHistoryOpen
+      ? { coasterId: localCoasterId as any, limit: rideHistoryLimit }
+      : "skip",
+  );
+  const followedRiders = useQuery(
+    api.coasters.getCoasterFollowedRiders,
+    localCoasterId && isFriendsOpen ? { coasterId: localCoasterId as any } : "skip",
+  );
+  const comparisonRankings = useQuery(
+    api.rankings.getMyRankingComparisonList,
+    shouldLoadComparisonList ? {} : "skip",
+  );
   const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
   const removeLog = useMutation(api.rideLogs.removeLog);
   const materializeCoaster = useAction(api.coasters.materializeCoasterpediaCoaster);
@@ -64,7 +83,12 @@ export function CoasterModal({
     setRideDate(todayDateInputValue());
     setComparisonBounds(null);
     setIsLogOpen(false);
+    setIsRideHistoryOpen(false);
+    setIsFriendsOpen(false);
     setShowAllFollowedRiders(false);
+    setRideHistoryLimit(10);
+    setShouldLoadComparisonList(false);
+    setIsRerankRequested(false);
   }, [coaster._id, coaster.sourceId, coaster.imageUrl]);
 
   useEffect(() => {
@@ -77,18 +101,18 @@ export function CoasterModal({
   const loadingData =
     profileData === undefined ||
     (localCoasterId !== undefined && profileData?.myStats === undefined);
+  const loadingComparison = shouldLoadComparisonList && comparisonRankings === undefined;
 
   const displayCoaster = (profileData?.localCoaster as CoasterSummary | null) ?? coaster;
-  const rideHistory = profileData?.myStats?.rideHistory ?? [];
-  const followedRiders = profileData?.followedRiders ?? [];
-  const visibleFollowedRiders = showAllFollowedRiders ? followedRiders : followedRiders.slice(0, 5);
+  const loadedRideHistory = rideHistory ?? [];
+  const loadedFollowedRiders = followedRiders ?? [];
+  const visibleFollowedRiders = showAllFollowedRiders ? loadedFollowedRiders : loadedFollowedRiders.slice(0, 5);
 
   const rankedCoasters = useMemo(
-    () => (profileData?.myRankings ?? []).filter((item: any) => item.coasterId !== localCoasterId),
-    [localCoasterId, profileData?.myRankings],
+    () => (comparisonRankings ?? []).filter((item: any) => item.coasterId !== localCoasterId),
+    [comparisonRankings, localCoasterId],
   );
 
-  const currentRanking = profileData?.myRankings?.find((item: any) => item.coasterId === localCoasterId);
   const hasCurrentRank = typeof profileData?.myStats?.currentRank === "number";
   const comparisonIndex =
     comparisonBounds === null
@@ -135,19 +159,57 @@ export function CoasterModal({
     if (loadingData) return;
 
     setIsLogOpen(true);
+    setShouldLoadComparisonList(true);
 
     if (typeof profileData?.myStats?.currentRank === "number") {
       await saveRide();
       return;
     }
+  };
 
-    if (rankedCoasters.length === 0) {
-      await saveRide(1);
+  useEffect(() => {
+    if (!isLogOpen || !shouldLoadComparisonList || hasCurrentRank || loadingComparison || saving) {
       return;
     }
-
+    if (comparisonBounds !== null) {
+      return;
+    }
+    if (!comparisonRankings) {
+      return;
+    }
+    if (rankedCoasters.length === 0) {
+      void saveRide(1);
+      return;
+    }
     setComparisonBounds({ low: 0, high: rankedCoasters.length });
-  };
+  }, [
+    comparisonBounds,
+    comparisonRankings,
+    hasCurrentRank,
+    isLogOpen,
+    loadingComparison,
+    rankedCoasters.length,
+    saving,
+    shouldLoadComparisonList,
+  ]);
+
+  useEffect(() => {
+    if (!isLogOpen || !isRerankRequested || loadingComparison || comparisonBounds !== null) {
+      return;
+    }
+    if (!comparisonRankings || rankedCoasters.length === 0) {
+      return;
+    }
+    setComparisonBounds({ low: 0, high: rankedCoasters.length });
+    setIsRerankRequested(false);
+  }, [
+    comparisonBounds,
+    comparisonRankings,
+    isLogOpen,
+    isRerankRequested,
+    loadingComparison,
+    rankedCoasters.length,
+  ]);
 
   const handleComparisonChoice = async (winner: "selected" | "other") => {
     if (comparisonBounds === null || comparisonTarget === null) return;
@@ -181,6 +243,10 @@ export function CoasterModal({
   const toggleLogSection = () => {
     if (comparisonBounds !== null) {
       setComparisonBounds(null);
+    }
+    if (isLogOpen) {
+      setShouldLoadComparisonList(false);
+      setIsRerankRequested(false);
     }
     setIsLogOpen((current) => !current);
   };
@@ -242,135 +308,155 @@ export function CoasterModal({
         <div className="mb-4 grid gap-4 md:grid-cols-2">
           <section className="surface-subtle p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">In CoasterCred</h4>
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">Community snapshot</span>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">On CoasterCred</h4>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Metric label="Unique riders" value={profileData?.appStats?.uniqueRiderCount ?? 0} />
               <Metric label="Total logs" value={profileData?.appStats?.totalLogCount ?? 0} />
-              <Metric label="Followed riders" value={profileData?.followedRiderCount ?? 0} />
-              <Metric
-                label="Friends avg"
-                value={
-                  typeof profileData?.averageFollowedRiderScore === "number"
-                    ? profileData.averageFollowedRiderScore.toFixed(1)
-                    : "—"
-                }
-              />
             </div>
           </section>
 
           <section className="surface-subtle p-4 flex flex-col">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Your status</h4>
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                {profileData?.myStats?.hasRidden ? "Ridden" : "Not ridden yet"}
-              </span>
             </div>
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="grid grid-cols-3 gap-2">
-                <Metric label="Ride count" value={profileData?.myStats?.rideCount ?? 0} />
-                <Metric
-                  label="Rank"
-                  value={
-                    typeof profileData?.myStats?.currentRank === "number"
-                      ? `#${profileData.myStats.currentRank}`
-                      : "—"
-                  }
-                />
-                <Metric
-                  label="Score"
-                  value={
-                    typeof profileData?.myStats?.currentScore === "number"
-                      ? profileData.myStats.currentScore.toFixed(1)
-                      : "—"
-                  }
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Metric label="Ride count" value={profileData?.myStats?.rideCount ?? 0} />
+              <Metric
+                label="Rank"
+                value={
+                  typeof profileData?.myStats?.currentRank === "number"
+                    ? `#${profileData.myStats.currentRank}`
+                    : "—"
+                }
+              />
             </div>
           </section>
         </div>
 
         <section className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
-          <div className="mb-3 flex items-center justify-between">
+          <button
+            onClick={() => setIsFriendsOpen((current) => !current)}
+            className="flex w-full items-center justify-between text-left"
+          >
             <div>
               <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Friends who rode this</h4>
-              <p className="text-xs text-gray-400 dark:text-gray-500">People you follow who have logged this coaster</p>
             </div>
-            {followedRiders.length > 5 && (
-              <button
-                onClick={() => setShowAllFollowedRiders((current) => !current)}
-                className="text-xs font-medium text-primary transition-colors hover:text-primary-hover"
-              >
-                {showAllFollowedRiders ? "Show less" : `View all (${followedRiders.length})`}
-              </button>
-            )}
-          </div>
+            <ExpandIcon isOpen={isFriendsOpen} />
+          </button>
 
-          {profileData && followedRiders.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">None of the riders you follow have logged this yet.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {visibleFollowedRiders.map((entry: any) => (
-                <div
-                  key={entry.user._id}
-                  className="surface-subtle flex items-center gap-3 px-3 py-3"
-                >
-                  <Avatar
-                    avatarUrl={entry.profile?.avatarUrl}
-                    name={entry.user?.name}
-                    sizeClassName="w-9 h-9"
-                    textClassName="text-sm"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {entry.user?.name ?? "Unknown rider"}
+          {isFriendsOpen && (
+            <div className="mt-3">
+              {loadedFollowedRiders === undefined ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading followed riders...</p>
+              ) : loadedFollowedRiders.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">None of the riders you follow have logged this yet.</p>
+              ) : (
+                <>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      {loadedFollowedRiders.length} followed rider{loadedFollowedRiders.length === 1 ? "" : "s"}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {entry.lastRideDate ? `Last ride ${formatDate(entry.lastRideDate)}` : "Ride date unavailable"}
-                      {typeof entry.rank === "number" ? ` · #${entry.rank}` : ""}
-                    </p>
+                    {loadedFollowedRiders.length > 5 && (
+                      <button
+                        onClick={() => setShowAllFollowedRiders((current) => !current)}
+                        className="text-xs font-medium text-primary transition-colors hover:text-primary-hover"
+                      >
+                        {showAllFollowedRiders ? "Show less" : `View all (${loadedFollowedRiders.length})`}
+                      </button>
+                    )}
                   </div>
-                  {typeof entry.score === "number" ? (
-                    <ScoreBadge score={entry.score} size="sm" />
-                  ) : (
-                    <span className="rounded-full border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                      Unranked
-                    </span>
-                  )}
-                </div>
-              ))}
+                  <div className="flex flex-col gap-2">
+                    {visibleFollowedRiders.map((entry: any) => (
+                      <div
+                        key={entry.user._id}
+                        className="surface-subtle flex items-center gap-3 px-3 py-3"
+                      >
+                        <Avatar
+                          avatarUrl={entry.profile?.avatarUrl}
+                          name={entry.user?.name}
+                          sizeClassName="w-9 h-9"
+                          textClassName="text-sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {entry.user?.name ?? "Unknown rider"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {entry.lastRideDate ? `Last ride ${formatDate(entry.lastRideDate)}` : "Ride date unavailable"}
+                            {typeof entry.rank === "number" ? ` · #${entry.rank}` : ""}
+                          </p>
+                        </div>
+                        {typeof entry.score === "number" ? (
+                          <ScoreBadge score={entry.score} size="sm" />
+                        ) : (
+                          <span className="rounded-full border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                            {entry.rideCount} ride{entry.rideCount === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </section>
 
-        {rideHistory.length > 0 && (
-          <section className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Your ride history</h4>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{rideHistory.length} logged</span>
+        <section className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
+          <button
+            onClick={() => setIsRideHistoryOpen((current) => !current)}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <div>
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">My ride history</h4>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {profileData?.myStats?.rideCount ?? 0} total ride{(profileData?.myStats?.rideCount ?? 0) === 1 ? "" : "s"} for this coaster
+              </p>
             </div>
-            <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
-              {rideHistory.map((log: any) => (
-                <div key={log._id} className="surface-subtle interactive-lift flex items-start gap-3 px-3 py-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{formatDate(log.rideDate)}</p>
-                    {log.notes && (
-                      <p className="mt-0.5 break-words text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>
-                    )}
+            <ExpandIcon isOpen={isRideHistoryOpen} />
+          </button>
+
+          {isRideHistoryOpen && (
+            <div className="mt-3">
+              {loadedRideHistory === undefined ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading ride history...</p>
+              ) : loadedRideHistory.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No rides logged yet.</p>
+              ) : (
+                <>
+                  <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+                    {loadedRideHistory.map((log: any) => (
+                      <div key={log._id} className="surface-subtle interactive-lift flex items-start gap-3 px-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-100">{formatDate(log.rideDate)}</p>
+                          {log.notes && (
+                            <p className="mt-0.5 break-words text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => void handleRemove(log._id)}
+                          disabled={saving}
+                          className="text-xs font-medium text-red-500 transition-colors hover:text-red-400 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => void handleRemove(log._id)}
-                    disabled={saving}
-                    className="text-xs font-medium text-red-500 transition-colors hover:text-red-400 disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                  {(profileData?.myStats?.rideCount ?? 0) > loadedRideHistory.length && (
+                    <button
+                      onClick={() => setRideHistoryLimit((current) => current + 10)}
+                      className="mt-3 text-xs font-medium text-primary transition-colors hover:text-primary-hover"
+                    >
+                      Show 10 more rides
+                    </button>
+                  )}
+                </>
+              )}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         <section className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950/40">
           <button
@@ -385,7 +471,7 @@ export function CoasterModal({
                   : "Log your first ride and place it in your rankings"}
               </p>
             </div>
-            <span className="text-sm font-medium text-primary">{isLogOpen ? "Hide" : "Open"}</span>
+            <ExpandIcon isOpen={isLogOpen} />
           </button>
 
           {isLogOpen && (
@@ -424,6 +510,10 @@ export function CoasterModal({
                 <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
                   Loading your current rankings...
                 </div>
+              ) : loadingComparison ? (
+                <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                  Loading the ranking comparison list...
+                </div>
               ) : comparisonTarget ? (
                 <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -457,9 +547,11 @@ export function CoasterModal({
                 <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
                   {hasCurrentRank
                     ? "Logging another ride adds it to your history. Use Re-rank if you want to move it in your list."
-                    : rankedCoasters.length === 0
+                    : shouldLoadComparisonList && rankedCoasters.length === 0
                     ? "This will become your first ranked coaster."
-                    : "Open the comparison flow to place this coaster into your list."}
+                    : shouldLoadComparisonList
+                      ? "Working out where this coaster belongs in your list."
+                      : "Open the comparison flow to place this coaster into your list."}
                 </div>
               )}
 
@@ -477,8 +569,15 @@ export function CoasterModal({
                 </button>
                 {hasCurrentRank && (
                   <button
-                    onClick={() => setComparisonBounds({ low: 0, high: rankedCoasters.length })}
-                    disabled={saving}
+                    onClick={() => {
+                      setIsLogOpen(true);
+                      setIsRerankRequested(true);
+                      setShouldLoadComparisonList(true);
+                      if (rankedCoasters.length > 0) {
+                        setComparisonBounds({ low: 0, high: rankedCoasters.length });
+                      }
+                    }}
+                    disabled={saving || loadingComparison}
                     className="rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
                   >
                     Re-rank
@@ -520,5 +619,26 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <p className="text-lg font-bold text-primary">{value}</p>
       <p className="text-[11px] text-gray-500 dark:text-gray-400">{label}</p>
     </div>
+  );
+}
+
+function ExpandIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+    className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+      width="32px"
+      height="32px"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M7 10L12 15L17 10"
+        stroke="#ffffff"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
   );
 }

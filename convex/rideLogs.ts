@@ -1,7 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { type Doc, Id } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { computeRankingScore } from "./rankings";
 
 const FEED_LIMIT = 50;
@@ -31,6 +32,10 @@ export const removeLog = mutation({
     if (!log || log.userId !== userId) throw new ConvexError("Ride log not found");
 
     await ctx.db.delete(log._id);
+    await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
+      userId,
+      coasterId: log.coasterId,
+    });
 
     const remainingLogs = await ctx.db
       .query("rideLogs")
@@ -110,18 +115,21 @@ export const getMyRideCountsForCoasters = query({
     const userId = await getAuthUserId(ctx);
     if (!userId || args.coasterIds.length === 0) return {};
 
-    const coasterIdSet = new Set(args.coasterIds.map((coasterId) => String(coasterId)));
-    const logs = await ctx.db
-      .query("rideLogs")
-      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-
     const counts: Record<string, number> = {};
-    for (const log of logs) {
-      const key = String(log.coasterId);
-      if (!coasterIdSet.has(key)) continue;
-      counts[key] = (counts[key] ?? 0) + 1;
+    const stats = await Promise.all(
+      args.coasterIds.map(async (coasterId) =>
+        await ctx.db
+          .query("userCoasterStats")
+          .withIndex("by_user_and_coaster", (q) =>
+            q.eq("userId", userId).eq("coasterId", coasterId),
+          )
+          .unique(),
+      ),
+    );
+
+    for (const stat of stats) {
+      if (!stat) continue;
+      counts[String(stat.coasterId)] = stat.rideCount;
     }
 
     return counts;
@@ -129,7 +137,10 @@ export const getMyRideCountsForCoasters = query({
 });
 
 export const getMyLogsForCoaster = query({
-  args: { coasterId: v.id("coasters") },
+  args: {
+    coasterId: v.id("coasters"),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
@@ -140,7 +151,9 @@ export const getMyLogsForCoaster = query({
       )
       .collect();
 
-    return logs.sort((a, b) => b.riddenAt - a.riddenAt);
+    const sorted = logs.sort((a, b) => b.riddenAt - a.riddenAt);
+    const limit = Math.max(1, Math.min(args.limit ?? 10, 100));
+    return sorted.slice(0, limit);
   },
 });
 
@@ -171,14 +184,12 @@ export const getFeed = query({
 
     const uniqueUserIds = [...new Set(candidateLogs.map((log) => String(log.userId)))];
     const uniqueCoasterIds = [...new Set(candidateLogs.map((log) => String(log.coasterId)))];
-    const uniquePairKeys = [
-      ...new Set(candidateLogs.map((log) => `${String(log.userId)}:${String(log.coasterId)}`)),
-    ];
+    const uniquePairKeys = [...new Set(candidateLogs.map((log) => `${String(log.userId)}:${String(log.coasterId)}`))];
 
     const userEntries = await Promise.all(
       uniqueUserIds.map(async (id) => {
         const nextUserId = id as Id<"users">;
-        const [user, profile, rankings, logs] = await Promise.all([
+        const [user, profile, rankingCount] = await Promise.all([
           ctx.db.get(nextUserId),
           ctx.db
             .query("userProfiles")
@@ -187,14 +198,10 @@ export const getFeed = query({
           ctx.db
             .query("rankings")
             .withIndex("by_user_and_rank", (q) => q.eq("userId", nextUserId))
-            .collect(),
-          ctx.db
-            .query("rideLogs")
-            .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", nextUserId))
-            .order("desc")
-            .collect(),
+            .collect()
+            .then((rankings) => rankings.length),
         ]);
-        return [id, { user, profile, rankings, logs }] as const;
+        return [id, { user, profile, rankingCount }] as const;
       })
     );
     const userMap = new Map(userEntries);
@@ -204,28 +211,38 @@ export const getFeed = query({
     );
     const coasterMap = new Map(coasterEntries);
 
-    const pairHistoryMap = new Map<string, Doc<"rideLogs">[]>();
-    for (const key of uniquePairKeys) {
-      pairHistoryMap.set(key, []);
-    }
-    for (const [userIdKey, userData] of userMap.entries()) {
-      for (const userLog of userData.logs) {
-        const key = `${userIdKey}:${String(userLog.coasterId)}`;
-        const pairHistory = pairHistoryMap.get(key);
-        if (pairHistory) {
-          pairHistory.push(userLog);
-        }
-      }
-    }
+    const pairEntries = await Promise.all(
+      uniquePairKeys.map(async (key) => {
+        const [rawUserId, rawCoasterId] = key.split(":");
+        const [stat, ranking] = await Promise.all([
+          ctx.db
+            .query("userCoasterStats")
+            .withIndex("by_user_and_coaster", (q) =>
+              q
+                .eq("userId", rawUserId as Id<"users">)
+                .eq("coasterId", rawCoasterId as Id<"coasters">),
+            )
+            .unique(),
+          ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_coaster", (q) =>
+              q
+                .eq("userId", rawUserId as Id<"users">)
+                .eq("coasterId", rawCoasterId as Id<"coasters">),
+            )
+            .unique(),
+        ]);
+        return [key, { stat, ranking }] as const;
+      }),
+    );
+    const pairMap = new Map(pairEntries);
 
     return candidateLogs.map((log) => {
       const userData = userMap.get(String(log.userId));
       const coaster = coasterMap.get(String(log.coasterId)) ?? null;
       const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
-      const pairHistory = pairHistoryMap.get(pairKey) ?? [];
-      const rideOrdinal = pairHistory.filter((historyLog) => historyLog.riddenAt <= log.riddenAt).length;
-      const rankings = userData?.rankings ?? [];
-      const currentRanking = rankings.find((ranking) => ranking.coasterId === log.coasterId);
+      const pairData = pairMap.get(pairKey);
+      const isFirstRide = pairData?.stat?.firstRiddenAt === log.riddenAt;
 
       return {
         ...log,
@@ -237,9 +254,13 @@ export const getFeed = query({
             }
           : null,
         profile: userData?.profile ?? null,
-        rideOrdinal,
-        isFirstRide: rideOrdinal === 1,
-        score: currentRanking ? computeRankingScore(currentRanking.rank, rankings.length) : null,
+        rideOrdinal: isFirstRide ? 1 : null,
+        isFirstRide,
+        rank: pairData?.ranking?.rank ?? null,
+        score:
+          pairData?.ranking && typeof userData?.rankingCount === "number" && userData.rankingCount > 0
+            ? computeRankingScore(pairData.ranking.rank, userData.rankingCount)
+            : null,
       };
     });
   },

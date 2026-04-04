@@ -58,9 +58,11 @@ export function UserConnectionsModal({
                   {entry.profile?.username && (
                     <p className="truncate text-xs text-gray-400 dark:text-gray-500">@{entry.profile.username}</p>
                   )}
-                  <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                    {entry.profile?.homepark ? `Home park: ${entry.profile.homepark}` : "No home park added yet"}
-                  </p>
+                  {entry.profile?.homepark && (
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                      Home park: {entry.profile.homepark}
+                    </p>
+                  )}
                 </div>
               </button>
             ))}

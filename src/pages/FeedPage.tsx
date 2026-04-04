@@ -100,7 +100,7 @@ function FeedCard({
     ? "Logged a past ride"
     : item.isFirstRide
       ? "First ride 🎉"
-      : `Ride #${item.rideOrdinal}`;
+      : "Repeat ride";
 
   return (
     <div className="surface-card interactive-lift rounded-xl p-4">
@@ -139,7 +139,13 @@ function FeedCard({
             <span className={getCoasterTypeBadgeClasses(coaster?.type)}>
               {coaster?.type}
             </span>
-            {typeof item.score === "number" && <ScoreBadge score={item.score} size="sm" />}
+            {typeof item.score === "number" ? (
+              <ScoreBadge score={item.score} size="sm" />
+            ) : typeof item.rank === "number" ? (
+              <span className="rounded-full border border-primary/20 px-2 py-1 text-[11px] font-medium text-primary dark:border-primary/30">
+                #{item.rank}
+              </span>
+            ) : null}
           </div>
         </div>
         {item.notes && (

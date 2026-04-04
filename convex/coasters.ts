@@ -12,6 +12,11 @@ import {
   searchCoasterpediaTitles,
   type ImportedCoaster,
 } from "./coasterpedia";
+import {
+  getCoasterStatsDoc,
+  getUserCoasterStatsDoc,
+  getTrendingCoasterIds,
+} from "./usageStats";
 
 export const searchCoasterpedia = action({
   args: { q: v.string() },
@@ -121,28 +126,9 @@ export const getCoasterProfile = query({
           hasRidden: false,
           rideCount: 0,
           currentRank: null,
-          currentScore: null,
-          rideHistory: [],
         },
-        myRankings: [],
-        followedRiders: [],
-        followedRiderCount: 0,
-        averageFollowedRiderScore: null,
       };
     }
-
-    const myAllRankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user_and_rank", (q) => q.eq("userId", viewerUserId))
-      .collect();
-    const myRankingCoasterIds = [...new Set(myAllRankings.map((ranking) => String(ranking.coasterId)))];
-    const myRankingCoasterEntries = await Promise.all(
-      myRankingCoasterIds.map(async (coasterId) => [
-        coasterId,
-        await ctx.db.get(coasterId as Id<"coasters">),
-      ] as const),
-    );
-    const myRankingCoasterMap = new Map(myRankingCoasterEntries);
 
     if (!localCoaster) {
       return {
@@ -155,31 +141,13 @@ export const getCoasterProfile = query({
           hasRidden: false,
           rideCount: 0,
           currentRank: null,
-          currentScore: null,
-          rideHistory: [],
         },
-        myRankings: myAllRankings.map((ranking) => ({
-          ...ranking,
-          coaster: myRankingCoasterMap.get(String(ranking.coasterId)) ?? null,
-          score: computeRankingScore(ranking.rank, myAllRankings.length),
-        })),
-        followedRiders: [],
-        followedRiderCount: 0,
-        averageFollowedRiderScore: null,
       };
     }
 
-    const [coasterLogs, myLogs, myRanking, follows] = await Promise.all([
-      ctx.db
-        .query("rideLogs")
-        .withIndex("by_coaster", (q) => q.eq("coasterId", localCoaster._id))
-        .collect(),
-      ctx.db
-        .query("rideLogs")
-        .withIndex("by_user_and_coaster", (q) =>
-          q.eq("userId", viewerUserId).eq("coasterId", localCoaster._id)
-        )
-        .collect(),
+    const [coasterStats, myStats, myRanking, myAllRankings] = await Promise.all([
+      getCoasterStatsDoc(ctx, localCoaster._id),
+      getUserCoasterStatsDoc(ctx, viewerUserId, localCoaster._id),
       ctx.db
         .query("rankings")
         .withIndex("by_user_and_coaster", (q) =>
@@ -187,147 +155,100 @@ export const getCoasterProfile = query({
         )
         .unique(),
       ctx.db
-        .query("follows")
-        .withIndex("by_follower", (q) => q.eq("followerId", viewerUserId))
+        .query("rankings")
+        .withIndex("by_user_and_rank", (q) => q.eq("userId", viewerUserId))
         .collect(),
     ]);
-
-    const followingIds = follows.map((follow) => follow.followingId);
-    const followingSet = new Set(followingIds.map((id) => String(id)));
-    const uniqueRiderCount = new Set(coasterLogs.map((log) => String(log.userId))).size;
-    const totalLogCount = coasterLogs.length;
-
-    const logsByUser = new Map<string, any[]>();
-    for (const log of coasterLogs) {
-      const key = String(log.userId);
-      const nextLogs = logsByUser.get(key) ?? [];
-      nextLogs.push(log);
-      logsByUser.set(key, nextLogs);
-    }
-
-    const followedRiderEntries = await Promise.all(
-      [...logsByUser.entries()]
-        .filter(([userId]) => followingSet.has(userId))
-        .map(async ([rawUserId, logs]) => {
-          const friendUserId = rawUserId as Id<"users">;
-          const [user, profile, ranking, allRankings] = await Promise.all([
-            ctx.db.get(friendUserId),
-            ctx.db
-              .query("userProfiles")
-              .withIndex("by_userId", (q) => q.eq("userId", friendUserId))
-              .unique(),
-            ctx.db
-              .query("rankings")
-              .withIndex("by_user_and_coaster", (q) =>
-                q.eq("userId", friendUserId).eq("coasterId", localCoaster._id)
-              )
-              .unique(),
-            ctx.db
-              .query("rankings")
-              .withIndex("by_user_and_rank", (q) => q.eq("userId", friendUserId))
-              .collect(),
-          ]);
-
-          if (!user) {
-            return null;
-          }
-
-          const lastRideAt = logs.reduce(
-            (latest, log) => Math.max(latest, log.riddenAt),
-            0,
-          );
-          const lastRideLog =
-            logs.slice().sort((a, b) => b.riddenAt - a.riddenAt)[0] ?? null;
-
-          return {
-            user: {
-              _id: user._id,
-              name: user.name,
-            },
-            profile,
-            rideCount: logs.length,
-            lastRideAt: lastRideAt || null,
-            lastRideDate: lastRideLog?.rideDate ?? null,
-            rank: ranking?.rank ?? null,
-            score:
-              ranking && allRankings.length > 0
-                ? computeRankingScore(ranking.rank, allRankings.length)
-                : null,
-          };
-        }),
-    );
-
-    const followedRiders = followedRiderEntries
-      .filter(Boolean)
-      .sort((a: any, b: any) => {
-        const scoreA = a?.score ?? -1;
-        const scoreB = b?.score ?? -1;
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        if ((b?.lastRideAt ?? 0) !== (a?.lastRideAt ?? 0)) {
-          return (b?.lastRideAt ?? 0) - (a?.lastRideAt ?? 0);
-        }
-        return (a?.user?.name ?? "").localeCompare(b?.user?.name ?? "");
-      });
-
-    const rankedFollowedRiders = followedRiders.filter((entry: any) => typeof entry.score === "number");
-    const averageFollowedRiderScore =
-      rankedFollowedRiders.length > 0
-        ? Math.round(
-            (rankedFollowedRiders.reduce((sum: number, entry: any) => sum + entry.score, 0) /
-              rankedFollowedRiders.length) *
-              10,
-          ) / 10
-        : null;
 
     return {
       localCoaster,
       appStats: {
-        uniqueRiderCount,
-        totalLogCount,
+        uniqueRiderCount: coasterStats?.uniqueRiderCount ?? 0,
+        totalLogCount: coasterStats?.totalLogCount ?? 0,
       },
       myStats: {
-        hasRidden: myLogs.length > 0,
-        rideCount: myLogs.length,
+        hasRidden: (myStats?.rideCount ?? 0) > 0,
+        rideCount: myStats?.rideCount ?? 0,
         currentRank: myRanking?.rank ?? null,
         currentScore:
           myRanking && myAllRankings.length > 0
             ? computeRankingScore(myRanking.rank, myAllRankings.length)
             : null,
-        rideHistory: myLogs.sort((a, b) => b.riddenAt - a.riddenAt),
       },
-      myRankings: myAllRankings.map((ranking) => ({
-        ...ranking,
-        coaster: myRankingCoasterMap.get(String(ranking.coasterId)) ?? null,
-        score: computeRankingScore(ranking.rank, myAllRankings.length),
-      })),
-      followedRiders,
-      followedRiderCount: followedRiders.length,
-      averageFollowedRiderScore,
     };
+  },
+});
+
+export const getCoasterFollowedRiders = query({
+  args: { coasterId: v.id("coasters") },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getAuthUserId(ctx);
+    if (!viewerUserId) return [];
+
+    const follows = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerId", viewerUserId))
+      .collect();
+    if (follows.length === 0) return [];
+
+    const entries = await Promise.all(
+      follows.map(async (follow) => {
+        const [stat, user, profile, ranking, allRankings] = await Promise.all([
+          getUserCoasterStatsDoc(ctx, follow.followingId, args.coasterId),
+          ctx.db.get(follow.followingId),
+          ctx.db
+            .query("userProfiles")
+            .withIndex("by_userId", (q) => q.eq("userId", follow.followingId))
+            .unique(),
+          ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_coaster", (q) =>
+              q.eq("userId", follow.followingId).eq("coasterId", args.coasterId),
+            )
+            .unique(),
+          ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_rank", (q) => q.eq("userId", follow.followingId))
+            .collect(),
+        ]);
+
+        if (!stat || !user) return null;
+
+        return {
+          user: {
+            _id: user._id,
+            name: user.name,
+          },
+          profile,
+          rideCount: stat.rideCount,
+          lastRideAt: stat.latestRiddenAt,
+          lastRideDate: stat.latestRideDate ?? null,
+          rank: ranking?.rank ?? null,
+          score:
+            ranking && allRankings.length > 0
+              ? computeRankingScore(ranking.rank, allRankings.length)
+              : null,
+        };
+      }),
+    );
+
+    return entries
+      .filter((entry) => entry !== null)
+      .sort((a, b) => {
+        if ((b?.lastRideAt ?? 0) !== (a?.lastRideAt ?? 0)) {
+          return (b?.lastRideAt ?? 0) - (a?.lastRideAt ?? 0);
+        }
+        return (a?.user?.name ?? "").localeCompare(b?.user?.name ?? "");
+      });
   },
 });
 
 export const getTopCoasters = query({
   args: {},
   handler: async (ctx) => {
-    const coasters = await ctx.db.query("coasters").collect();
-    const rideLogs = await ctx.db.query("rideLogs").collect();
-
-    const rideCountByCoaster = new Map<string, number>();
-    for (const log of rideLogs) {
-      const key = String(log.coasterId);
-      rideCountByCoaster.set(key, (rideCountByCoaster.get(key) ?? 0) + 1);
-    }
-
-    return coasters
-      .sort((a, b) => {
-        const countDiff =
-          (rideCountByCoaster.get(String(b._id)) ?? 0) -
-          (rideCountByCoaster.get(String(a._id)) ?? 0);
-        if (countDiff !== 0) return countDiff;
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 30);
+    const coasterIds = await getTrendingCoasterIds(ctx);
+    const coasterDocs = await Promise.all(coasterIds.map(async (coasterId) => await ctx.db.get(coasterId)));
+    return coasterDocs.filter((coaster) => coaster !== null);
   },
 });
 

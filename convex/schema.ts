@@ -92,6 +92,30 @@ const applicationTables = {
     .index("by_user", ["userId"])
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_rank", ["userId", "rank"]),
+
+  userCoasterStats: defineTable({
+    userId: v.id("users"),
+    coasterId: v.id("coasters"),
+    rideCount: v.number(),
+    latestRiddenAt: v.number(),
+    latestRideDate: v.optional(v.string()),
+    firstRiddenAt: v.optional(v.number()),
+  })
+    .index("by_user_and_coaster", ["userId", "coasterId"])
+    .index("by_user_and_latestRiddenAt", ["userId", "latestRiddenAt"])
+    .index("by_coaster", ["coasterId"]),
+
+  coasterStats: defineTable({
+    coasterId: v.id("coasters"),
+    totalLogCount: v.number(),
+    uniqueRiderCount: v.number(),
+  }).index("by_coaster", ["coasterId"]),
+
+  trendingCoasters: defineTable({
+    key: v.string(),
+    coasterIds: v.array(v.id("coasters")),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 };
 
 export default defineSchema({

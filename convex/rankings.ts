@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { LIMITS, validateOptionalText } from "./validation";
+import { internal } from "./_generated/api";
 
 export function computeRankingScore(rank: number, totalCount: number) {
   if (totalCount <= 1) {
@@ -33,14 +34,14 @@ export const getMyRankings = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const [rankings, logs] = await Promise.all([
+    const [rankings, stats] = await Promise.all([
       ctx.db
         .query("rankings")
         .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
         .collect(),
       ctx.db
-        .query("rideLogs")
-        .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
+        .query("userCoasterStats")
+        .withIndex("by_user_and_latestRiddenAt", (q) => q.eq("userId", userId))
         .order("desc")
         .collect(),
     ]);
@@ -50,19 +51,23 @@ export const getMyRankings = query({
       coasterIds.map(async (coasterId) => [coasterId, await ctx.db.get(coasterId as Id<"coasters">)] as const),
     );
     const coasterMap = new Map(coasterEntries);
-    const latestLogByCoasterId = new Map<string, (typeof logs)[number]>();
-    for (const log of logs) {
-      const key = String(log.coasterId);
-      if (!latestLogByCoasterId.has(key)) {
-        latestLogByCoasterId.set(key, log);
-      }
+    const statByCoasterId = new Map<string, (typeof stats)[number]>();
+    for (const stat of stats) {
+      statByCoasterId.set(String(stat.coasterId), stat);
     }
     const withCoasters = rankings.map((ranking) => {
       const coasterId = String(ranking.coasterId);
+      const stat = statByCoasterId.get(coasterId);
       return {
         ...ranking,
         coaster: coasterMap.get(coasterId) ?? null,
-        log: latestLogByCoasterId.get(coasterId) ?? null,
+        log: stat
+          ? {
+              riddenAt: stat.latestRiddenAt,
+              rideDate: stat.latestRideDate ?? null,
+            }
+          : null,
+        rideCount: stat?.rideCount ?? 0,
         score: computeRankingScore(ranking.rank, totalCount),
       };
     });
@@ -131,25 +136,26 @@ export const getFriendLeaderboard = query({
 
     const leaderboard = await Promise.all(
       userIds.map(async (currentUserId) => {
-        const user = await ctx.db.get(currentUserId);
-        const profile = await ctx.db
-          .query("userProfiles")
-          .withIndex("by_userId", (q) => q.eq("userId", currentUserId))
-          .unique();
-        const logs = await ctx.db
-          .query("rideLogs")
-          .withIndex("by_user", (q) => q.eq("userId", currentUserId))
-          .collect();
+        const [user, profile, stats] = await Promise.all([
+          ctx.db.get(currentUserId),
+          ctx.db
+            .query("userProfiles")
+            .withIndex("by_userId", (q) => q.eq("userId", currentUserId))
+            .unique(),
+          ctx.db
+            .query("userCoasterStats")
+            .withIndex("by_user_and_latestRiddenAt", (q) => q.eq("userId", currentUserId))
+            .order("desc")
+            .collect(),
+        ]);
 
-        const logsInWindow =
+        const statsInWindow =
           cutoff === null
-            ? logs
-            : logs.filter((log) => log.riddenAt >= cutoff);
-        const rideCount = new Set(logsInWindow.map((log) => log.coasterId)).size;
-        const lastRideAt = logs.reduce(
-          (latest, log) => Math.max(latest, log.riddenAt),
-          0,
-        );
+            ? stats
+            : stats.filter((stat) => stat.latestRiddenAt >= cutoff);
+        const rideCount = statsInWindow.length;
+        const totalRideCount = stats.reduce((sum, stat) => sum + stat.rideCount, 0);
+        const lastRideAt = stats[0]?.latestRiddenAt ?? 0;
 
         return {
           userId: currentUserId,
@@ -161,7 +167,7 @@ export const getFriendLeaderboard = query({
             : null,
           profile,
           rideCount,
-          totalRideCount: logs.length,
+          totalRideCount,
           lastRideAt: lastRideAt || null,
           isCurrentUser: currentUserId === userId,
         };
@@ -231,6 +237,10 @@ export const saveRideWithRank = mutation({
       rideDate: args.rideDate,
       notes,
     });
+    await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
+      userId,
+      coasterId: args.coasterId,
+    });
 
     if (existingRanking && args.targetRank === undefined) {
       return existingRanking._id;
@@ -260,6 +270,33 @@ export const saveRideWithRank = mutation({
       coasterId: args.coasterId,
       rank: targetRank,
     });
+  },
+});
+
+export const getMyRankingComparisonList = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const rankings = await ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+      .collect();
+
+    const coasterIds = [...new Set(rankings.map((ranking) => String(ranking.coasterId)))];
+    const coasterEntries = await Promise.all(
+      coasterIds.map(async (coasterId) => [
+        coasterId,
+        await ctx.db.get(coasterId as Id<"coasters">),
+      ] as const),
+    );
+    const coasterMap = new Map(coasterEntries);
+
+    return rankings.map((ranking) => ({
+      ...ranking,
+      coaster: coasterMap.get(String(ranking.coasterId)) ?? null,
+    }));
   },
 });
 

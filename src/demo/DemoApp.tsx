@@ -123,7 +123,7 @@ function DemoFeedPage({
                 <p className="text-xs text-gray-400 dark:text-gray-500">{item.relativeTime}</p>
               </div>
             </button>
-            <div className={`ml-auto ${getRideEventBadgeClasses(item.badgeTone === "first")}`}>{item.badge}</div>
+            <div className={`ml-auto ${getRideEventBadgeClasses(item.badgeTone)}`}>{item.badge}</div>
           </div>
           <button onClick={() => onOpenCoaster(item.coaster)} className="interactive-lift w-full surface-subtle p-3 text-left">
             <div className="flex items-start justify-between gap-2">

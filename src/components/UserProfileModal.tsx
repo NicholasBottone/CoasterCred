@@ -40,13 +40,7 @@ export function UserProfileModal({
 
   return (
     <ModalContainer onClose={onClose} maxWidth="md" scrollRef={scrollRef}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Profile</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {profileData?.isCurrentUser ? "Your public profile preview" : "Public profile preview"}
-            </p>
-          </div>
+        <div className="flex justify-end mb-4">
           <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
         </div>
 

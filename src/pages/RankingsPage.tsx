@@ -101,11 +101,11 @@ export function RankingsPage({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {entry.profile?.homepark
-                      ? `Home park: ${entry.profile.homepark}`
-                      : "No home park added yet"}
-                  </p>
+                  {entry.profile?.homepark && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      Home park: {entry.profile.homepark}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     {entry.lastRideAt
                       ? `Last ride ${formatDistanceToNow(entry.lastRideAt)}`
