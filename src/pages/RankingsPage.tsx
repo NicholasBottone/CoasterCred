@@ -18,7 +18,7 @@ export function RankingsPage({
 }: {
   onViewPublicProfile: (userId: string) => void;
 }) {
-  const [window, setWindow] = useState<LeaderboardWindow>("30d");
+  const [window, setWindow] = useState<LeaderboardWindow>("365d");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const leaderboard = useQuery(api.rankings.getFriendLeaderboard, { window });
   const selectedWindow = WINDOW_OPTIONS.find((option) => option.value === window) ?? WINDOW_OPTIONS[0];
