@@ -1,3 +1,5 @@
+![CoasterCred Banner](./public/og-preview.jpg)
+
 # CoasterCred - Roller Coaster Social Review Platform
 
 CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rides, build a personal ranked list through head-to-head comparisons, follow friends, and see who has been riding the most.
