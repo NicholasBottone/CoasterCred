@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 export type Tab = "feed" | "myList" | "search" | "rankings" | "profile" | "admin";
 
+const GITHUB_REPO_URL = "https://github.com/NicholasBottone/CoasterCred";
+
 const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
   { id: "feed", label: "Feed", icon: "🏠" },
   { id: "myList", label: "My List", icon: "📋" },
@@ -26,6 +28,7 @@ export function AppShell({
   availableTabs?: Tab[];
 }) {
   const visibleNavItems = NAV_ITEMS.filter((item) => availableTabs?.includes(item.id) ?? true);
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
@@ -40,8 +43,24 @@ export function AppShell({
         {banner}
       </header>
 
-      <main className="flex-1 overflow-y-auto overscroll-none pb-[calc(4.5rem+env(safe-area-inset-bottom,0px)+0.375rem)]">
+      <main className="flex-1 overflow-y-auto overscroll-none pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
         {children}
+        <div className="px-4 pb-3 pt-6 text-center text-[11px] text-gray-400 dark:text-gray-500">
+          <div className="mx-auto flex max-w-lg flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            <span>© {currentYear} Nicholas Bottone</span>
+            <span aria-hidden="true">·</span>
+            <span>Licensed under AGPL-3.0</span>
+            <span aria-hidden="true">·</span>
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              View source on GitHub
+            </a>
+          </div>
+        </div>
       </main>
 
       <nav className="app-chrome fixed bottom-0 left-0 right-0 z-20 flex border-t border-gray-200 bg-white/95 pb-[calc(env(safe-area-inset-bottom,0px)+0.125rem)] backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">

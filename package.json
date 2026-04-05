@@ -1,7 +1,12 @@
 {
   "name": "coastercred",
-  "private": true,
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "author": {
+    "name": "Nicholas Bottone",
+    "email": "nick@bottone.io"
+  },
+  "homepage": "https://coastercred.bottone.io",
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
