@@ -145,3 +145,6 @@ vite.config.ts.timestamp-*
 
 # PWA
 dev-dist/
+
+# MacOS files
+.DS_Store
