@@ -59,6 +59,10 @@ export function CoasterModal({
     source: coaster.source,
     sourceId: coaster.sourceId,
   });
+  const friendSummary = useQuery(
+    api.coasters.getCoasterFriendSummary,
+    localCoasterId ? { coasterId: localCoasterId as any } : "skip",
+  );
   const rideHistory = useQuery(
     api.rideLogs.getMyLogsForCoaster,
     localCoasterId && isRideHistoryOpen
@@ -313,6 +317,15 @@ export function CoasterModal({
             <div className="grid grid-cols-2 gap-2">
               <Metric label="Unique riders" value={profileData?.appStats?.uniqueRiderCount ?? 0} />
               <Metric label="Total logs" value={profileData?.appStats?.totalLogCount ?? 0} />
+              <Metric label="Followed riders" value={friendSummary?.followedRiderCount ?? 0} />
+              <Metric
+                label="Friends avg"
+                value={
+                  typeof friendSummary?.averageFollowedScore === "number"
+                    ? friendSummary.averageFollowedScore.toFixed(1)
+                    : "—"
+                }
+              />
             </div>
           </section>
 

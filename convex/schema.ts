@@ -93,6 +93,11 @@ const applicationTables = {
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_rank", ["userId", "rank"]),
 
+  userRankingStats: defineTable({
+    userId: v.id("users"),
+    rankingCount: v.number(),
+  }).index("by_user", ["userId"]),
+
   userCoasterStats: defineTable({
     userId: v.id("users"),
     coasterId: v.id("coasters"),

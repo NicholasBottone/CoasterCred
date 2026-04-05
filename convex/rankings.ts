@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { LIMITS, validateOptionalText } from "./validation";
 import { internal } from "./_generated/api";
+import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
 
 export function computeRankingScore(rank: number, totalCount: number) {
   if (totalCount <= 1) {
@@ -34,7 +35,7 @@ export const getMyRankings = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const [rankings, stats] = await Promise.all([
+    const [rankings, stats, rankingStats] = await Promise.all([
       ctx.db
         .query("rankings")
         .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
@@ -44,8 +45,9 @@ export const getMyRankings = query({
         .withIndex("by_user_and_latestRiddenAt", (q) => q.eq("userId", userId))
         .order("desc")
         .collect(),
+      getUserRankingStatsDoc(ctx, userId),
     ]);
-    const totalCount = rankings.length;
+    const totalCount = rankingStats?.rankingCount ?? rankings.length;
     const coasterIds = [...new Set(rankings.map((ranking) => String(ranking.coasterId)))];
     const coasterEntries = await Promise.all(
       coasterIds.map(async (coasterId) => [coasterId, await ctx.db.get(coasterId as Id<"coasters">)] as const),
@@ -82,14 +84,17 @@ export const getUserRankingsPage = query({
     limit: v.number(),
   },
   handler: async (ctx, args) => {
-    const rankings = await ctx.db
-      .query("rankings")
-      .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
-      .collect();
+    const [rankings, rankingStats] = await Promise.all([
+      ctx.db
+        .query("rankings")
+        .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
+        .collect(),
+      getUserRankingStatsDoc(ctx, args.userId),
+    ]);
 
     const safeLimit = Math.max(1, Math.min(args.limit, 50));
     const safePage = Math.max(0, args.page);
-    const totalCount = rankings.length;
+    const totalCount = rankingStats?.rankingCount ?? rankings.length;
     const pageCount = Math.max(1, Math.ceil(totalCount / safeLimit));
     const start = safePage * safeLimit;
     const pageItems = rankings.slice(start, start + safeLimit);
@@ -265,11 +270,13 @@ export const saveRideWithRank = mutation({
       return existingRanking._id;
     }
 
-    return await ctx.db.insert("rankings", {
+    const rankingId = await ctx.db.insert("rankings", {
       userId,
       coasterId: args.coasterId,
       rank: targetRank,
     });
+    await upsertUserRankingStats(ctx, userId);
+    return rankingId;
   },
 });
 

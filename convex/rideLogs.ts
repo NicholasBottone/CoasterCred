@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { computeRankingScore } from "./rankings";
+import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
 
 const FEED_LIMIT = 50;
 const FEED_SCAN_LIMIT = 250;
@@ -63,6 +64,8 @@ export const removeLog = mutation({
           await ctx.db.patch(other._id, { rank: other.rank - 1 });
         }
       }
+
+      await upsertUserRankingStats(ctx, userId);
     }
   },
 });
@@ -195,13 +198,9 @@ export const getFeed = query({
             .query("userProfiles")
             .withIndex("by_userId", (q) => q.eq("userId", nextUserId))
             .unique(),
-          ctx.db
-            .query("rankings")
-            .withIndex("by_user_and_rank", (q) => q.eq("userId", nextUserId))
-            .collect()
-            .then((rankings) => rankings.length),
+          getUserRankingStatsDoc(ctx, nextUserId),
         ]);
-        return [id, { user, profile, rankingCount }] as const;
+        return [id, { user, profile, rankingCount: rankingCount?.rankingCount ?? 0 }] as const;
       })
     );
     const userMap = new Map(userEntries);

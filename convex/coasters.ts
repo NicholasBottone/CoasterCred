@@ -14,6 +14,7 @@ import {
 } from "./coasterpedia";
 import {
   getCoasterStatsDoc,
+  getUserRankingStatsDoc,
   getUserCoasterStatsDoc,
   getTrendingCoasterIds,
 } from "./usageStats";
@@ -145,7 +146,7 @@ export const getCoasterProfile = query({
       };
     }
 
-    const [coasterStats, myStats, myRanking, myAllRankings] = await Promise.all([
+    const [coasterStats, myStats, myRanking, myRankingStats] = await Promise.all([
       getCoasterStatsDoc(ctx, localCoaster._id),
       getUserCoasterStatsDoc(ctx, viewerUserId, localCoaster._id),
       ctx.db
@@ -154,10 +155,7 @@ export const getCoasterProfile = query({
           q.eq("userId", viewerUserId).eq("coasterId", localCoaster._id)
         )
         .unique(),
-      ctx.db
-        .query("rankings")
-        .withIndex("by_user_and_rank", (q) => q.eq("userId", viewerUserId))
-        .collect(),
+      getUserRankingStatsDoc(ctx, viewerUserId),
     ]);
 
     return {
@@ -171,10 +169,90 @@ export const getCoasterProfile = query({
         rideCount: myStats?.rideCount ?? 0,
         currentRank: myRanking?.rank ?? null,
         currentScore:
-          myRanking && myAllRankings.length > 0
-            ? computeRankingScore(myRanking.rank, myAllRankings.length)
+          myRanking && typeof myRankingStats?.rankingCount === "number" && myRankingStats.rankingCount > 0
+            ? computeRankingScore(myRanking.rank, myRankingStats.rankingCount)
             : null,
       },
+    };
+  },
+});
+
+export const getCoasterFriendSummary = query({
+  args: { coasterId: v.id("coasters") },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getAuthUserId(ctx);
+    if (!viewerUserId) {
+      return {
+        followedRiderCount: 0,
+        averageFollowedScore: null,
+        latestFollowedRideAt: null,
+        latestFollowedRideDate: null,
+      };
+    }
+
+    const follows = await ctx.db
+      .query("follows")
+      .withIndex("by_follower", (q) => q.eq("followerId", viewerUserId))
+      .collect();
+    if (follows.length === 0) {
+      return {
+        followedRiderCount: 0,
+        averageFollowedScore: null,
+        latestFollowedRideAt: null,
+        latestFollowedRideDate: null,
+      };
+    }
+
+    const entries = await Promise.all(
+      follows.map(async (follow) => {
+        const [stat, ranking, rankingStats] = await Promise.all([
+          getUserCoasterStatsDoc(ctx, follow.followingId, args.coasterId),
+          ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_coaster", (q) =>
+              q.eq("userId", follow.followingId).eq("coasterId", args.coasterId),
+            )
+            .unique(),
+          getUserRankingStatsDoc(ctx, follow.followingId),
+        ]);
+
+        if (!stat) return null;
+
+        return {
+          latestRideAt: stat.latestRiddenAt,
+          latestRideDate: stat.latestRideDate ?? null,
+          score:
+            ranking && typeof rankingStats?.rankingCount === "number" && rankingStats.rankingCount > 0
+              ? computeRankingScore(ranking.rank, rankingStats.rankingCount)
+              : null,
+        };
+      }),
+    );
+
+    const followedEntries = entries.filter((entry) => entry !== null);
+    const latestEntry = followedEntries.reduce<null | (typeof followedEntries)[number]>(
+      (latest, entry) => {
+        if (!entry) return latest;
+        if (!latest || (entry.latestRideAt ?? 0) > (latest.latestRideAt ?? 0)) {
+          return entry;
+        }
+        return latest;
+      },
+      null,
+    );
+    const scoredEntries = followedEntries.filter((entry) => typeof entry?.score === "number");
+
+    return {
+      followedRiderCount: followedEntries.length,
+      averageFollowedScore:
+        scoredEntries.length > 0
+          ? Math.round(
+              (scoredEntries.reduce((sum, entry) => sum + (entry?.score ?? 0), 0) / scoredEntries.length) *
+                10,
+            ) / 10
+          : null,
+      latestFollowedRideAt: latestEntry?.latestRideAt ?? null,
+      latestFollowedRideDate: latestEntry?.latestRideDate ?? null,
     };
   },
 });
@@ -193,7 +271,7 @@ export const getCoasterFollowedRiders = query({
 
     const entries = await Promise.all(
       follows.map(async (follow) => {
-        const [stat, user, profile, ranking, allRankings] = await Promise.all([
+        const [stat, user, profile, ranking, rankingStats] = await Promise.all([
           getUserCoasterStatsDoc(ctx, follow.followingId, args.coasterId),
           ctx.db.get(follow.followingId),
           ctx.db
@@ -206,10 +284,7 @@ export const getCoasterFollowedRiders = query({
               q.eq("userId", follow.followingId).eq("coasterId", args.coasterId),
             )
             .unique(),
-          ctx.db
-            .query("rankings")
-            .withIndex("by_user_and_rank", (q) => q.eq("userId", follow.followingId))
-            .collect(),
+          getUserRankingStatsDoc(ctx, follow.followingId),
         ]);
 
         if (!stat || !user) return null;
@@ -225,8 +300,8 @@ export const getCoasterFollowedRiders = query({
           lastRideDate: stat.latestRideDate ?? null,
           rank: ranking?.rank ?? null,
           score:
-            ranking && allRankings.length > 0
-              ? computeRankingScore(ranking.rank, allRankings.length)
+            ranking && typeof rankingStats?.rankingCount === "number" && rankingStats.rankingCount > 0
+              ? computeRankingScore(ranking.rank, rankingStats.rankingCount)
               : null,
         };
       }),

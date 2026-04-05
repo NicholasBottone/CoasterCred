@@ -39,6 +39,16 @@ export async function getTrendingCoasterIds(ctx: DbCtx) {
   return doc?.coasterIds ?? [];
 }
 
+export async function getUserRankingStatsDoc(
+  ctx: DbCtx,
+  userId: Id<"users">,
+) {
+  return await ctx.db
+    .query("userRankingStats")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+}
+
 async function computeUserCoasterStatsFromLogs(
   ctx: DbCtx,
   userId: Id<"users">,
@@ -183,6 +193,29 @@ async function rebuildTrendingCoasters(ctx: MutationCtx) {
   }
 
   await ctx.db.insert("trendingCoasters", nextDoc);
+}
+
+export async function upsertUserRankingStats(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+) {
+  const existing = await getUserRankingStatsDoc(ctx, userId);
+  const rankings = await ctx.db
+    .query("rankings")
+    .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
+    .collect();
+
+  const next = {
+    userId,
+    rankingCount: rankings.length,
+  };
+
+  if (existing) {
+    await ctx.db.patch(existing._id, next);
+    return;
+  }
+
+  await ctx.db.insert("userRankingStats", next);
 }
 
 export const refreshDerivedStatsForRide = internalMutation({
