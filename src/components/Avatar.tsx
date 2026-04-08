@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type AvatarProps = {
   avatarUrl?: string | null;
@@ -14,6 +14,11 @@ export function Avatar({
   textClassName = "text-sm",
 }: AvatarProps) {
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   const initial = name?.[0]?.toUpperCase() ?? "?";
   const showImage = Boolean(avatarUrl) && !imageFailed;
 
@@ -22,6 +27,8 @@ export function Avatar({
       <img
         src={avatarUrl ?? undefined}
         alt={name ?? "Profile photo"}
+        referrerPolicy="no-referrer"
+        onLoad={() => setImageFailed(false)}
         onError={() => setImageFailed(true)}
         className={`${sizeClassName} rounded-full object-cover shrink-0 border border-gray-200 bg-gray-100`}
       />
