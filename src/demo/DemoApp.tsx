@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { SignInForm } from "../SignInForm";
 import { AppShell, type Tab } from "../components/AppShell";
 import { Avatar } from "../components/Avatar";
-import { ModalContainer } from "../components/ModalContainer";
+import { ModalCloseButton, ModalContainer } from "../components/ModalContainer";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses, getRideEventBadgeClasses } from "../lib/badges";
 import {
@@ -300,7 +300,7 @@ function DemoCoasterModal({
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{coaster.park} · {coaster.location}</p>
         </div>
-        <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
+        <ModalCloseButton onClose={onClose} />
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -383,7 +383,7 @@ function DemoUserModal({
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Profile</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">Community preview</p>
         </div>
-        <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
+        <ModalCloseButton onClose={onClose} />
       </div>
 
       <div className="mb-4 flex items-start gap-4">

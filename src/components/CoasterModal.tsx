@@ -8,7 +8,7 @@ import { ScoreBadge } from "./ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { Avatar } from "./Avatar";
 import { useScrollToTop } from "../hooks/useScrollToTop";
-import { ModalContainer } from "./ModalContainer";
+import { ModalCloseButton, ModalContainer } from "./ModalContainer";
 
 export type CoasterSummary = {
   _id?: string;
@@ -287,12 +287,7 @@ export function CoasterModal({
               </a>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-          >
-            ×
-          </button>
+          <ModalCloseButton onClose={onClose} />
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">

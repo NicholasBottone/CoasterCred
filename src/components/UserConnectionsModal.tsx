@@ -2,7 +2,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Avatar } from "./Avatar";
 import { useScrollToTop } from "../hooks/useScrollToTop";
-import { ModalContainer } from "./ModalContainer";
+import { ModalCloseButton, ModalContainer } from "./ModalContainer";
 
 const apiAny = api as any;
 
@@ -28,7 +28,7 @@ export function UserConnectionsModal({
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">Browse this rider's network</p>
           </div>
-          <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
+          <ModalCloseButton onClose={onClose} />
         </div>
 
         {connections === undefined ? (

@@ -7,6 +7,7 @@ import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { MemberSearchPanel } from "../components/MemberSearchPanel";
+import { ModalCloseButton } from "../components/ModalContainer";
 import { SignOutButton } from "../SignOutButton";
 
 export function ProfilePage({
@@ -213,7 +214,7 @@ export function ProfilePage({
           <div className="surface-card w-full max-w-md shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h3>
-              <button onClick={() => setEditing(false)} className="text-gray-400 dark:text-gray-500 text-xl">×</button>
+              <ModalCloseButton onClose={() => setEditing(false)} />
             </div>
             <div className="flex flex-col gap-3">
               <div>

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Avatar } from "./Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { useScrollToTop } from "../hooks/useScrollToTop";
-import { ModalContainer } from "./ModalContainer";
+import { ModalCloseButton, ModalContainer } from "./ModalContainer";
 
 const apiAny = api as any;
 
@@ -40,26 +40,32 @@ export function UserProfileModal({
 
   return (
     <ModalContainer onClose={onClose} maxWidth="md" scrollRef={scrollRef}>
-        <div className="flex justify-end mb-4">
-          <button onClick={onClose} className="text-xl leading-none text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">×</button>
-        </div>
-
         {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <>
+            <div className="mb-4 flex justify-end">
+              <ModalCloseButton onClose={onClose} />
+            </div>
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </>
         ) : !profileData ? (
-          <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">Profile not found</p>
+          <>
+            <div className="mb-4 flex justify-end">
+              <ModalCloseButton onClose={onClose} />
+            </div>
+            <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">Profile not found</p>
+          </>
         ) : (
           <>
-            <div className="flex items-start gap-4 mb-4">
+            <div className="mb-4 flex items-start gap-4">
               <Avatar
                 avatarUrl={profileData?.profile?.avatarUrl ?? profileData?.user?.image}
                 name={profileData?.user?.name}
                 sizeClassName="w-16 h-16"
                 textClassName="text-2xl"
               />
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">
                   {profileData?.user?.name ?? "Unknown rider"}
                 </h4>
@@ -73,6 +79,7 @@ export function UserProfileModal({
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{profileData.profile.bio}</p>
                 )}
               </div>
+              <ModalCloseButton onClose={onClose} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-4">
