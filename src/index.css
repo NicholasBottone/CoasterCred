@@ -82,6 +82,27 @@ select {
   @apply w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 shadow-sm outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-primary/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500 sm:text-sm;
 }
 
+.date-input-field {
+  @apply input-field block min-w-0;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.date-input-field::-webkit-datetime-edit {
+  padding: 0;
+}
+
+.date-input-field::-webkit-date-and-time-value {
+  min-height: 1.5em;
+  text-align: left;
+}
+
+.date-input-field::-webkit-calendar-picker-indicator {
+  margin: 0;
+}
+
 .interactive-lift {
   @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
 }

@@ -501,7 +501,7 @@ export function CoasterModal({
                   value={rideDate}
                   max={todayDateInputValue()}
                   onChange={(e) => setRideDate(e.target.value)}
-                  className="input-field"
+                  className="date-input-field"
                 />
               </div>
 
