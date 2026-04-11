@@ -148,9 +148,9 @@ function AuthenticatedApp({
           {tab === "profile" && (
             <ProfilePage
               onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
+              onOpenMyList={() => handleSelectTab("myList")}
               themeMode={themeMode}
               onThemeModeChange={onThemeModeChange}
-              viewerShell={viewerShell ?? null}
             />
           )}
         </>

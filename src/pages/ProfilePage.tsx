@@ -6,20 +6,19 @@ import { formatDate } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
-import { MemberSearchPanel } from "../components/MemberSearchPanel";
 import { ModalCloseButton } from "../components/ModalContainer";
 import { SignOutButton } from "../SignOutButton";
 
 export function ProfilePage({
   onViewPublicProfile,
+  onOpenMyList,
   themeMode,
   onThemeModeChange,
-  viewerShell,
 }: {
   onViewPublicProfile: (userId: string) => void;
+  onOpenMyList: () => void;
   themeMode: "auto" | "light" | "dark";
   onThemeModeChange: (themeMode: "auto" | "light" | "dark") => void;
-  viewerShell: any;
 }) {
   const dashboard = useQuery(api.profiles.getMyProfileDashboard);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
@@ -29,7 +28,6 @@ export function ProfilePage({
   const [bio, setBio] = useState("");
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [connectionsKind, setConnectionsKind] = useState<"followers" | "following" | null>(null);
 
   const handleEdit = () => {
@@ -108,16 +106,24 @@ export function ProfilePage({
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="surface-subtle p-3 text-center">
+          <button
+            type="button"
+            onClick={onOpenMyList}
+            className="surface-subtle interactive-lift p-3 text-center"
+          >
             <p className="text-2xl font-bold text-primary">{uniqueCoasterCount}</p>
             <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
-          </div>
-          <div className="surface-subtle p-3 text-center">
+          </button>
+          <button
+            type="button"
+            onClick={onOpenMyList}
+            className="surface-subtle interactive-lift p-3 text-center"
+          >
             <p className="text-lg font-bold text-primary truncate">
               {dashboard?.topCoaster?.name ?? "—"}
             </p>
             <p className="ui-copy-disabled mt-2 text-xs text-gray-500 dark:text-gray-400">Current #1</p>
-          </div>
+          </button>
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-3">
@@ -136,22 +142,6 @@ export function ProfilePage({
             <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Following</p>
           </button>
         </div>
-      </div>
-
-      {/* Find Friends */}
-      <div className="surface-card p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="ui-copy-disabled font-semibold text-gray-800 dark:text-gray-100">Find Friends</h3>
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            className="text-xs text-primary font-medium transition-colors hover:text-primary-hover"
-          >
-            {showSearch ? "Hide" : "Search"}
-          </button>
-        </div>
-        {showSearch && (
-          <MemberSearchPanel viewerUserId={viewerShell?.user?._id ?? dashboard?.user?._id ?? null} />
-        )}
       </div>
 
       <div className="surface-card p-4 mb-4">
