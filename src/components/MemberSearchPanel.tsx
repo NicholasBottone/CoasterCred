@@ -41,8 +41,15 @@ export function MemberSearchPanel({
       <input
         ref={inputRef}
         data-search-autofocus={autoFocus ? "true" : undefined}
-        type="text"
-        placeholder="Search by display name or exact username..."
+        id="member-search"
+        name="member-search"
+        type="search"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        enterKeyHint="search"
+        placeholder="Search by display name or handle..."
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="input-field mb-2"
