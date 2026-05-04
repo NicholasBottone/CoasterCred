@@ -24,6 +24,11 @@ export type ImportedCoaster = {
   imageUrl?: string;
 };
 
+type MeasurementSystem = "metric" | "imperial";
+
+const METERS_TO_FEET = 3.28084;
+const KMH_TO_MPH = 0.621371;
+
 function cleanWikiText(value: string | undefined) {
   if (!value) return "";
 
@@ -57,6 +62,40 @@ function parseNumber(value: string | undefined) {
   if (!value) return undefined;
   const cleaned = cleanWikiText(value).match(/-?\d+(\.\d+)?/);
   return cleaned ? Number(cleaned[0]) : undefined;
+}
+
+function inferMeasurementSystem(value: string | undefined): MeasurementSystem | undefined {
+  const cleaned = cleanWikiText(value).toLowerCase();
+  if (!cleaned) return undefined;
+  if (cleaned.includes("metric")) return "metric";
+  if (cleaned.includes("imperial") || cleaned.includes("english")) return "imperial";
+  return undefined;
+}
+
+function normalizeMeasurement(
+  value: string | undefined,
+  fallbackSystem: MeasurementSystem | undefined,
+  options: {
+    metricPattern: RegExp;
+    imperialPattern: RegExp;
+    convertMetric: (numericValue: number) => number;
+  },
+) {
+  const numericValue = parseNumber(value);
+  if (numericValue === undefined) return undefined;
+
+  const rawValue = value?.toLowerCase() ?? "";
+  const detectedSystem = options.metricPattern.test(rawValue)
+    ? "metric"
+    : options.imperialPattern.test(rawValue)
+      ? "imperial"
+      : fallbackSystem;
+
+  if (detectedSystem === "metric") {
+    return Math.round(options.convertMetric(numericValue));
+  }
+
+  return numericValue;
 }
 
 function parseDurationSeconds(value: string | undefined) {
@@ -110,6 +149,7 @@ export function normalizeCoaster(page: any): ImportedCoaster {
   const fields = parseInfobox(revision);
   const park = cleanWikiText(fields.park);
   const location = normalizeLocation(fields);
+  const measurementSystem = inferMeasurementSystem(fields.units);
 
   return {
     source: COASTERPEDIA_SOURCE,
@@ -125,9 +165,21 @@ export function normalizeCoaster(page: any): ImportedCoaster {
     propulsion: cleanWikiText(fields.propulsion ?? fields["lift/launch"]) || undefined,
     durationSeconds: parseDurationSeconds(fields.duration),
     status: formatStatus(fields.status),
-    heightFt: parseNumber(fields.height),
-    speedMph: parseNumber(fields.speed),
-    lengthFt: parseNumber(fields.length),
+    heightFt: normalizeMeasurement(fields.height, measurementSystem, {
+      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
+      imperialPattern: /\b(?:ft|foot|feet)\b/i,
+      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
+    }),
+    speedMph: normalizeMeasurement(fields.speed, measurementSystem, {
+      metricPattern: /\b(?:km\/h|kmh|kph|kilometer per hour|kilometers per hour|kilometre per hour|kilometres per hour)\b/i,
+      imperialPattern: /\b(?:mph|mile per hour|miles per hour)\b/i,
+      convertMetric: (numericValue) => numericValue * KMH_TO_MPH,
+    }),
+    lengthFt: normalizeMeasurement(fields.length, measurementSystem, {
+      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
+      imperialPattern: /\b(?:ft|foot|feet)\b/i,
+      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
+    }),
     inversions: parseNumber(fields.inversions),
     yearOpened: extractYear(fields.opened),
     imageUrl: undefined,
