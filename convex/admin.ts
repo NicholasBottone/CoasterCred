@@ -184,6 +184,24 @@ export const getDashboard = query({
       }
     }
 
+    const syncableCoasters = coasters
+      .filter(
+        (coaster) =>
+          coaster.source === COASTERPEDIA_SOURCE &&
+          coaster.sourceId !== undefined &&
+          coaster.sourceId !== null,
+      )
+      .map((coaster) => ({
+        _id: coaster._id,
+        name: coaster.name,
+        park: coaster.park,
+        location: coaster.location,
+        source: coaster.source ?? null,
+        sourceId: coaster.sourceId ?? null,
+        sourceUrl: coaster.sourceUrl ?? null,
+        lastSyncedAt: coaster.lastSyncedAt ?? null,
+      }));
+
     const staleCoasters = coasters
       .filter(
         (coaster) =>
@@ -251,6 +269,7 @@ export const getDashboard = query({
         staleCoasterCount: staleCoasters.length,
         userCount: usersByNewest.length,
       },
+      syncableCoasters: syncableCoasters.sort((a, b) => a.name.localeCompare(b.name)),
       staleCoasters,
       signupSeries,
       users: usersByNewest,

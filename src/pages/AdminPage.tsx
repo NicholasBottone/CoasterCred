@@ -26,6 +26,7 @@ export function AdminPage({
   const [matchResults, setMatchResults] = useState<any[]>([]);
   const [searchingMatches, setSearchingMatches] = useState(false);
   const [linkingCoasterId, setLinkingCoasterId] = useState<string | null>(null);
+  const [syncSearchQuery, setSyncSearchQuery] = useState("");
 
   const handleSync = async (coasterId: string) => {
     setSyncingCoasterId(coasterId);
@@ -108,6 +109,13 @@ export function AdminPage({
   }
 
   const maxSignupCount = Math.max(...dashboard.signupSeries.map((entry) => entry.count), 1);
+  const normalizedSyncSearchQuery = syncSearchQuery.trim().toLowerCase();
+  const filteredSyncableCoasters = dashboard.syncableCoasters.filter((coaster) => {
+    if (!normalizedSyncSearchQuery) return true;
+    return [coaster.name, coaster.park, coaster.location]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(normalizedSyncSearchQuery));
+  });
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4">
@@ -296,6 +304,86 @@ export function AdminPage({
                 );
               })
             )}
+          </div>
+
+          <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-800">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  Sync on demand
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Re-sync any coaster already linked to Coasterpedia, even if it is not stale yet.
+                </p>
+              </div>
+
+              <div className="w-full md:max-w-sm">
+                <input
+                  type="text"
+                  value={syncSearchQuery}
+                  onChange={(event) => setSyncSearchQuery(event.target.value)}
+                  placeholder="Search linked coasters"
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
+              {filteredSyncableCoasters.length === 0 ? (
+                <div className="surface-subtle rounded-xl p-4 text-sm text-gray-500 dark:text-gray-400">
+                  {dashboard.syncableCoasters.length === 0
+                    ? "No coasters are linked to Coasterpedia yet."
+                    : "No linked coasters match that search."}
+                </div>
+              ) : (
+                filteredSyncableCoasters.map((coaster) => {
+                  const isSyncing = syncingCoasterId === coaster._id;
+                  return (
+                    <div
+                      key={coaster._id}
+                      className="surface-subtle flex flex-col gap-3 rounded-2xl p-4 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {coaster.name}
+                          </h3>
+                          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                            Linked to Coasterpedia
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {coaster.park} · {coaster.location}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                          Last synced: {formatDateTime(coaster.lastSyncedAt)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {coaster.sourceUrl && (
+                          <a
+                            href={coaster.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                          >
+                            View source
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleSync(coaster._id)}
+                          disabled={isSyncing}
+                          className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSyncing ? "Syncing..." : "Sync now"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </section>
 
