@@ -13,8 +13,11 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   buildApiUrl,
   COASTERPEDIA_SOURCE,
+  fetchCoasterpediaPageById,
   fetchJson,
+  getCoasterSourcePageId,
   normalizeCoaster,
+  normalizeCoasterEntries,
 } from "./coasterpedia";
 
 const STALE_SYNC_WINDOW_DAYS = 365;
@@ -49,12 +52,18 @@ export const patchCoasterFromImport = internalMutation({
     coasterId: v.id("coasters"),
     source: v.string(),
     sourceId: v.string(),
+    sourcePageId: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
     lastSyncedAt: v.number(),
     name: v.string(),
+    parentName: v.optional(v.string()),
     park: v.string(),
     location: v.string(),
     type: v.string(),
+    isMultiTrack: v.optional(v.boolean()),
+    multiTrackGroupId: v.optional(v.string()),
+    trackName: v.optional(v.string()),
+    trackIndex: v.optional(v.number()),
     manufacturer: v.optional(v.string()),
     product: v.optional(v.string()),
     propulsion: v.optional(v.string()),
@@ -87,12 +96,18 @@ export const patchCoasterFromImport = internalMutation({
     await ctx.db.patch(args.coasterId, {
       source: args.source,
       sourceId: args.sourceId,
+      sourcePageId: args.sourcePageId,
       sourceUrl: args.sourceUrl,
       lastSyncedAt: args.lastSyncedAt,
       name: args.name,
+      parentName: args.parentName,
       park: args.park,
       location: args.location,
       type: args.type,
+      isMultiTrack: args.isMultiTrack,
+      multiTrackGroupId: args.multiTrackGroupId,
+      trackName: args.trackName,
+      trackIndex: args.trackIndex,
       manufacturer: args.manufacturer,
       product: args.product,
       propulsion: args.propulsion,
@@ -294,9 +309,124 @@ export const getSyncTarget = internalQuery({
   },
 });
 
+export const getMultiTrackMigrationTargets = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const coasters = await ctx.db.query("coasters").collect();
+    return coasters
+      .filter(
+        (coaster) =>
+          coaster.source === COASTERPEDIA_SOURCE &&
+          typeof coaster.sourceId === "string" &&
+          !coaster.sourceId.includes("::") &&
+          !coaster.multiTrackGroupId &&
+          !coaster.trackName,
+      )
+      .map((coaster) => ({
+        _id: coaster._id,
+        name: coaster.name,
+        sourceId: coaster.sourceId as string,
+      }));
+  },
+});
+
+export const migrateLegacyMultiTrackCoasterData = internalMutation({
+  args: {
+    legacyCoasterId: v.id("coasters"),
+    replacementCoasterId: v.id("coasters"),
+  },
+  handler: async (ctx, args) => {
+    const [legacyCoaster, replacementCoaster] = await Promise.all([
+      ctx.db.get(args.legacyCoasterId),
+      ctx.db.get(args.replacementCoasterId),
+    ]);
+    if (!legacyCoaster || !replacementCoaster) {
+      throw new ConvexError("Could not migrate this multi-track coaster");
+    }
+
+    const [logs, rankings] = await Promise.all([
+      ctx.db
+        .query("rideLogs")
+        .withIndex("by_coaster", (q) => q.eq("coasterId", args.legacyCoasterId))
+        .collect(),
+      ctx.db
+        .query("rankings")
+        .withIndex("by_coaster", (q) => q.eq("coasterId", args.legacyCoasterId))
+        .collect(),
+    ]);
+
+    const affectedUserIds = new Set<Id<"users">>();
+    let movedLogCount = 0;
+    let movedRankingCount = 0;
+
+    for (const log of logs) {
+      affectedUserIds.add(log.userId);
+      const existingLog =
+        log.rideDate
+          ? await ctx.db
+              .query("rideLogs")
+              .withIndex("by_user_and_coaster_and_rideDate", (q) =>
+                q.eq("userId", log.userId).eq("coasterId", args.replacementCoasterId).eq("rideDate", log.rideDate!),
+              )
+              .unique()
+          : null;
+
+      if (existingLog) {
+        await ctx.db.delete(log._id);
+        continue;
+      }
+
+      await ctx.db.patch(log._id, { coasterId: args.replacementCoasterId });
+      movedLogCount += 1;
+    }
+
+    for (const ranking of rankings) {
+      affectedUserIds.add(ranking.userId);
+      const existingRanking = await ctx.db
+        .query("rankings")
+        .withIndex("by_user_and_coaster", (q) =>
+          q.eq("userId", ranking.userId).eq("coasterId", args.replacementCoasterId),
+        )
+        .unique();
+
+      if (existingRanking) {
+        await ctx.db.delete(ranking._id);
+        continue;
+      }
+
+      await ctx.db.patch(ranking._id, { coasterId: args.replacementCoasterId });
+      movedRankingCount += 1;
+    }
+
+    for (const userId of affectedUserIds) {
+      await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
+        userId,
+        coasterId: args.legacyCoasterId,
+      });
+      await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
+        userId,
+        coasterId: args.replacementCoasterId,
+      });
+      await ctx.runMutation(internal.rankings.reindexUserRankings, { userId });
+    }
+
+    await ctx.db.delete(args.legacyCoasterId);
+
+    return {
+      movedLogCount,
+      movedRankingCount,
+      affectedUserCount: affectedUserIds.size,
+      deletedLegacyCoasterId: args.legacyCoasterId,
+    };
+  },
+});
+
 export const syncCoaster = action({
   args: { coasterId: v.id("coasters") },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ coasterId: Id<"coasters">; name: string; lastSyncedAt: number }> => {
     await requireAdminAction(ctx);
 
     const target: {
@@ -320,7 +450,7 @@ export const syncCoaster = action({
       details = await fetchJson(
         buildApiUrl({
           action: "query",
-          pageids: target.sourceId,
+          pageids: getCoasterSourcePageId(target.sourceId),
           prop: "info|revisions",
           inprop: "url",
           rvprop: "content",
@@ -331,14 +461,16 @@ export const syncCoaster = action({
       throw new ConvexError("Could not refresh this coaster right now");
     }
 
-    const page = (details as any).query?.pages?.[target.sourceId];
+    const page: any = (details as any).query?.pages?.[getCoasterSourcePageId(target.sourceId)];
     if (!page) {
       throw new ConvexError("Could not find this coaster on Coasterpedia");
     }
 
     let coaster;
     try {
-      coaster = normalizeCoaster(page);
+      coaster =
+        normalizeCoasterEntries(page).find((entry) => entry.sourceId === target.sourceId) ??
+        normalizeCoaster(page);
     } catch {
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
     }
@@ -369,7 +501,7 @@ export const linkAndSyncCoaster = action({
       details = await fetchJson(
         buildApiUrl({
           action: "query",
-          pageids: args.sourceId,
+          pageids: getCoasterSourcePageId(args.sourceId),
           prop: "info|revisions",
           inprop: "url",
           rvprop: "content",
@@ -380,14 +512,16 @@ export const linkAndSyncCoaster = action({
       throw new ConvexError("Could not load this coaster right now");
     }
 
-    const page = (details as any).query?.pages?.[args.sourceId];
+    const page: any = (details as any).query?.pages?.[getCoasterSourcePageId(args.sourceId)];
     if (!page) {
       throw new ConvexError("Could not find this coaster on Coasterpedia");
     }
 
     let coaster;
     try {
-      coaster = normalizeCoaster(page);
+      coaster =
+        normalizeCoasterEntries(page).find((entry) => entry.sourceId === args.sourceId) ??
+        normalizeCoaster(page);
     } catch {
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
     }
@@ -405,6 +539,84 @@ export const linkAndSyncCoaster = action({
       name: coaster.name,
       linkedSourceId: coaster.sourceId,
       lastSyncedAt: coaster.lastSyncedAt,
+    };
+  },
+});
+
+export const migrateMultiTrackCoasters = action({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminAction(ctx);
+
+    const targets: { _id: Id<"coasters">; name: string; sourceId: string }[] = await ctx.runQuery(
+      internal.admin.getMultiTrackMigrationTargets,
+      {},
+    );
+
+    let migratedCoasterCount = 0;
+    let createdTrackCount = 0;
+    let movedLogCount = 0;
+    let movedRankingCount = 0;
+
+    for (const target of targets) {
+      let page: any;
+      try {
+        page = await fetchCoasterpediaPageById(target.sourceId);
+      } catch {
+        continue;
+      }
+
+      if (!page) {
+        continue;
+      }
+
+      let importedCoasters;
+      try {
+        importedCoasters = normalizeCoasterEntries(page);
+      } catch {
+        continue;
+      }
+
+      if (importedCoasters.length <= 1) {
+        continue;
+      }
+
+      const upsertedIds = new Map<string, Id<"coasters">>();
+      for (const coaster of importedCoasters) {
+        const coasterId: Id<"coasters"> = await ctx.runMutation(
+          internal.coasters.upsertImportedCoaster,
+          coaster,
+        );
+        upsertedIds.set(coaster.sourceId, coasterId);
+      }
+
+      const firstTrack = importedCoasters
+        .slice()
+        .sort((a, b) => (a.trackIndex ?? 0) - (b.trackIndex ?? 0))[0];
+      const replacementCoasterId = upsertedIds.get(firstTrack.sourceId);
+      if (!replacementCoasterId) {
+        continue;
+      }
+
+      const migrationResult: {
+        movedLogCount: number;
+        movedRankingCount: number;
+      } = await ctx.runMutation(internal.admin.migrateLegacyMultiTrackCoasterData, {
+        legacyCoasterId: target._id,
+        replacementCoasterId,
+      });
+
+      migratedCoasterCount += 1;
+      createdTrackCount += importedCoasters.length;
+      movedLogCount += migrationResult.movedLogCount;
+      movedRankingCount += migrationResult.movedRankingCount;
+    }
+
+    return {
+      migratedCoasterCount,
+      createdTrackCount,
+      movedLogCount,
+      movedRankingCount,
     };
   },
 });

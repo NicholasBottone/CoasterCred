@@ -44,9 +44,15 @@ const applicationTables = {
 
   coasters: defineTable({
     name: v.string(),
+    parentName: v.optional(v.string()),
     park: v.string(),
     location: v.string(),
     type: v.string(), // "Steel", "Wood", "Hybrid"
+    isMultiTrack: v.optional(v.boolean()),
+    multiTrackGroupId: v.optional(v.string()),
+    sourcePageId: v.optional(v.string()),
+    trackName: v.optional(v.string()),
+    trackIndex: v.optional(v.number()),
     source: v.optional(v.string()),
     sourceId: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
@@ -66,6 +72,7 @@ const applicationTables = {
     .index("by_name", ["name"])
     .index("by_park", ["park"])
     .index("by_source_and_sourceId", ["source", "sourceId"])
+    .index("by_multiTrackGroupId_and_trackIndex", ["multiTrackGroupId", "trackIndex"])
     .searchIndex("search_coasters", {
       searchField: "name",
       filterFields: ["park", "type"],
@@ -89,6 +96,7 @@ const applicationTables = {
     coasterId: v.id("coasters"),
     rank: v.number(),
   })
+    .index("by_coaster", ["coasterId"])
     .index("by_user", ["userId"])
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_rank", ["userId", "rank"]),

@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
@@ -334,5 +334,31 @@ export const moveRank = mutation({
 
     await ctx.db.patch(rankings[idx]._id, { rank: swapRank });
     await ctx.db.patch(rankings[swapIdx]._id, { rank: currentRank });
+  },
+});
+
+export const reindexUserRankings = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const rankings = await ctx.db
+      .query("rankings")
+      .withIndex("by_user_and_rank", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    rankings.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return a._creationTime - b._creationTime;
+    });
+
+    for (let index = 0; index < rankings.length; index += 1) {
+      const nextRank = index + 1;
+      if (rankings[index].rank !== nextRank) {
+        await ctx.db.patch(rankings[index]._id, { rank: nextRank });
+      }
+    }
+
+    await upsertUserRankingStats(ctx, args.userId);
   },
 });

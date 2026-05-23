@@ -5,12 +5,18 @@ export type ImportedCoaster = {
   _id?: string;
   source: string;
   sourceId: string;
+  sourcePageId?: string;
   sourceUrl?: string;
   lastSyncedAt: number;
   name: string;
+  parentName?: string;
   park: string;
   location: string;
   type: string;
+  isMultiTrack?: boolean;
+  multiTrackGroupId?: string;
+  trackName?: string;
+  trackIndex?: number;
   manufacturer?: string;
   product?: string;
   propulsion?: string;
@@ -43,19 +49,22 @@ function cleanWikiText(value: string | undefined) {
 
 function parseInfobox(wikitext: string) {
   const match = wikitext.match(
-    /\{\{Infobox (?:roller coaster|coaster multitrack)([\s\S]*?)\n\}\}/i,
+    /\{\{Infobox (roller coaster|coaster multitrack)([\s\S]*?)\n\}\}/i,
   );
   if (!match) {
     throw new Error("Could not find coaster infobox");
   }
 
   const fields: Record<string, string> = {};
-  for (const line of match[1].split("\n")) {
+  for (const line of match[2].split("\n")) {
     const fieldMatch = line.match(/^\|([^=]+?)\s*=\s*(.*)$/);
     if (!fieldMatch) continue;
     fields[fieldMatch[1].trim()] = fieldMatch[2].trim();
   }
-  return fields;
+  return {
+    templateName: match[1].toLowerCase(),
+    fields,
+  };
 }
 
 function parseNumber(value: string | undefined) {
@@ -140,50 +149,173 @@ function normalizeLocation(fields: Record<string, string>) {
   return parts.join(", ");
 }
 
-export function normalizeCoaster(page: any): ImportedCoaster {
+function slugifyTrackName(trackName: string) {
+  return cleanWikiText(trackName)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+export function buildCoasterGroupId(sourcePageId: string) {
+  return `${COASTERPEDIA_SOURCE}:${sourcePageId}`;
+}
+
+export function getCoasterSourcePageId(sourceId: string) {
+  return sourceId.split("::")[0] ?? sourceId;
+}
+
+export function buildTrackSourceId(sourcePageId: string, trackIndex: number, trackName: string) {
+  return `${sourcePageId}::${trackIndex + 1}::${slugifyTrackName(trackName)}`;
+}
+
+export function formatCoasterName(parentName: string, trackName?: string) {
+  return trackName ? `${parentName} (${trackName})` : parentName;
+}
+
+function getTrackNames(fields: Record<string, string>) {
+  const trackNames: string[] = [];
+
+  for (let index = 1; index <= 8; index += 1) {
+    const trackName = cleanWikiText(fields[`track${index}_name`] ?? fields[`multi-track${index}`]);
+    if (trackName) {
+      trackNames.push(trackName);
+    }
+  }
+
+  return trackNames;
+}
+
+function getTrackField(fields: Record<string, string>, baseFieldName: string, trackIndex: number) {
+  if (trackIndex === 0) {
+    return fields[baseFieldName] ?? fields[`${baseFieldName}1`];
+  }
+
+  return fields[`${baseFieldName}${trackIndex + 1}`] ?? fields[baseFieldName];
+}
+
+function buildImportedCoaster(
+  page: any,
+  fields: Record<string, string>,
+  options: {
+    sourcePageId: string;
+    sourceUrl?: string;
+    park: string;
+    location: string;
+    measurementSystem: MeasurementSystem | undefined;
+    parentName: string;
+    isMultiTrack: boolean;
+    trackName?: string;
+    trackIndex?: number;
+  },
+): ImportedCoaster {
+  const heightValue =
+    options.trackIndex === undefined ? fields.height : getTrackField(fields, "height", options.trackIndex);
+  const speedValue =
+    options.trackIndex === undefined ? fields.speed : getTrackField(fields, "speed", options.trackIndex);
+  const lengthValue =
+    options.trackIndex === undefined ? fields.length : getTrackField(fields, "length", options.trackIndex);
+  const durationValue =
+    options.trackIndex === undefined ? fields.duration : getTrackField(fields, "duration", options.trackIndex);
+  const inversionsValue =
+    options.trackIndex === undefined ? fields.inversions : getTrackField(fields, "inversions", options.trackIndex);
+
+  return {
+    source: COASTERPEDIA_SOURCE,
+    sourceId:
+      options.trackIndex === undefined || !options.trackName
+        ? options.sourcePageId
+        : buildTrackSourceId(options.sourcePageId, options.trackIndex, options.trackName),
+    sourcePageId: options.sourcePageId,
+    sourceUrl: options.sourceUrl,
+    lastSyncedAt: Date.now(),
+    name: formatCoasterName(options.parentName, options.trackName),
+    parentName: options.parentName,
+    park: options.park,
+    location: options.location,
+    type: deriveType(fields),
+    isMultiTrack: options.isMultiTrack || undefined,
+    multiTrackGroupId: options.isMultiTrack ? buildCoasterGroupId(options.sourcePageId) : undefined,
+    trackName: options.trackName,
+    trackIndex: options.trackIndex,
+    manufacturer: cleanWikiText(fields.manufacturer || fields.builder) || undefined,
+    product: cleanWikiText(fields.product) || undefined,
+    propulsion: cleanWikiText(fields.propulsion ?? fields["lift/launch"]) || undefined,
+    durationSeconds: parseDurationSeconds(durationValue),
+    status: formatStatus(fields.status),
+    heightFt: normalizeMeasurement(heightValue, options.measurementSystem, {
+      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
+      imperialPattern: /\b(?:ft|foot|feet)\b/i,
+      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
+    }),
+    speedMph: normalizeMeasurement(speedValue, options.measurementSystem, {
+      metricPattern: /\b(?:km\/h|kmh|kph|kilometer per hour|kilometers per hour|kilometre per hour|kilometres per hour)\b/i,
+      imperialPattern: /\b(?:mph|mile per hour|miles per hour)\b/i,
+      convertMetric: (numericValue) => numericValue * KMH_TO_MPH,
+    }),
+    lengthFt: normalizeMeasurement(lengthValue, options.measurementSystem, {
+      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
+      imperialPattern: /\b(?:ft|foot|feet)\b/i,
+      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
+    }),
+    inversions: parseNumber(inversionsValue),
+    yearOpened: extractYear(fields.opened),
+    imageUrl: undefined,
+  };
+}
+
+export function normalizeCoasterEntries(page: any): ImportedCoaster[] {
   const revision = page.revisions?.[0]?.slots?.main?.["*"];
   if (!revision) {
     throw new Error(`Missing revision content for ${page.title}`);
   }
 
-  const fields = parseInfobox(revision);
+  const { templateName, fields } = parseInfobox(revision);
   const park = cleanWikiText(fields.park);
   const location = normalizeLocation(fields);
   const measurementSystem = inferMeasurementSystem(fields.units);
+  const sourcePageId = String(page.pageid);
+  const sourceUrl = page.canonicalurl ?? page.fullurl;
+  const parentName = cleanWikiText(fields.name) || page.title;
+  const trackNames = getTrackNames(fields);
+  const isMultiTrack = templateName === "coaster multitrack" && trackNames.length > 0;
 
-  return {
-    source: COASTERPEDIA_SOURCE,
-    sourceId: String(page.pageid),
-    sourceUrl: page.canonicalurl ?? page.fullurl,
-    lastSyncedAt: Date.now(),
-    name: cleanWikiText(fields.name) || page.title,
-    park,
-    location,
-    type: deriveType(fields),
-    manufacturer: cleanWikiText(fields.manufacturer) || undefined,
-    product: cleanWikiText(fields.product) || undefined,
-    propulsion: cleanWikiText(fields.propulsion ?? fields["lift/launch"]) || undefined,
-    durationSeconds: parseDurationSeconds(fields.duration),
-    status: formatStatus(fields.status),
-    heightFt: normalizeMeasurement(fields.height, measurementSystem, {
-      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
-      imperialPattern: /\b(?:ft|foot|feet)\b/i,
-      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
+  if (!isMultiTrack) {
+    return [
+      buildImportedCoaster(page, fields, {
+        sourcePageId,
+        sourceUrl,
+        park,
+        location,
+        measurementSystem,
+        parentName,
+        isMultiTrack: false,
+      }),
+    ];
+  }
+
+  return trackNames.map((trackName, trackIndex) =>
+    buildImportedCoaster(page, fields, {
+      sourcePageId,
+      sourceUrl,
+      park,
+      location,
+      measurementSystem,
+      parentName,
+      isMultiTrack: true,
+      trackName,
+      trackIndex,
     }),
-    speedMph: normalizeMeasurement(fields.speed, measurementSystem, {
-      metricPattern: /\b(?:km\/h|kmh|kph|kilometer per hour|kilometers per hour|kilometre per hour|kilometres per hour)\b/i,
-      imperialPattern: /\b(?:mph|mile per hour|miles per hour)\b/i,
-      convertMetric: (numericValue) => numericValue * KMH_TO_MPH,
-    }),
-    lengthFt: normalizeMeasurement(fields.length, measurementSystem, {
-      metricPattern: /\b(?:m|meter|meters|metre|metres)\b/i,
-      imperialPattern: /\b(?:ft|foot|feet)\b/i,
-      convertMetric: (numericValue) => numericValue * METERS_TO_FEET,
-    }),
-    inversions: parseNumber(fields.inversions),
-    yearOpened: extractYear(fields.opened),
-    imageUrl: undefined,
-  };
+  );
+}
+
+export function normalizeCoaster(page: any): ImportedCoaster {
+  const [coaster] = normalizeCoasterEntries(page);
+  if (!coaster) {
+    throw new Error(`Could not normalize coaster for ${page.title}`);
+  }
+  return coaster;
 }
 
 export async function fetchJson(url: string) {

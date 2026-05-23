@@ -3,7 +3,14 @@ import { useAction, useQuery } from "convex/react";
 import { flushSync } from "react-dom";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
+import { CoasterModal } from "../components/CoasterModal";
+import {
+  type CoasterGroupSummary,
+  type CoasterModalTarget,
+  type CoasterSummary,
+  getCoasterDisplayName,
+  isCoasterGroupSummary,
+} from "../lib/coasterData";
 import { getErrorMessage } from "../lib/errors";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { MemberSearchPanel } from "../components/MemberSearchPanel";
@@ -63,8 +70,8 @@ export function SearchPage() {
 
 function CoasterSearchPanel() {
   const [search, setSearch] = useState("");
-  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
-  const [results, setResults] = useState<CoasterSummary[]>([]);
+  const [selectedCoaster, setSelectedCoaster] = useState<CoasterModalTarget | null>(null);
+  const [results, setResults] = useState<Array<CoasterSummary | CoasterGroupSummary>>([]);
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -94,7 +101,7 @@ function CoasterSearchPanel() {
       try {
         const nextResults = await searchCoasterpedia({ q: queryText });
         if (!cancelled) {
-          setResults(nextResults as CoasterSummary[]);
+          setResults(nextResults as Array<CoasterSummary | CoasterGroupSummary>);
         }
       } catch (error: any) {
         if (!cancelled) {
@@ -116,10 +123,16 @@ function CoasterSearchPanel() {
 
   const displayResults = search.trim()
     ? results
-    : ((topCoasters ?? []) as CoasterSummary[]);
-  const visibleLocalCoasterIds = displayResults
-    .map((coaster) => coaster._id)
-    .filter((coasterId): coasterId is string => Boolean(coasterId));
+    : ((topCoasters ?? []) as Array<CoasterSummary | CoasterGroupSummary>);
+  const visibleLocalCoasterIds = displayResults.flatMap((result) => {
+    if (isCoasterGroupSummary(result)) {
+      return result.tracks
+        .map((track) => track._id)
+        .filter((coasterId): coasterId is string => Boolean(coasterId));
+    }
+
+    return result._id ? [result._id] : [];
+  });
   const myRideCounts = useQuery(
     api.rideLogs.getMyRideCountsForCoasters,
     visibleLocalCoasterIds.length > 0 ? { coasterIds: visibleLocalCoasterIds as any } : "skip",
@@ -159,14 +172,23 @@ function CoasterSearchPanel() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {displayResults.map((coaster) => (
-            <CoasterCard
-              key={coaster._id ?? `${coaster.source ?? "local"}:${coaster.sourceId ?? coaster.name}`}
-              coaster={coaster}
-              rideCount={coaster._id ? myRideCounts?.[coaster._id] ?? 0 : 0}
-              onClick={() => setSelectedCoaster(coaster)}
-            />
-          ))}
+          {displayResults.map((result) =>
+            isCoasterGroupSummary(result) ? (
+              <CoasterGroupCard
+                key={`group:${result.multiTrackGroupId}`}
+                group={result}
+                rideCounts={myRideCounts ?? {}}
+                onClick={() => setSelectedCoaster(result)}
+              />
+            ) : (
+              <CoasterCard
+                key={result._id ?? `${result.source ?? "local"}:${result.sourceId ?? result.name}`}
+                coaster={result}
+                rideCount={result._id ? myRideCounts?.[result._id] ?? 0 : 0}
+                onClick={() => setSelectedCoaster(result)}
+              />
+            ),
+          )}
           {displayResults.length === 0 && (
             <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
               {search.trim() ? "No coasters found" : "No local coasters yet"}
@@ -197,7 +219,9 @@ function CoasterCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{coaster.name}</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
+              {getCoasterDisplayName(coaster)}
+            </p>
             {rideCount > 0 && (
               <span className="text-green-500 text-xs">
                 ✓ {rideCount === 1 ? "Ridden" : `${rideCount} rides`}
@@ -213,6 +237,50 @@ function CoasterCard({
           {coaster.heightFt && (
             <span className="text-xs text-gray-400 dark:text-gray-500">{coaster.heightFt}ft</span>
           )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function CoasterGroupCard({
+  group,
+  rideCounts,
+  onClick,
+}: {
+  group: CoasterGroupSummary;
+  rideCounts: Record<string, number>;
+  onClick: () => void;
+}) {
+  const totalRideCount = group.tracks.reduce((sum, track) => sum + (track._id ? rideCounts[track._id] ?? 0 : 0), 0);
+  const riddenTrackCount = group.tracks.filter((track) => track._id && (rideCounts[track._id] ?? 0) > 0).length;
+
+  return (
+    <button
+      onClick={onClick}
+      className="surface-card interactive-lift rounded-xl p-3 text-left"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{group.name}</p>
+            {totalRideCount > 0 && (
+              <span className="text-green-500 text-xs">
+                ✓ {totalRideCount === 1 ? "1 ride" : `${totalRideCount} rides`}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{group.park} · {group.location}</p>
+          <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            {group.tracks.length} tracks
+            {riddenTrackCount > 0 ? ` · ${riddenTrackCount} ridden` : ""}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={getCoasterTypeBadgeClasses(group.type)}>
+            {group.type}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">Multi-track ride</span>
         </div>
       </div>
     </button>

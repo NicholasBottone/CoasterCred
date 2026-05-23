@@ -19,6 +19,7 @@ export function AdminPage({
   );
   const syncCoaster = useAction(api.admin.syncCoaster);
   const linkAndSyncCoaster = useAction(api.admin.linkAndSyncCoaster);
+  const migrateMultiTrackCoasters = useAction(api.admin.migrateMultiTrackCoasters);
   const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
   const [syncingCoasterId, setSyncingCoasterId] = useState<string | null>(null);
   const [matchingCoasterId, setMatchingCoasterId] = useState<string | null>(null);
@@ -27,6 +28,7 @@ export function AdminPage({
   const [searchingMatches, setSearchingMatches] = useState(false);
   const [linkingCoasterId, setLinkingCoasterId] = useState<string | null>(null);
   const [syncSearchQuery, setSyncSearchQuery] = useState("");
+  const [isMigratingMultiTrack, setIsMigratingMultiTrack] = useState(false);
 
   const handleSync = async (coasterId: string) => {
     setSyncingCoasterId(coasterId);
@@ -60,11 +62,29 @@ export function AdminPage({
     setSearchingMatches(true);
     try {
       const results = await searchCoasterpedia({ q: queryText });
-      setMatchResults(results as any[]);
+      setMatchResults(
+        (results as any[]).flatMap((result) => (result.kind === "multiTrackGroup" ? result.tracks : [result])),
+      );
     } catch (error) {
       toast.error(getErrorMessage(error, "Could not search Coasterpedia"));
     } finally {
       setSearchingMatches(false);
+    }
+  };
+
+  const handleMultiTrackMigration = async () => {
+    setIsMigratingMultiTrack(true);
+    try {
+      const result = await migrateMultiTrackCoasters({});
+      toast.success(
+        result.migratedCoasterCount > 0
+          ? `Migrated ${result.migratedCoasterCount} legacy multi-track coaster${result.migratedCoasterCount === 1 ? "" : "s"}`
+          : "No legacy multi-track coasters needed migration",
+      );
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not migrate legacy multi-track coasters"));
+    } finally {
+      setIsMigratingMultiTrack(false);
     }
   };
 
@@ -127,6 +147,24 @@ export function AdminPage({
         />
         <SummaryCard label="Signed-Up Users" value={dashboard.summary.userCount} />
       </div>
+
+      <section className="surface-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Multi-track migration</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Split legacy combined Coasterpedia multi-track coasters into separate track credits and move old logs to the first listed track.
+            </p>
+          </div>
+          <button
+            onClick={() => void handleMultiTrackMigration()}
+            disabled={isMigratingMultiTrack}
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isMigratingMultiTrack ? "Migrating..." : "Run multi-track migration"}
+          </button>
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
         <section className="surface-card p-4">

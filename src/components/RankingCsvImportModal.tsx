@@ -21,13 +21,20 @@ type ImportCandidate = {
   _id?: string;
   source?: string;
   sourceId?: string;
+  sourcePageId?: string;
   sourceUrl?: string;
   name: string;
+  parentName?: string;
   park: string;
   location: string;
   type: string;
+  isMultiTrack?: boolean;
+  multiTrackGroupId?: string;
+  trackName?: string;
+  trackIndex?: number;
   nameMatches: boolean;
   parkMatches: boolean;
+  parentNameMatches?: boolean;
 };
 
 type ImportIssue = {
@@ -607,7 +614,9 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
 
           {!isResolving && validationResult && validationResult.candidates.length > 0 && !validationResult.exactMatch && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Nearby matches</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {validationResult.issue?.code === "track_required" ? "Choose a track" : "Nearby matches"}
+              </p>
               {validationResult.candidates.slice(0, 6).map((candidate) => (
                 <div
                   key={`${candidate.source ?? "coasterpedia"}:${candidate.sourceId ?? candidate.name}`}
@@ -619,9 +628,15 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                       <p className="truncate text-sm text-gray-500 dark:text-gray-400">
                         {candidate.park} · {candidate.location}
                       </p>
-                      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                        {candidate.nameMatches ? "Name matches" : "Name differs"} · {candidate.parkMatches ? "Park matches" : "Park differs"}
-                      </p>
+                      {validationResult.issue?.code === "track_required" ? (
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                          Exact track option for {candidate.parentName ?? candidate.name}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                          {candidate.nameMatches ? "Name matches" : "Name differs"} · {candidate.parkMatches ? "Park matches" : "Park differs"}
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
                       <span className={getCoasterTypeBadgeClasses(candidate.type)}>{candidate.type}</span>

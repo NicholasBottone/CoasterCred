@@ -8,7 +8,8 @@ import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
-import { CoasterModal, type CoasterSummary } from "../components/CoasterModal";
+import { CoasterModal } from "../components/CoasterModal";
+import { type CoasterSummary } from "../lib/coasterData";
 
 const apiAny = api as any;
 const RANKINGS_PAGE_SIZE = 25;
