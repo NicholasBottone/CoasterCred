@@ -16,6 +16,7 @@ import {
   fetchCoasterpediaPageById,
   fetchJson,
   getCoasterSourcePageId,
+  logCoasterpediaNormalizationFailure,
   normalizeCoaster,
   normalizeCoasterEntries,
 } from "./coasterpedia";
@@ -471,7 +472,8 @@ export const syncCoaster = action({
       coaster =
         normalizeCoasterEntries(page).find((entry) => entry.sourceId === target.sourceId) ??
         normalizeCoaster(page);
-    } catch {
+    } catch (error) {
+      logCoasterpediaNormalizationFailure("admin.syncCoaster", page, error);
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
     }
 
@@ -522,7 +524,8 @@ export const linkAndSyncCoaster = action({
       coaster =
         normalizeCoasterEntries(page).find((entry) => entry.sourceId === args.sourceId) ??
         normalizeCoaster(page);
-    } catch {
+    } catch (error) {
+      logCoasterpediaNormalizationFailure("admin.linkAndSyncCoaster", page, error);
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
     }
 
@@ -573,7 +576,8 @@ export const migrateMultiTrackCoasters = action({
       let importedCoasters;
       try {
         importedCoasters = normalizeCoasterEntries(page);
-      } catch {
+      } catch (error) {
+        logCoasterpediaNormalizationFailure("admin.migrateMultiTrackCoasters", page, error);
         continue;
       }
 

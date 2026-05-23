@@ -47,22 +47,55 @@ function cleanWikiText(value: string | undefined) {
     .trim();
 }
 
-function parseInfobox(wikitext: string) {
-  const match = wikitext.match(
-    /\{\{Infobox (roller coaster|coaster multitrack)([\s\S]*?)\n\}\}/i,
-  );
-  if (!match) {
+function extractInfoboxTemplate(wikitext: string) {
+  const startMatch = /\{\{Infobox (roller coaster|coaster multitrack)\b/i.exec(wikitext);
+  if (!startMatch || startMatch.index === undefined) {
     throw new Error("Could not find coaster infobox");
   }
 
+  const templateStart = startMatch.index;
+  const contentStart = templateStart + startMatch[0].length;
+  let templateDepth = 0;
+  let templateEnd = -1;
+
+  for (let index = templateStart; index < wikitext.length - 1; index += 1) {
+    const token = wikitext.slice(index, index + 2);
+    if (token === "{{") {
+      templateDepth += 1;
+      index += 1;
+      continue;
+    }
+    if (token === "}}") {
+      templateDepth -= 1;
+      index += 1;
+      if (templateDepth === 0) {
+        templateEnd = index + 1;
+        break;
+      }
+    }
+  }
+
+  if (templateEnd === -1) {
+    throw new Error("Could not find the end of the coaster infobox");
+  }
+
+  return {
+    templateName: startMatch[1].toLowerCase(),
+    body: wikitext.slice(contentStart, templateEnd - 2),
+  };
+}
+
+function parseInfobox(wikitext: string) {
+  const template = extractInfoboxTemplate(wikitext);
+
   const fields: Record<string, string> = {};
-  for (const line of match[2].split("\n")) {
+  for (const line of template.body.split("\n")) {
     const fieldMatch = line.match(/^\|([^=]+?)\s*=\s*(.*)$/);
     if (!fieldMatch) continue;
     fields[fieldMatch[1].trim()] = fieldMatch[2].trim();
   }
   return {
-    templateName: match[1].toLowerCase(),
+    templateName: template.templateName,
     fields,
   };
 }
@@ -316,6 +349,18 @@ export function normalizeCoaster(page: any): ImportedCoaster {
     throw new Error(`Could not normalize coaster for ${page.title}`);
   }
   return coaster;
+}
+
+export function logCoasterpediaNormalizationFailure(
+  context: string,
+  page: { pageid?: string | number; title?: string } | null | undefined,
+  error: unknown,
+) {
+  console.warn(`[${context}] Failed to normalize Coasterpedia page`, {
+    title: page?.title ?? null,
+    sourceId: page?.pageid !== undefined ? String(page.pageid) : null,
+    error: error instanceof Error ? error.message : String(error),
+  });
 }
 
 export async function fetchJson(url: string) {

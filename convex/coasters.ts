@@ -13,6 +13,7 @@ import {
   fetchCoasterpediaPages,
   formatCoasterName,
   getCoasterSourcePageId,
+  logCoasterpediaNormalizationFailure,
   normalizeCoaster,
   normalizeCoasterEntries,
   normalizeImportCoasterName,
@@ -201,7 +202,8 @@ export const searchCoasterpedia = action({
     for (const page of pages) {
       try {
         normalized.push(...normalizeCoasterEntries(page));
-      } catch {
+      } catch (error) {
+        logCoasterpediaNormalizationFailure("coasters.searchCoasterpedia", page, error);
         continue;
       }
     }
@@ -255,7 +257,8 @@ export const validateRankingImportRow = action({
     for (const page of pages) {
       try {
         normalized.push(...normalizeCoasterEntries(page));
-      } catch {
+      } catch (error) {
+        logCoasterpediaNormalizationFailure("coasters.validateRankingImportRow", page, error);
         continue;
       }
     }
@@ -354,7 +357,8 @@ export const materializeCoasterpediaCoaster = action({
     let importedCoasters: ImportedCoaster[];
     try {
       importedCoasters = normalizeCoasterEntries(page);
-    } catch {
+    } catch (error) {
+      logCoasterpediaNormalizationFailure("coasters.materializeCoasterpediaCoaster", page, error);
       throw new ConvexError("Could not load this coaster");
     }
 
