@@ -288,6 +288,7 @@ function DemoCoasterModal({
   onOpenAuth: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isLogPromptOpen, setIsLogPromptOpen] = useState(false);
 
   return (
     <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
@@ -300,7 +301,32 @@ function DemoCoasterModal({
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{coaster.park} · {coaster.location}</p>
         </div>
-        <ModalCloseButton onClose={onClose} />
+        <div className="flex flex-none items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsLogPromptOpen(true)}
+            aria-label="Log ride"
+            className="inline-flex h-11 flex-none items-center gap-1.5 self-start rounded-full border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:bg-primary/15 dark:border-primary/30 dark:bg-primary/10"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+            >
+              <path
+                d="M12 5V19M5 12H19"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Log</span>
+          </button>
+          <ModalCloseButton onClose={onClose} />
+        </div>
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -346,21 +372,58 @@ function DemoCoasterModal({
         </section>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
-        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Log Ride</h4>
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          Sign in to log this coaster, compare it head-to-head, and add it to your rankings.
-        </p>
-        <button
-          onClick={() => {
+      {isLogPromptOpen && (
+        <DemoLogRidePromptModal
+          coaster={coaster}
+          onClose={() => setIsLogPromptOpen(false)}
+          onSignIn={() => {
+            setIsLogPromptOpen(false);
             onClose();
             onOpenAuth();
           }}
-          className="mt-4 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md"
-        >
-          Sign in to log ride
-        </button>
+        />
+      )}
+    </ModalContainer>
+  );
+}
+
+function DemoLogRidePromptModal({
+  coaster,
+  onClose,
+  onSignIn,
+}: {
+  coaster: DemoCoaster;
+  onClose: () => void;
+  onSignIn: () => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <ModalContainer
+      onClose={onClose}
+      scrollRef={scrollRef}
+      overlayClassName="z-[60]"
+      contentClassName="shadow-2xl"
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">Log Ride</h4>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{coaster.name} · {coaster.park}</p>
+        </div>
+        <ModalCloseButton onClose={onClose} />
       </div>
+
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Sign in to log this coaster, compare it head-to-head, and add it to your rankings.
+      </p>
+
+      <button
+        type="button"
+        onClick={onSignIn}
+        className="mt-4 w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md"
+      >
+        Sign in to log ride
+      </button>
     </ModalContainer>
   );
 }

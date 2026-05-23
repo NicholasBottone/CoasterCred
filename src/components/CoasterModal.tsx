@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
@@ -142,13 +142,14 @@ export function CoasterModal({
   const [rideDate, setRideDate] = useState(todayDateInputValue());
   const [saving, setSaving] = useState(false);
   const [comparisonBounds, setComparisonBounds] = useState<{ low: number; high: number } | null>(null);
-  const [isLogOpen, setIsLogOpen] = useState(false);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isRideHistoryOpen, setIsRideHistoryOpen] = useState(false);
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [showAllFollowedRiders, setShowAllFollowedRiders] = useState(false);
   const [rideHistoryLimit, setRideHistoryLimit] = useState(10);
   const [shouldLoadComparisonList, setShouldLoadComparisonList] = useState(false);
   const [isRerankRequested, setIsRerankRequested] = useState(false);
+  const pendingLogModalOpenRef = useRef(false);
 
   const groupData = useQuery(
     api.coasters.getMultiTrackGroupData,
@@ -185,16 +186,12 @@ export function CoasterModal({
 
   useEffect(() => {
     if (!selectedTrack) return;
-    setNotes("");
-    setRideDate(todayDateInputValue());
-    setComparisonBounds(null);
-    setIsLogOpen(false);
+    resetLogState(pendingLogModalOpenRef.current);
     setIsRideHistoryOpen(false);
     setIsFriendsOpen(false);
     setShowAllFollowedRiders(false);
     setRideHistoryLimit(10);
-    setShouldLoadComparisonList(false);
-    setIsRerankRequested(false);
+    pendingLogModalOpenRef.current = false;
   }, [selectedTrack?._id, selectedTrack?.sourceId, selectedTrack?.imageUrl]);
 
   const profileData = useQuery(
@@ -280,7 +277,7 @@ export function CoasterModal({
           ? "Ride added to your history!"
           : "Ride logged and ranked!",
       );
-      onClose();
+      resetLogState(false);
     } catch (e: any) {
       toast.error(getErrorMessage(e, "Could not log ride"));
     } finally {
@@ -291,7 +288,7 @@ export function CoasterModal({
   const startComparisonFlow = async () => {
     if (loadingData || !selectedTrack) return;
 
-    setIsLogOpen(true);
+    setIsLogModalOpen(true);
     setShouldLoadComparisonList(true);
 
     if (typeof profileData?.myStats?.currentRank === "number") {
@@ -300,7 +297,7 @@ export function CoasterModal({
   };
 
   useEffect(() => {
-    if (!isLogOpen || !shouldLoadComparisonList || hasCurrentRank || loadingComparison || saving) {
+    if (!isLogModalOpen || !shouldLoadComparisonList || hasCurrentRank || loadingComparison || saving) {
       return;
     }
     if (comparisonBounds !== null) {
@@ -318,7 +315,7 @@ export function CoasterModal({
     comparisonBounds,
     comparisonRankings,
     hasCurrentRank,
-    isLogOpen,
+    isLogModalOpen,
     loadingComparison,
     rankedCoasters.length,
     saving,
@@ -326,7 +323,7 @@ export function CoasterModal({
   ]);
 
   useEffect(() => {
-    if (!isLogOpen || !isRerankRequested || loadingComparison || comparisonBounds !== null) {
+    if (!isLogModalOpen || !isRerankRequested || loadingComparison || comparisonBounds !== null) {
       return;
     }
     if (!comparisonRankings || rankedCoasters.length === 0) {
@@ -337,7 +334,7 @@ export function CoasterModal({
   }, [
     comparisonBounds,
     comparisonRankings,
-    isLogOpen,
+    isLogModalOpen,
     isRerankRequested,
     loadingComparison,
     rankedCoasters.length,
@@ -372,15 +369,28 @@ export function CoasterModal({
     }
   };
 
-  const toggleLogSection = () => {
-    if (comparisonBounds !== null) {
-      setComparisonBounds(null);
+  const resetLogState = (nextIsOpen = false) => {
+    setNotes("");
+    setRideDate(todayDateInputValue());
+    setComparisonBounds(null);
+    setIsLogModalOpen(nextIsOpen);
+    setShouldLoadComparisonList(false);
+    setIsRerankRequested(false);
+  };
+
+  const openLogModal = () => {
+    if (!selectedTrack) return;
+    setIsLogModalOpen(true);
+  };
+
+  const openLogModalForTrack = (trackKey: string) => {
+    if (trackKey === selectedTrackKey) {
+      setIsLogModalOpen(true);
+      return;
     }
-    if (isLogOpen) {
-      setShouldLoadComparisonList(false);
-      setIsRerankRequested(false);
-    }
-    setIsLogOpen((current) => !current);
+
+    pendingLogModalOpenRef.current = true;
+    setSelectedTrackKey(trackKey);
   };
 
   const aggregateStats =
@@ -395,6 +405,11 @@ export function CoasterModal({
         }
       : null);
   const selectedTrackLabel = displayCoaster ? getCoasterTrackLabel(displayCoaster) : null;
+  const logButtonLabel = groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log ride";
+  const logModalTitle = groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log Ride";
+  const logModalSubtitle = displayCoaster
+    ? `${getCoasterDisplayName(displayCoaster)} · ${displayCoaster.park ?? "Unknown park"}`
+    : "Add a ride and place it in your rankings.";
 
   return (
     <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
@@ -435,7 +450,12 @@ export function CoasterModal({
             </a>
           )}
         </div>
-        <ModalCloseButton onClose={onClose} />
+        <div className="flex flex-none items-center gap-2">
+          {displayCoaster && (
+            <LogActionButton onClick={openLogModal} ariaLabel={logButtonLabel} />
+          )}
+          <ModalCloseButton onClose={onClose} />
+        </div>
       </div>
 
       {groupParent && aggregateStats && (
@@ -501,13 +521,15 @@ export function CoasterModal({
                           </span>
                         )}
                         <button
+                          type="button"
                           onClick={() => {
-                            setSelectedTrackKey(getTrackKey(entry.coaster));
-                            setIsLogOpen(true);
+                            openLogModalForTrack(getTrackKey(entry.coaster));
                           }}
-                          className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
+                          aria-label={`Log ${trackLabel}`}
+                          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 dark:bg-primary/10"
                         >
-                          Log ride
+                          <PlusIcon className="h-4 w-4" />
+                          <span>Log</span>
                         </button>
                       </div>
                     </div>
@@ -706,140 +728,6 @@ export function CoasterModal({
               </div>
             )}
           </section>
-
-          <section className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950/40">
-            <button
-              onClick={toggleLogSection}
-              className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-900/70"
-            >
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log Ride"}
-                </h4>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
-                  {profileData?.myStats?.hasRidden
-                    ? "Add another ride or update where this coaster belongs in your list"
-                    : "Log your first ride and place it in your rankings"}
-                </p>
-              </div>
-              <ExpandIcon isOpen={isLogOpen} />
-            </button>
-
-            {isLogOpen && (
-              <div className="border-t border-gray-200 px-4 py-4 dark:border-gray-800">
-                {typeof profileData?.myStats?.currentRank === "number" && (
-                  <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                    Currently ranked #{profileData.myStats.currentRank}
-                    {typeof profileData?.myStats?.currentScore === "number"
-                      ? ` with a ${profileData.myStats.currentScore.toFixed(1)}`
-                      : ""}
-                    .
-                  </p>
-                )}
-
-                <div className="mb-3">
-                  <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">Ride date</label>
-                  <input
-                    type="date"
-                    value={rideDate}
-                    max={todayDateInputValue()}
-                    onChange={(e) => setRideDate(e.target.value)}
-                    className="date-input-field"
-                  />
-                </div>
-
-                <textarea
-                  placeholder="Notes (optional)..."
-                  value={notes}
-                  maxLength={500}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="input-field mb-3 resize-none"
-                />
-
-                {loadingData ? (
-                  <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-                    Loading your current rankings...
-                  </div>
-                ) : loadingComparison ? (
-                  <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-                    Loading the ranking comparison list...
-                  </div>
-                ) : comparisonTarget ? (
-                  <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Which coaster is better?
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => void handleComparisonChoice("selected")}
-                        disabled={saving}
-                        className="rounded-xl border border-primary/20 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md disabled:opacity-50 dark:border-primary/30 dark:bg-gray-950 dark:hover:bg-primary/10"
-                      >
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {displayCoaster ? getCoasterDisplayName(displayCoaster) : "Selected coaster"}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{displayCoaster?.park}</p>
-                      </button>
-                      <button
-                        onClick={() => void handleComparisonChoice("other")}
-                        disabled={saving}
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-gray-300 hover:bg-gray-100 hover:shadow-md disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:hover:bg-gray-800"
-                      >
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {comparisonTarget.coaster?.name ?? "Unknown"}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{comparisonTarget.coaster?.park}</p>
-                      </button>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Pick the coaster you’d place higher in your personal rankings.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-                    {hasCurrentRank
-                      ? "Logging another ride adds it to your history. Use Re-rank if you want to move it in your list."
-                      : shouldLoadComparisonList && rankedCoasters.length === 0
-                        ? "This will become your first ranked coaster."
-                        : shouldLoadComparisonList
-                          ? "Working out where this coaster belongs in your list."
-                          : "Open the comparison flow to place this coaster into your list."}
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => void startComparisonFlow()}
-                    disabled={saving || loadingData}
-                    className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
-                  >
-                    {comparisonTarget
-                      ? "Restart Comparisons"
-                      : hasCurrentRank
-                        ? "Log Ride"
-                        : "Log and Rank Ride"}
-                  </button>
-                  {hasCurrentRank && (
-                    <button
-                      onClick={() => {
-                        setIsLogOpen(true);
-                        setIsRerankRequested(true);
-                        setShouldLoadComparisonList(true);
-                        if (rankedCoasters.length > 0) {
-                          setComparisonBounds({ low: 0, high: rankedCoasters.length });
-                        }
-                      }}
-                      disabled={saving || loadingComparison}
-                      className="rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
-                    >
-                      Re-rank
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
         </>
       )}
 
@@ -855,6 +743,39 @@ export function CoasterModal({
         </a>
         , licensed under CC-BY-SA 3.0.
       </p>
+
+      {displayCoaster && isLogModalOpen && (
+        <LogRideModal
+          onClose={() => setIsLogModalOpen(false)}
+          title={logModalTitle}
+          subtitle={logModalSubtitle}
+          coasterName={getCoasterDisplayName(displayCoaster)}
+          coasterPark={displayCoaster.park}
+          rideDate={rideDate}
+          notes={notes}
+          saving={saving}
+          loadingData={loadingData}
+          loadingComparison={loadingComparison}
+          hasCurrentRank={hasCurrentRank}
+          currentRank={profileData?.myStats?.currentRank ?? null}
+          currentScore={profileData?.myStats?.currentScore ?? null}
+          comparisonTarget={comparisonTarget}
+          shouldLoadComparisonList={shouldLoadComparisonList}
+          rankedCoasterCount={rankedCoasters.length}
+          onRideDateChange={setRideDate}
+          onNotesChange={setNotes}
+          onStartComparisonFlow={() => void startComparisonFlow()}
+          onComparisonChoice={(winner) => void handleComparisonChoice(winner)}
+          onRerank={() => {
+            setIsLogModalOpen(true);
+            setIsRerankRequested(true);
+            setShouldLoadComparisonList(true);
+            if (rankedCoasters.length > 0) {
+              setComparisonBounds({ low: 0, high: rankedCoasters.length });
+            }
+          }}
+        />
+      )}
     </ModalContainer>
   );
 }
@@ -874,6 +795,211 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <p className="text-lg font-bold text-primary">{value}</p>
       <p className="text-[11px] text-gray-500 dark:text-gray-400">{label}</p>
     </div>
+  );
+}
+
+function LogActionButton({
+  onClick,
+  ariaLabel,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="inline-flex h-11 flex-none items-center gap-1.5 self-start rounded-full border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:bg-primary/15 dark:border-primary/30 dark:bg-primary/10"
+    >
+      <PlusIcon className="h-4 w-4" />
+      <span>Log</span>
+    </button>
+  );
+}
+
+function PlusIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M12 5V19M5 12H19"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function LogRideModal({
+  onClose,
+  title,
+  subtitle,
+  coasterName,
+  coasterPark,
+  rideDate,
+  notes,
+  saving,
+  loadingData,
+  loadingComparison,
+  hasCurrentRank,
+  currentRank,
+  currentScore,
+  comparisonTarget,
+  shouldLoadComparisonList,
+  rankedCoasterCount,
+  onRideDateChange,
+  onNotesChange,
+  onStartComparisonFlow,
+  onComparisonChoice,
+  onRerank,
+}: {
+  onClose: () => void;
+  title: string;
+  subtitle: string;
+  coasterName: string;
+  coasterPark?: string;
+  rideDate: string;
+  notes: string;
+  saving: boolean;
+  loadingData: boolean;
+  loadingComparison: boolean;
+  hasCurrentRank: boolean;
+  currentRank: number | null | undefined;
+  currentScore: number | null | undefined;
+  comparisonTarget: { coaster?: Pick<CoasterSummary, "name" | "park"> | null } | null;
+  shouldLoadComparisonList: boolean;
+  rankedCoasterCount: number;
+  onRideDateChange: (value: string) => void;
+  onNotesChange: (value: string) => void;
+  onStartComparisonFlow: () => void;
+  onComparisonChoice: (winner: "selected" | "other") => void;
+  onRerank: () => void;
+}) {
+  const scrollRef = useScrollToTop([title, comparisonTarget?.coaster?.name ?? null]);
+
+  return (
+    <ModalContainer
+      onClose={onClose}
+      maxWidth="md"
+      scrollRef={scrollRef}
+      overlayClassName="z-[60]"
+      contentClassName="shadow-2xl"
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h4>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+        </div>
+        <ModalCloseButton onClose={onClose} />
+      </div>
+
+      {typeof currentRank === "number" && (
+        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          Currently ranked #{currentRank}
+          {typeof currentScore === "number" ? ` with a ${currentScore.toFixed(1)}` : ""}.
+        </p>
+      )}
+
+      <div className="mb-3">
+        <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">Ride date</label>
+        <input
+          type="date"
+          value={rideDate}
+          max={todayDateInputValue()}
+          onChange={(e) => onRideDateChange(e.target.value)}
+          className="date-input-field"
+        />
+      </div>
+
+      <textarea
+        placeholder="Notes (optional)..."
+        value={notes}
+        maxLength={500}
+        onChange={(e) => onNotesChange(e.target.value)}
+        rows={2}
+        className="input-field mb-3 resize-none"
+      />
+
+      {loadingData ? (
+        <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+          Loading your current rankings...
+        </div>
+      ) : loadingComparison ? (
+        <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+          Loading the ranking comparison list...
+        </div>
+      ) : comparisonTarget ? (
+        <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Which coaster is better?
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onComparisonChoice("selected")}
+              disabled={saving}
+              className="rounded-xl border border-primary/20 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md disabled:opacity-50 dark:border-primary/30 dark:bg-gray-950 dark:hover:bg-primary/10"
+            >
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{coasterName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{coasterPark}</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => onComparisonChoice("other")}
+              disabled={saving}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-gray-300 hover:bg-gray-100 hover:shadow-md disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:hover:bg-gray-800"
+            >
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {comparisonTarget.coaster?.name ?? "Unknown"}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{comparisonTarget.coaster?.park}</p>
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Pick the coaster you’d place higher in your personal rankings.
+          </p>
+        </div>
+      ) : (
+        <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+          {hasCurrentRank
+            ? "Logging another ride adds it to your history. Use Re-rank if you want to move it in your list."
+            : shouldLoadComparisonList && rankedCoasterCount === 0
+              ? "This will become your first ranked coaster."
+              : shouldLoadComparisonList
+                ? "Working out where this coaster belongs in your list."
+                : "Open the comparison flow to place this coaster into your list."}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onStartComparisonFlow}
+          disabled={saving || loadingData}
+          className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
+        >
+          {comparisonTarget ? "Restart Comparisons" : hasCurrentRank ? "Log Ride" : "Log and Rank Ride"}
+        </button>
+        {hasCurrentRank && (
+          <button
+            type="button"
+            onClick={onRerank}
+            disabled={saving || loadingComparison}
+            className="rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
+          >
+            Re-rank
+          </button>
+        )}
+      </div>
+    </ModalContainer>
   );
 }
 
