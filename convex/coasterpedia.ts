@@ -250,3 +250,90 @@ export async function fetchCoasterpediaPageById(sourceId: string) {
 
   return (details as any).query?.pages?.[sourceId] ?? null;
 }
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizePunctuation(value: string) {
+  return value
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-");
+}
+
+function normalizeTrailingImportSuffix(value: string) {
+  const match = value.match(/^(.*)\(([^()]+)\)$/);
+  if (!match) return value;
+
+  const prefix = normalizeWhitespace(match[1] ?? "");
+  const suffix = normalizeWhitespace(match[2] ?? "");
+  if (!prefix || !suffix) return value;
+
+  if (/^[A-Z0-9]{2,8}$/.test(suffix)) {
+    return prefix;
+  }
+
+  const variantMatch = suffix.match(/^([A-Z0-9]{2,8}),\s*(.+)$/);
+  if (variantMatch?.[2]) {
+    return `${prefix} (${normalizeWhitespace(variantMatch[2])})`;
+  }
+
+  return value;
+}
+
+function stripParkDisambiguatorFromCandidateName(name: string, park: string) {
+  const match = name.match(/^(.*)\(([^()]+)\)$/);
+  if (!match) return name;
+
+  const prefix = normalizeWhitespace(match[1] ?? "");
+  const suffix = normalizeWhitespace(match[2] ?? "");
+  if (!prefix || !suffix) return name;
+
+  if (canonicalizeForImportMatch(suffix) === canonicalizeForImportMatch(park)) {
+    return prefix;
+  }
+
+  return name;
+}
+
+export function normalizeImportCoasterName(name: string) {
+  const normalized = normalizeWhitespace(normalizePunctuation(name));
+  return normalizeTrailingImportSuffix(normalized);
+}
+
+export function canonicalizeForImportMatch(value: string) {
+  return normalizeWhitespace(normalizePunctuation(value))
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’]s\b/gi, "")
+    .replace(/&/g, " and ")
+    .replace(/['"]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/^the\s+/i, "")
+    .trim();
+}
+
+export function coasterNameMatchesImport(name: string, park: string, importedName: string) {
+  const normalizedImportedName = canonicalizeForImportMatch(normalizeImportCoasterName(importedName));
+  if (!normalizedImportedName) return false;
+
+  const candidateNames = [
+    canonicalizeForImportMatch(name),
+    canonicalizeForImportMatch(stripParkDisambiguatorFromCandidateName(name, park)),
+  ];
+
+  return candidateNames.includes(normalizedImportedName);
+}
+
+export function parkMatchesImport(park: string, importedPark: string) {
+  const candidatePark = canonicalizeForImportMatch(park);
+  const importedParkKey = canonicalizeForImportMatch(importedPark);
+
+  return (
+    candidatePark === importedParkKey ||
+    candidatePark.replace(/\s+/g, "") === importedParkKey.replace(/\s+/g, "")
+  );
+}

@@ -1,14 +1,17 @@
-import { action, internalMutation, query } from "./_generated/server";
+import { action, internalMutation, query, type ActionCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { Id } from "./_generated/dataModel";
 import { computeRankingScore } from "./rankings";
 import {
+  coasterNameMatchesImport,
   COASTERPEDIA_SOURCE,
   fetchCoasterpediaPageById,
   fetchCoasterpediaPages,
   normalizeCoaster,
+  normalizeImportCoasterName,
+  parkMatchesImport,
   searchCoasterpediaTitles,
   type ImportedCoaster,
 } from "./coasterpedia";
@@ -18,6 +21,61 @@ import {
   getUserCoasterStatsDoc,
   getTrendingCoasterIds,
 } from "./usageStats";
+
+type ImportedCoasterMatchCandidate = ImportedCoaster & {
+  _id?: string;
+  nameMatches: boolean;
+  parkMatches: boolean;
+};
+
+async function attachLocalIds(
+  ctx: ActionCtx,
+  coasters: ImportedCoaster[],
+): Promise<ImportedCoaster[]> {
+  const existingEntries = await Promise.all(
+    coasters.map(async (coaster) => {
+      const existing = await ctx.runQuery(api.coasters.findBySourceId, {
+        source: coaster.source,
+        sourceId: coaster.sourceId,
+      });
+      return [coaster.sourceId, existing?._id ?? undefined] as const;
+    }),
+  );
+
+  const localIdBySourceId = new Map(existingEntries);
+  return coasters.map((coaster) => ({
+    ...coaster,
+    _id: localIdBySourceId.get(coaster.sourceId),
+  }));
+}
+
+function scoreImportCandidate(candidate: ImportedCoasterMatchCandidate) {
+  if (candidate.nameMatches && candidate.parkMatches) return 4;
+  if (candidate.nameMatches) return 3;
+  if (candidate.parkMatches) return 2;
+  return 1;
+}
+
+async function loadSearchTitlesForImport(name: string, park: string) {
+  const queryTexts = Array.from(
+    new Set(
+      [`${name} ${park}`.trim(), name, `${name.split("(")[0]?.trim() ?? ""} ${park}`.trim()].filter(Boolean),
+    ),
+  );
+
+  const titles = new Set<string>();
+  for (const queryText of queryTexts) {
+    const nextTitles = await searchCoasterpediaTitles(queryText);
+    for (const title of nextTitles) {
+      titles.add(title);
+      if (titles.size >= 12) {
+        return Array.from(titles);
+      }
+    }
+  }
+
+  return Array.from(titles);
+}
 
 export const searchCoasterpedia = action({
   args: { q: v.string() },
@@ -50,19 +108,110 @@ export const searchCoasterpedia = action({
       }
     }
 
-    const withLocalIds: ImportedCoaster[] = [];
-    for (const coaster of normalized) {
-      const existing: any = await ctx.runQuery(api.coasters.findBySourceId, {
-        source: coaster.source,
-        sourceId: coaster.sourceId,
-      });
-      withLocalIds.push({
-        ...coaster,
-        _id: existing?._id ?? undefined,
-      });
+    return await attachLocalIds(ctx, normalized);
+  },
+});
+
+export const validateRankingImportRow = action({
+  args: {
+    name: v.string(),
+    park: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const importedName = normalizeImportCoasterName(args.name);
+    const importedPark = args.park.trim();
+
+    if (!importedName || !importedPark) {
+      throw new ConvexError("Coaster name and park are required");
     }
 
-    return withLocalIds;
+    let titles: string[];
+    try {
+      titles = await loadSearchTitlesForImport(importedName, importedPark);
+    } catch {
+      throw new ConvexError("Could not validate this coaster against Coasterpedia right now");
+    }
+
+    if (titles.length === 0) {
+      return {
+        normalizedName: importedName,
+        exactMatch: null,
+        candidates: [],
+        issue: {
+          code: "not_found",
+          message: "No Coasterpedia matches were found for this coaster name.",
+          fieldNames: ["name"],
+        },
+      };
+    }
+
+    let pages: any[];
+    try {
+      pages = await fetchCoasterpediaPages({ titles: titles.join("|") });
+    } catch {
+      throw new ConvexError("Could not load coaster details from Coasterpedia right now");
+    }
+
+    const normalized: ImportedCoaster[] = [];
+    for (const page of pages) {
+      try {
+        normalized.push(normalizeCoaster(page));
+      } catch {
+        continue;
+      }
+    }
+
+    const withLocalIds = await attachLocalIds(ctx, normalized);
+    const candidates: ImportedCoasterMatchCandidate[] = withLocalIds
+      .map((candidate) => ({
+        ...candidate,
+        nameMatches: coasterNameMatchesImport(candidate.name, candidate.park, importedName),
+        parkMatches: parkMatchesImport(candidate.park, importedPark),
+      }))
+      .sort((a, b) => {
+        const scoreDifference = scoreImportCandidate(b) - scoreImportCandidate(a);
+        if (scoreDifference !== 0) return scoreDifference;
+        return a.name.localeCompare(b.name);
+      });
+
+    const exactMatch =
+      candidates.find((candidate) => candidate.nameMatches && candidate.parkMatches) ?? null;
+
+    if (exactMatch) {
+      return {
+        normalizedName: importedName,
+        exactMatch,
+        candidates,
+        issue: null,
+      };
+    }
+
+    const hasNameMatch = candidates.some((candidate) => candidate.nameMatches);
+    const hasParkMatch = candidates.some((candidate) => candidate.parkMatches);
+    const issue = hasNameMatch
+      ? {
+          code: "park_mismatch",
+          message: "A coaster with this name was found, but the park does not match Coasterpedia exactly.",
+          fieldNames: ["park"],
+        }
+      : hasParkMatch
+        ? {
+            code: "name_mismatch",
+            message: "Found coasters at this park, but none matched the coaster name exactly.",
+            fieldNames: ["name"],
+          }
+        : {
+            code: "no_exact_match",
+            message: "Found nearby Coasterpedia results, but none matched both name and park exactly.",
+            fieldNames: ["name", "park"],
+          };
+
+    return {
+      normalizedName: importedName,
+      exactMatch: null,
+      candidates,
+      issue,
+    };
   },
 });
 
