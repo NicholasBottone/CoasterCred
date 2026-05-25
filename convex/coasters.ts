@@ -1,4 +1,4 @@
-import { action, internalMutation, query, type ActionCtx } from "./_generated/server";
+import { action, internalMutation, internalQuery, query, type ActionCtx } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -10,6 +10,7 @@ import {
   coasterNameMatchesImport,
   COASTERPEDIA_SOURCE,
   fetchCoasterpediaPageById,
+  fetchCoasterpediaParkLineup,
   fetchCoasterpediaPages,
   formatCoasterName,
   getCoasterSourcePageId,
@@ -50,6 +51,12 @@ type TrackLike = {
   multiTrackGroupId?: string;
   trackName?: string;
   trackIndex?: number;
+};
+
+type ViewerCoasterStatSummary = {
+  rideCount: number;
+  currentRank: number | null;
+  currentScore: number | null;
 };
 
 function sortTrackEntries<T extends { trackIndex?: number; name: string }>(entries: T[]) {
@@ -113,6 +120,21 @@ function buildGroupedSearchResults<T extends ImportedCoaster>(coasters: T[]) {
   }
 
   return results;
+}
+
+function sortParkCoasters<T extends TrackLike>(coasters: T[]) {
+  return coasters
+    .slice()
+    .sort((a, b) => {
+      const aParent = (a.parentName ?? a.name).localeCompare(b.parentName ?? b.name);
+      if (aParent !== 0) return aParent;
+
+      const aIndex = a.trackIndex ?? -1;
+      const bIndex = b.trackIndex ?? -1;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+
+      return a.name.localeCompare(b.name);
+    });
 }
 
 function matchesImportedParentName(coaster: ImportedCoaster, importedName: string) {
@@ -384,6 +406,47 @@ export const materializeCoasterpediaCoaster = action({
   },
 });
 
+export const getParkLineup = action({
+  args: { park: v.string() },
+  handler: async (ctx, args) => {
+    const park = args.park.trim();
+    if (!park) {
+      throw new ConvexError("Park name is required");
+    }
+
+    const localFallback: TrackLike[] = await ctx.runQuery(internal.coasters.getLocalParkCoasters, {
+      park,
+    });
+
+    try {
+      const remoteLineup = await fetchCoasterpediaParkLineup(park);
+      if (remoteLineup && remoteLineup.coasters.length > 0) {
+        const withLocalIds = await attachLocalIds(ctx, remoteLineup.coasters);
+        return {
+          park: remoteLineup.park,
+          location: withLocalIds[0]?.location ?? localFallback[0]?.location ?? "",
+          source: "coasterpedia" as const,
+          sourceUrl: remoteLineup.sourceUrl,
+          coasters: withLocalIds,
+        };
+      }
+    } catch (error) {
+      console.warn("[coasters.getParkLineup] Falling back to local park coasters", {
+        park,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return {
+      park,
+      location: localFallback[0]?.location ?? "",
+      source: "localFallback" as const,
+      sourceUrl: undefined,
+      coasters: sortParkCoasters(localFallback),
+    };
+  },
+});
+
 export const getCoasterProfile = query({
   args: {
     coasterId: v.optional(v.id("coasters")),
@@ -462,6 +525,50 @@ export const getCoasterProfile = query({
             : null,
       },
     };
+  },
+});
+
+export const getMyStatsForCoasters = query({
+  args: {
+    coasterIds: v.array(v.id("coasters")),
+  },
+  handler: async (ctx, args) => {
+    const viewerUserId = await getAuthUserId(ctx);
+    if (!viewerUserId || args.coasterIds.length === 0) {
+      return {} as Record<string, ViewerCoasterStatSummary>;
+    }
+
+    const uniqueCoasterIds = Array.from(new Set(args.coasterIds));
+    const rankingStats = await getUserRankingStatsDoc(ctx, viewerUserId);
+
+    const entries = await Promise.all(
+      uniqueCoasterIds.map(async (coasterId) => {
+        const [myStats, myRanking] = await Promise.all([
+          getUserCoasterStatsDoc(ctx, viewerUserId, coasterId),
+          ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_coaster", (q) =>
+              q.eq("userId", viewerUserId).eq("coasterId", coasterId),
+            )
+            .unique(),
+        ]);
+
+        const summary: ViewerCoasterStatSummary = {
+          rideCount: myStats?.rideCount ?? 0,
+          currentRank: myRanking?.rank ?? null,
+          currentScore:
+            myRanking &&
+            typeof rankingStats?.rankingCount === "number" &&
+            rankingStats.rankingCount > 0
+              ? computeRankingScore(myRanking.rank, rankingStats.rankingCount)
+              : null,
+        };
+
+        return [String(coasterId), summary] as const;
+      }),
+    );
+
+    return Object.fromEntries(entries);
   },
 });
 
@@ -751,6 +858,25 @@ export const getTopCoasters = query({
     }
 
     return results;
+  },
+});
+
+export const getLocalParkCoasters = internalQuery({
+  args: {
+    park: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const park = args.park.trim();
+    if (!park) {
+      return [];
+    }
+
+    return sortParkCoasters(
+      await ctx.db
+        .query("coasters")
+        .withIndex("by_park", (q) => q.eq("park", park))
+        .collect(),
+    );
   },
 });
 

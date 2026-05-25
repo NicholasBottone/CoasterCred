@@ -9,6 +9,7 @@ import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { Avatar } from "./Avatar";
 import { useScrollToTop } from "../hooks/useScrollToTop";
 import { ModalCloseButton, ModalContainer } from "./ModalContainer";
+import { ParkModal } from "./ParkModal";
 import {
   type CoasterModalTarget,
   type CoasterGroupSummary,
@@ -156,6 +157,12 @@ export function CoasterModal({
   const [shouldLoadComparisonList, setShouldLoadComparisonList] = useState(false);
   const [isRerankRequested, setIsRerankRequested] = useState(false);
   const [editingLog, setEditingLog] = useState<EditingLogState | null>(null);
+  const [selectedPark, setSelectedPark] = useState<{
+    park: string;
+    location?: string;
+    sourceUrl?: string;
+  } | null>(null);
+  const [drilldownCoaster, setDrilldownCoaster] = useState<CoasterModalTarget | null>(null);
   const pendingLogModalOpenRef = useRef(false);
 
   const groupData = useQuery(
@@ -448,6 +455,9 @@ export function CoasterModal({
           tracksRankedCount: groupTrackEntries.filter((entry) => typeof entry.myStats.currentRank === "number").length,
         }
       : null);
+  const parkName = groupParent?.park ?? displayCoaster?.park ?? "";
+  const parkLocation = groupParent?.location ?? displayCoaster?.location ?? "";
+  const parkDisplayLine = [parkName, parkLocation].filter(Boolean).join(" · ");
   const selectedTrackLabel = displayCoaster ? getCoasterTrackLabel(displayCoaster) : null;
   const logButtonLabel = groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log ride";
   const logModalTitle = isEditingLog
@@ -462,7 +472,8 @@ export function CoasterModal({
     : "Add a ride and place it in your rankings.";
 
   return (
-    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
+    <>
+      <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
       <div className="mb-4 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -487,17 +498,35 @@ export function CoasterModal({
             )}
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {(groupParent?.park ?? displayCoaster?.park) ?? "Unknown park"} · {(groupParent?.location ?? displayCoaster?.location) ?? "Unknown location"}
+            {parkDisplayLine || parkName || "Unknown park"}
           </p>
-          {(groupParent?.sourceUrl ?? displayCoaster?.sourceUrl) && (
-            <a
-              href={groupParent?.sourceUrl ?? displayCoaster?.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 inline-block text-xs text-primary hover:underline"
-            >
-              View on Coasterpedia
-            </a>
+          {(parkName || groupParent?.sourceUrl || displayCoaster?.sourceUrl) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              {parkName && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedPark({
+                      park: parkName,
+                      location: parkLocation || undefined,
+                    })
+                  }
+                  className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary-hover hover:underline underline-offset-2"
+                >
+                  Browse park coasters
+                </button>
+              )}
+              {(groupParent?.sourceUrl ?? displayCoaster?.sourceUrl) && (
+                <a
+                  href={groupParent?.sourceUrl ?? displayCoaster?.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary-hover hover:underline underline-offset-2"
+                >
+                  View coaster on Coasterpedia
+                </a>
+              )}
+            </div>
           )}
         </div>
         <div className="flex flex-none items-center gap-2">
@@ -836,7 +865,25 @@ export function CoasterModal({
           }}
         />
       )}
-    </ModalContainer>
+      </ModalContainer>
+
+      {selectedPark && (
+        <ParkModal
+          park={selectedPark.park}
+          initialLocation={selectedPark.location}
+          initialSourceUrl={selectedPark.sourceUrl}
+          onClose={() => setSelectedPark(null)}
+          onSelectCoaster={(nextCoaster) => setDrilldownCoaster(nextCoaster)}
+        />
+      )}
+
+      {drilldownCoaster && (
+        <CoasterModal
+          coaster={drilldownCoaster}
+          onClose={() => setDrilldownCoaster(null)}
+        />
+      )}
+    </>
   );
 }
 

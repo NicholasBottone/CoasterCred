@@ -428,6 +428,256 @@ export async function fetchCoasterpediaPageById(sourceId: string) {
   return (details as any).query?.pages?.[sourceId] ?? null;
 }
 
+export async function fetchCoasterpediaPageByTitle(title: string) {
+  const pages = await fetchCoasterpediaPages({ titles: title });
+  return pages[0] ?? null;
+}
+
+function normalizeWikiPageTitle(title: string) {
+  return title.replace(/_/g, " ").trim();
+}
+
+type WikiSection = {
+  level: number;
+  title: string;
+  bodyStart: number;
+  end: number;
+};
+
+function canonicalizeSectionTitle(value: string) {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function getWikiSections(
+  wikitext: string,
+  options?: {
+    startIndex?: number;
+    endIndex?: number;
+  },
+) {
+  const startIndex = options?.startIndex ?? 0;
+  const endIndex = options?.endIndex ?? wikitext.length;
+  const sections: WikiSection[] = [];
+  const headingPattern = /^(={2,6})\s*(.*?)\s*\1\s*$/gm;
+
+  for (const match of wikitext.matchAll(headingPattern)) {
+    const matchIndex = match.index ?? -1;
+    if (matchIndex < startIndex || matchIndex >= endIndex) {
+      continue;
+    }
+
+    const marker = match[1] ?? "";
+    const rawTitle = match[2] ?? "";
+    sections.push({
+      level: marker.length,
+      title: cleanWikiText(rawTitle),
+      bodyStart: matchIndex + match[0].length + 1,
+      end: endIndex,
+    });
+  }
+
+  for (let index = 0; index < sections.length; index += 1) {
+    const current = sections[index];
+    const next = sections
+      .slice(index + 1)
+      .find((section) => section.level <= current.level);
+    current.end = next ? (wikitext.lastIndexOf("\n", next.bodyStart - 2) >= 0
+      ? wikitext.lastIndexOf("\n", next.bodyStart - 2)
+      : next.bodyStart - 1) : endIndex;
+  }
+
+  return sections;
+}
+
+function findWikiSection(
+  wikitext: string,
+  sectionTitle: string,
+  options?: {
+    startIndex?: number;
+    endIndex?: number;
+  },
+) {
+  const normalizedTitle = canonicalizeSectionTitle(sectionTitle);
+  return getWikiSections(wikitext, options).find(
+    (section) => canonicalizeSectionTitle(section.title) === normalizedTitle,
+  );
+}
+
+function extractFirstWikiTable(sectionText: string) {
+  const lines = sectionText.split("\n");
+  const tableLines: string[] = [];
+  let tableDepth = 0;
+  let isCapturing = false;
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (!isCapturing) {
+      if (!trimmed.startsWith("{|")) {
+        continue;
+      }
+      isCapturing = true;
+    }
+
+    if (trimmed.startsWith("{|")) {
+      tableDepth += 1;
+    }
+
+    tableLines.push(line);
+
+    if (trimmed.startsWith("|}")) {
+      tableDepth -= 1;
+      if (tableDepth === 0) {
+        return tableLines.join("\n");
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractPresentCoasterTable(wikitext: string) {
+  const presentSection = findWikiSection(wikitext, "Present");
+  if (presentSection) {
+    const rollerCoastersSection = findWikiSection(wikitext, "Roller coasters", {
+      startIndex: presentSection.bodyStart,
+      endIndex: presentSection.end,
+    });
+    if (rollerCoastersSection) {
+      const table = extractFirstWikiTable(
+        wikitext.slice(rollerCoastersSection.bodyStart, rollerCoastersSection.end),
+      );
+      if (table) return table;
+    }
+  }
+
+  const rollerCoastersSection = findWikiSection(wikitext, "Roller coasters");
+  if (!rollerCoastersSection) {
+    return null;
+  }
+
+  const presentSubsection = findWikiSection(wikitext, "Present", {
+    startIndex: rollerCoastersSection.bodyStart,
+    endIndex: rollerCoastersSection.end,
+  });
+  if (presentSubsection) {
+    const table = extractFirstWikiTable(
+      wikitext.slice(presentSubsection.bodyStart, presentSubsection.end),
+    );
+    if (table) return table;
+  }
+
+  return extractFirstWikiTable(
+    wikitext.slice(rollerCoastersSection.bodyStart, rollerCoastersSection.end),
+  );
+}
+
+function extractLinkedPageTitle(value: string) {
+  const match = value.match(/\[\[([^|\]#]+)(?:#[^|\]]*)?(?:\|[^\]]+)?\]\]/);
+  if (!match?.[1]) return null;
+  return normalizeWikiPageTitle(match[1]);
+}
+
+function extractPresentCoasterPageTitles(wikitext: string) {
+  const table = extractPresentCoasterTable(wikitext);
+  if (!table) return [];
+
+  const pageTitles: string[] = [];
+  const rows = table.split(/\n\|-\s*\n/g);
+  for (const row of rows) {
+    const rowText = row.trim();
+    if (!rowText || rowText.startsWith("{|") || rowText.startsWith("!")) {
+      continue;
+    }
+
+    const title = extractLinkedPageTitle(rowText);
+    if (!title) continue;
+    if (!pageTitles.includes(title)) {
+      pageTitles.push(title);
+    }
+  }
+
+  return pageTitles;
+}
+
+function chunkArray<T>(entries: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < entries.length; index += size) {
+    chunks.push(entries.slice(index, index + size));
+  }
+  return chunks;
+}
+
+export async function fetchCoasterpediaParkLineup(parkName: string) {
+  const requestedParkName = parkName.trim();
+  if (!requestedParkName) {
+    throw new Error("Park name is required");
+  }
+
+  const candidateTitles = Array.from(
+    new Set([requestedParkName, ...(await searchCoasterpediaTitles(requestedParkName))]),
+  );
+
+  let matchedParkPage: any = null;
+  let coasterPageTitles: string[] = [];
+  for (const title of candidateTitles) {
+    const page = await fetchCoasterpediaPageByTitle(title);
+    const revision = page?.revisions?.[0]?.slots?.main?.["*"];
+    if (!page || !revision) {
+      continue;
+    }
+
+    const nextCoasterPageTitles = extractPresentCoasterPageTitles(revision);
+    if (nextCoasterPageTitles.length === 0) {
+      continue;
+    }
+
+    if (
+      canonicalizeForImportMatch(page.title ?? "") === canonicalizeForImportMatch(requestedParkName) ||
+      parkMatchesImport(page.title ?? "", requestedParkName)
+    ) {
+      matchedParkPage = page;
+      coasterPageTitles = nextCoasterPageTitles;
+      break;
+    }
+
+    if (!matchedParkPage) {
+      matchedParkPage = page;
+      coasterPageTitles = nextCoasterPageTitles;
+    }
+  }
+
+  if (!matchedParkPage || coasterPageTitles.length === 0) {
+    return null;
+  }
+
+  const coasterPages = (
+    await Promise.all(
+      chunkArray(coasterPageTitles, 20).map(async (titles) =>
+        await fetchCoasterpediaPages({ titles: titles.join("|") }),
+      ),
+    )
+  ).flat();
+
+  const normalizedByPageTitle = new Map<string, ImportedCoaster[]>();
+  for (const page of coasterPages) {
+    try {
+      normalizedByPageTitle.set(normalizeWikiPageTitle(page.title ?? ""), normalizeCoasterEntries(page));
+    } catch (error) {
+      logCoasterpediaNormalizationFailure("coasterpedia.fetchCoasterpediaParkLineup", page, error);
+    }
+  }
+
+  const coasters = coasterPageTitles.flatMap(
+    (pageTitle) => normalizedByPageTitle.get(normalizeWikiPageTitle(pageTitle)) ?? [],
+  );
+
+  return {
+    park: matchedParkPage.title ?? requestedParkName,
+    sourceUrl: matchedParkPage.canonicalurl ?? matchedParkPage.fullurl ?? undefined,
+    coasters,
+  };
+}
+
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
