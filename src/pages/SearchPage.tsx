@@ -21,9 +21,18 @@ function focusSearchInput() {
   input?.select();
 }
 
-export function SearchPage() {
+export function SearchPage({
+  guidedMode,
+}: {
+  guidedMode?: "coasters" | "members" | null;
+}) {
   const [mode, setMode] = useState<"coasters" | "members">("coasters");
   const viewerShell = useQuery(api.profiles.getViewerShell);
+
+  useEffect(() => {
+    if (!guidedMode) return;
+    setMode(guidedMode);
+  }, [guidedMode]);
 
   const handleSelectMode = (nextMode: "coasters" | "members") => {
     flushSync(() => {
@@ -44,6 +53,7 @@ export function SearchPage() {
               key={option.id}
               type="button"
               onClick={() => handleSelectMode(option.id)}
+              data-onboarding-target={`search-mode-${option.id}`}
               className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                 mode === option.id
                   ? "bg-primary text-white shadow-sm"
@@ -143,6 +153,7 @@ function CoasterSearchPanel() {
       <input
         ref={inputRef}
         data-search-autofocus="true"
+        data-onboarding-target="coaster-search-input"
         type="text"
         placeholder="Search for a coaster"
         value={search}

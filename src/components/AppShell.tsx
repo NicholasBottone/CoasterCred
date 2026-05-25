@@ -67,7 +67,9 @@ export function AppShell({
         {visibleNavItems.map((item) => (
           <button
             key={item.id}
+            type="button"
             onClick={() => onSelectTab(item.id)}
+            data-onboarding-target={`nav-${item.id}`}
             className={`relative flex-1 px-1 py-1.5 text-xs font-medium transition-all ${
               tab === item.id
                 ? "bg-primary/5 text-primary dark:bg-primary/10 dark:text-indigo-300"

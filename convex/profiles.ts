@@ -240,6 +240,13 @@ async function getUserProfile(ctx: QueryCtx, userId: Id<"users">) {
     .unique();
 }
 
+async function getUserSettings(ctx: QueryCtx, userId: Id<"users">) {
+  return await ctx.db
+    .query("userSettings")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+}
+
 async function getFollowCount(
   ctx: QueryCtx,
   kind: "followers" | "following",
@@ -256,16 +263,21 @@ async function getFollowCount(
 }
 
 async function getViewerShellData(ctx: QueryCtx, userId: Id<"users">) {
-  const [user, profile, authProvider] = await Promise.all([
+  const [user, profile, authProvider, settings] = await Promise.all([
     ctx.db.get(userId),
     getUserProfile(ctx, userId),
     getPrimaryAuthProvider(ctx, userId),
+    getUserSettings(ctx, userId),
   ]);
   return {
     user,
     profile,
     authProvider,
     isAdmin: user?.role === "admin",
+    onboarding: {
+      versionSeen: settings?.onboardingVersionSeen ?? 0,
+      seenAt: settings?.onboardingSeenAt ?? null,
+    },
   };
 }
 
@@ -516,6 +528,35 @@ export const upsertProfile = mutation({
       await ctx.db.patch(existing._id, profilePatch);
     } else {
       await ctx.db.insert("userProfiles", { userId, ...profilePatch });
+    }
+  },
+});
+
+export const markOnboardingSeen = mutation({
+  args: {
+    version: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("userSettings")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        onboardingVersionSeen: Math.max(existing.onboardingVersionSeen ?? 0, args.version),
+        onboardingSeenAt: now,
+      });
+    } else {
+      await ctx.db.insert("userSettings", {
+        userId,
+        onboardingVersionSeen: args.version,
+        onboardingSeenAt: now,
+      });
     }
   },
 });

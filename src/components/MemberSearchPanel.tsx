@@ -41,6 +41,7 @@ export function MemberSearchPanel({
       <input
         ref={inputRef}
         data-search-autofocus={autoFocus ? "true" : undefined}
+        data-onboarding-target="member-search-input"
         id="member-search"
         name="member-search"
         type="search"

@@ -1,7 +1,7 @@
-import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { flushSync } from "react-dom";
 import { Toaster } from "sonner";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
 import { api } from "../convex/_generated/api";
 import { FeedPage } from "./pages/FeedPage";
@@ -13,11 +13,14 @@ import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { AdminPage } from "./pages/AdminPage";
 import { AppShell, type Tab } from "./components/AppShell";
 import { Avatar } from "./components/Avatar";
+import { OnboardingTour, type OnboardingStep } from "./components/OnboardingTour";
 import { DemoApp } from "./demo/DemoApp";
 
 type ThemeMode = "auto" | "light" | "dark";
+type SearchMode = "coasters" | "members";
 
 const THEME_STORAGE_KEY = "coastercred-theme";
+const ONBOARDING_VERSION = 1;
 
 function focusSearchInput() {
   const input = document.querySelector<HTMLInputElement>('[data-search-autofocus="true"]');
@@ -87,7 +90,11 @@ function AuthenticatedApp({
 }) {
   const [tab, setTab] = useState<Tab>("feed");
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
+  const [guidedSearchMode, setGuidedSearchMode] = useState<SearchMode | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [hasAutoOpenedTour, setHasAutoOpenedTour] = useState(false);
   const viewerShell = useQuery(api.profiles.getViewerShell);
+  const markOnboardingSeen = useMutation(api.profiles.markOnboardingSeen);
   const isAdmin = viewerShell?.isAdmin ?? false;
   const availableTabs: Tab[] = ["feed", "myList", "search", "rankings", "profile"];
 
@@ -98,6 +105,8 @@ function AuthenticatedApp({
   }, [isAdmin, tab, viewerShell]);
 
   const handleSelectTab = (nextTab: Tab) => {
+    setGuidedSearchMode(null);
+
     if (nextTab === "search") {
       flushSync(() => {
         setPublicProfileUserId(null);
@@ -111,51 +120,146 @@ function AuthenticatedApp({
     setTab(nextTab);
   };
 
+  useEffect(() => {
+    if (hasAutoOpenedTour || viewerShell === undefined || viewerShell === null) {
+      return;
+    }
+
+    if ((viewerShell.onboarding?.versionSeen ?? 0) < ONBOARDING_VERSION) {
+      setHasAutoOpenedTour(true);
+      setTourOpen(true);
+    }
+  }, [hasAutoOpenedTour, viewerShell]);
+
+  const markTourSeen = useCallback(async () => {
+    try {
+      await markOnboardingSeen({ version: ONBOARDING_VERSION });
+    } catch (error) {
+      console.error("Could not mark onboarding as seen", error);
+    }
+  }, [markOnboardingSeen]);
+
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    setGuidedSearchMode(null);
+    void markTourSeen();
+  }, [markTourSeen]);
+
+  const onboardingSteps = useMemo<OnboardingStep[]>(
+    () => [
+      {
+        id: "welcome",
+        title: "Welcome to CoasterCred",
+        body: "This quick tour shows the fastest path to logging rides, building rankings, and finding friends.",
+        onEnter: () => {
+          setPublicProfileUserId(null);
+          setGuidedSearchMode(null);
+          setTab("feed");
+        },
+      },
+      {
+        id: "search-tab",
+        title: "Start in Search",
+        body: "Search is where you find coasters to log and members to follow.",
+        targetSelector: '[data-onboarding-target="nav-search"]',
+        placement: "top",
+        onEnter: () => {
+          setPublicProfileUserId(null);
+          setGuidedSearchMode("coasters");
+          setTab("search");
+        },
+      },
+      {
+        id: "coaster-search",
+        title: "Log coasters here",
+        body: "Search for a coaster, open a result, then tap Log to record the ride and place it in your rankings.",
+        targetSelector: '[data-onboarding-target="coaster-search-input"]',
+        onEnter: () => {
+          setPublicProfileUserId(null);
+          setGuidedSearchMode("coasters");
+          setTab("search");
+        },
+      },
+      {
+        id: "member-search",
+        title: "Add friends here",
+        body: "Switch to Members, search by name or handle, then follow people to see their ride activity and coaster overlap.",
+        targetSelector: '[data-onboarding-target="member-search-input"]',
+        onEnter: () => {
+          setPublicProfileUserId(null);
+          setGuidedSearchMode("members");
+          setTab("search");
+        },
+      },
+      {
+        id: "my-list",
+        title: "Your rankings live in My List",
+        body: "CoasterCred builds your list from logged rides. You can make quick ranking tweaks or import a CSV here.",
+        targetSelector: '[data-onboarding-target="nav-myList"]',
+        placement: "top",
+        onEnter: () => {
+          setPublicProfileUserId(null);
+          setGuidedSearchMode(null);
+          setTab("myList");
+        },
+      },
+    ],
+    [],
+  );
+
   return (
-    <AppShell
-      tab={tab}
-      onSelectTab={handleSelectTab}
-      headerAction={
-        <AuthenticatedHeaderActions
-          isAdmin={isAdmin}
-          viewerShell={viewerShell}
-          onOpenAdmin={() => {
-            setPublicProfileUserId(null);
-            setTab("admin");
-          }}
-        />
-      }
-      availableTabs={availableTabs}
-    >
-      {publicProfileUserId ? (
-        <PublicProfilePage
-          userId={publicProfileUserId}
-          onBack={() => setPublicProfileUserId(null)}
-          onViewProfile={(userId) => setPublicProfileUserId(userId)}
-        />
-      ) : (
-        <>
-          {tab === "feed" && (
-            <FeedPage
-              onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
-              onOpenSearch={() => handleSelectTab("search")}
-            />
-          )}
-          {tab === "myList" && <MyListPage />}
-          {tab === "search" && <SearchPage />}
-          {tab === "rankings" && <RankingsPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
-          {tab === "admin" && <AdminPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
-          {tab === "profile" && (
-            <ProfilePage
-              onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
-              onOpenMyList={() => handleSelectTab("myList")}
-              themeMode={themeMode}
-              onThemeModeChange={onThemeModeChange}
-            />
-          )}
-        </>
-      )}
-    </AppShell>
+    <>
+      <AppShell
+        tab={tab}
+        onSelectTab={handleSelectTab}
+        headerAction={
+          <AuthenticatedHeaderActions
+            isAdmin={isAdmin}
+            viewerShell={viewerShell}
+            onOpenAdmin={() => {
+              setGuidedSearchMode(null);
+              setPublicProfileUserId(null);
+              setTab("admin");
+            }}
+            onStartTutorial={() => {
+              setPublicProfileUserId(null);
+              setTourOpen(true);
+            }}
+          />
+        }
+        availableTabs={availableTabs}
+      >
+        {publicProfileUserId ? (
+          <PublicProfilePage
+            userId={publicProfileUserId}
+            onBack={() => setPublicProfileUserId(null)}
+            onViewProfile={(userId) => setPublicProfileUserId(userId)}
+          />
+        ) : (
+          <>
+            {tab === "feed" && (
+              <FeedPage
+                onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
+                onOpenSearch={() => handleSelectTab("search")}
+              />
+            )}
+            {tab === "myList" && <MyListPage />}
+            {tab === "search" && <SearchPage guidedMode={guidedSearchMode} />}
+            {tab === "rankings" && <RankingsPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
+            {tab === "admin" && <AdminPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
+            {tab === "profile" && (
+              <ProfilePage
+                onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
+                onOpenMyList={() => handleSelectTab("myList")}
+                themeMode={themeMode}
+                onThemeModeChange={onThemeModeChange}
+              />
+            )}
+          </>
+        )}
+      </AppShell>
+      <OnboardingTour open={tourOpen} steps={onboardingSteps} onClose={closeTour} />
+    </>
   );
 }
 
@@ -163,10 +267,12 @@ function AuthenticatedHeaderActions({
   isAdmin,
   viewerShell,
   onOpenAdmin,
+  onStartTutorial,
 }: {
   isAdmin: boolean;
   viewerShell: any;
   onOpenAdmin: () => void;
+  onStartTutorial: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -240,6 +346,17 @@ function AuthenticatedHeaderActions({
             Admin
           </button>
         )}
+        <button
+          type="button"
+          className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+          onClick={() => {
+            setMenuOpen(false);
+            onStartTutorial();
+          }}
+          role="menuitem"
+        >
+          Tutorial
+        </button>
         <SignOutButton
           className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:hover:text-gray-50"
           onClick={() => setMenuOpen(false)}

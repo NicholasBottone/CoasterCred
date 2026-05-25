@@ -35,7 +35,7 @@ export function MyListPage() {
   return (
     <>
       <div className="max-w-lg mx-auto px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4" data-onboarding-target="my-list-summary">
           <div>
             <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">My List</h2>
             <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">{rankings.length} coasters</p>

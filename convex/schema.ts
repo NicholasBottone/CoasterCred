@@ -119,6 +119,12 @@ const applicationTables = {
     rankingCount: v.number(),
   }).index("by_user", ["userId"]),
 
+  userSettings: defineTable({
+    userId: v.id("users"),
+    onboardingVersionSeen: v.optional(v.number()),
+    onboardingSeenAt: v.optional(v.number()),
+  }).index("by_userId", ["userId"]),
+
   userCoasterStats: defineTable({
     userId: v.id("users"),
     coasterId: v.id("coasters"),
