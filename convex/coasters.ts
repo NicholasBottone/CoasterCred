@@ -46,6 +46,7 @@ type TrackLike = {
   parentName?: string;
   park: string;
   location: string;
+  country?: string;
   type: string;
   isMultiTrack?: boolean;
   multiTrackGroupId?: string;
@@ -81,6 +82,7 @@ function buildGroupSummaryFromTracks<T extends TrackLike>(tracks: T[]) {
     parentName: firstTrack.parentName ?? firstTrack.name,
     park: firstTrack.park,
     location: firstTrack.location,
+    country: firstTrack.country,
     type: firstTrack.type,
     source: firstTrack.source,
     sourcePageId,
@@ -791,6 +793,7 @@ export const getMultiTrackGroupData = query({
         parentName: firstTrack.parentName ?? firstTrack.name,
         park: firstTrack.park,
         location: firstTrack.location,
+        country: firstTrack.country,
         type: firstTrack.type,
         source: firstTrack.source,
         sourcePageId,
@@ -906,6 +909,7 @@ export const upsertImportedCoaster = internalMutation({
     parentName: v.optional(v.string()),
     park: v.string(),
     location: v.string(),
+    country: v.optional(v.string()),
     type: v.string(),
     isMultiTrack: v.optional(v.boolean()),
     multiTrackGroupId: v.optional(v.string()),

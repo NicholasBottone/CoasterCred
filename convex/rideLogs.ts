@@ -6,9 +6,10 @@ import { internal } from "./_generated/api";
 import { computeRankingScore } from "./rankings";
 import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
 import { LIMITS, validateOptionalText } from "./validation";
+import { isHistoricalRideDate } from "./feedEvents";
 
 const FEED_LIMIT = 50;
-const FEED_SCAN_LIMIT = 250;
+const FEED_SCAN_LIMIT = 500;
 
 async function getExistingLogForRideDate(
   ctx: any,
@@ -59,11 +60,16 @@ export const updateLog = mutation({
     }
 
     const rideTimingChanged = log.rideDate !== args.rideDate || log.riddenAt !== args.riddenAt;
+    const nextIsFeedEvent =
+      log.isFirstCreditLog === true
+        ? !isHistoricalRideDate(args.rideDate, log._creationTime)
+        : log.isFeedEvent;
 
     await ctx.db.patch(log._id, {
       rideDate: args.rideDate,
       riddenAt: args.riddenAt,
       notes,
+      ...(typeof nextIsFeedEvent === "boolean" ? { isFeedEvent: nextIsFeedEvent } : {}),
     });
 
     if (rideTimingChanged) {
@@ -229,13 +235,7 @@ export const getFeed = query({
     ];
     const followingSet = new Set(followingIds.map((id) => String(id)));
     const recentLogs = await ctx.db.query("rideLogs").order("desc").take(FEED_SCAN_LIMIT);
-
-    const candidateLogs = [];
-    for (const log of recentLogs) {
-      if (!followingSet.has(String(log.userId))) continue;
-      candidateLogs.push(log);
-      if (candidateLogs.length >= FEED_LIMIT) break;
-    }
+    const candidateLogs = recentLogs.filter((log) => followingSet.has(String(log.userId)));
 
     const uniqueUserIds = [...new Set(candidateLogs.map((log) => String(log.userId)))];
     const uniqueCoasterIds = [...new Set(candidateLogs.map((log) => String(log.coasterId)))];
@@ -288,31 +288,37 @@ export const getFeed = query({
     );
     const pairMap = new Map(pairEntries);
 
-    return candidateLogs.map((log) => {
-      const userData = userMap.get(String(log.userId));
-      const coaster = coasterMap.get(String(log.coasterId)) ?? null;
-      const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
-      const pairData = pairMap.get(pairKey);
-      const isFirstRide = pairData?.stat?.firstRiddenAt === log.riddenAt;
+    return candidateLogs
+      .map((log) => {
+        const userData = userMap.get(String(log.userId));
+        const coaster = coasterMap.get(String(log.coasterId)) ?? null;
+        const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
+        const pairData = pairMap.get(pairKey);
+        const isFirstRide = log.isFirstCreditLog ?? (pairData?.stat?.firstRiddenAt === log.riddenAt);
+        const isHistoricalRide = isHistoricalRideDate(log.rideDate, log._creationTime);
+        const isFeedEvent = log.isFeedEvent ?? (isFirstRide && !isHistoricalRide);
 
-      return {
-        ...log,
-        coaster,
-        user: userData?.user
-          ? {
-              _id: userData.user._id,
-              name: userData.user.name,
-            }
-          : null,
-        profile: userData?.profile ?? null,
-        rideOrdinal: isFirstRide ? 1 : null,
-        isFirstRide,
-        rank: pairData?.ranking?.rank ?? null,
-        score:
-          pairData?.ranking && typeof userData?.rankingCount === "number" && userData.rankingCount > 0
-            ? computeRankingScore(pairData.ranking.rank, userData.rankingCount)
+        return {
+          ...log,
+          coaster,
+          user: userData?.user
+            ? {
+                _id: userData.user._id,
+                name: userData.user.name,
+              }
             : null,
-      };
-    });
+          profile: userData?.profile ?? null,
+          isFirstRide,
+          isFeedEvent,
+          feedHighlights: log.feedHighlights ?? [],
+          rank: pairData?.ranking?.rank ?? null,
+          score:
+            pairData?.ranking && typeof userData?.rankingCount === "number" && userData.rankingCount > 0
+              ? computeRankingScore(pairData.ranking.rank, userData.rankingCount)
+              : null,
+        };
+      })
+      .filter((item) => item.isFeedEvent)
+      .slice(0, FEED_LIMIT);
   },
 });

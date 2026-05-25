@@ -9,6 +9,7 @@ export type CoasterSummary = {
   parentName?: string;
   park: string;
   location: string;
+  country?: string;
   type: string;
   isMultiTrack?: boolean;
   multiTrackGroupId?: string;
@@ -33,6 +34,7 @@ export type CoasterGroupSummary = {
   parentName: string;
   park: string;
   location: string;
+  country?: string;
   type: string;
   source?: string;
   sourcePageId: string;

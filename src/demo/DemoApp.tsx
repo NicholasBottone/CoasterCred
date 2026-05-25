@@ -2,9 +2,10 @@ import { useRef, useState } from "react";
 import { SignInForm } from "../SignInForm";
 import { AppShell, type Tab } from "../components/AppShell";
 import { Avatar } from "../components/Avatar";
+import { FeedEventBadge } from "../components/FeedEventBadge";
 import { ModalCloseButton, ModalContainer } from "../components/ModalContainer";
 import { ScoreBadge } from "../components/ScoreBadge";
-import { getCoasterTypeBadgeClasses, getRideEventBadgeClasses } from "../lib/badges";
+import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import {
   demoCoasters,
   demoFeed,
@@ -123,7 +124,19 @@ function DemoFeedPage({
                 <p className="text-xs text-gray-400 dark:text-gray-500">{item.relativeTime}</p>
               </div>
             </button>
-            <div className={`ml-auto ${getRideEventBadgeClasses(item.badgeTone)}`}>{item.badge}</div>
+            <div className="ml-auto flex flex-wrap justify-end gap-2">
+              {item.badges.map((badge, index) => (
+                <FeedEventBadge
+                  key={`${badge.label}-${index}`}
+                  badge={{
+                    label: badge.label,
+                    variant: badge.tone,
+                    country: "country" in badge ? badge.country : undefined,
+                    value: "value" in badge ? badge.value : undefined,
+                  }}
+                />
+              ))}
+            </div>
           </div>
           <button onClick={() => onOpenCoaster(item.coaster)} className="interactive-lift w-full surface-subtle p-3 text-left">
             <div className="flex items-start justify-between gap-2">

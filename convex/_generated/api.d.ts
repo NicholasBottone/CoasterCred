@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as coasterpedia from "../coasterpedia.js";
 import type * as coasters from "../coasters.js";
 import type * as crons from "../crons.js";
+import type * as feedEvents from "../feedEvents.js";
 import type * as http from "../http.js";
 import type * as profiles from "../profiles.js";
 import type * as rankings from "../rankings.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   coasterpedia: typeof coasterpedia;
   coasters: typeof coasters;
   crons: typeof crons;
+  feedEvents: typeof feedEvents;
   http: typeof http;
   profiles: typeof profiles;
   rankings: typeof rankings;

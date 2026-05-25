@@ -47,6 +47,7 @@ const applicationTables = {
     parentName: v.optional(v.string()),
     park: v.string(),
     location: v.string(),
+    country: v.optional(v.string()),
     type: v.string(), // "Steel", "Wood", "Hybrid"
     isMultiTrack: v.optional(v.boolean()),
     multiTrackGroupId: v.optional(v.string()),
@@ -84,6 +85,18 @@ const applicationTables = {
     riddenAt: v.number(),
     rideDate: v.optional(v.string()),
     notes: v.optional(v.string()),
+    isFirstCreditLog: v.optional(v.boolean()),
+    isFeedEvent: v.optional(v.boolean()),
+    feedHighlights: v.optional(
+      v.array(
+        v.object({
+          kind: v.union(v.literal("countMilestone"), v.literal("countryFirst")),
+          label: v.string(),
+          value: v.optional(v.number()),
+          country: v.optional(v.string()),
+        }),
+      ),
+    ),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_coaster", ["userId", "coasterId"])

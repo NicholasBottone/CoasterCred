@@ -4,10 +4,11 @@ import { api } from "../../convex/_generated/api";
 import { formatDate, formatDistanceToNow } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { CoasterModal } from "../components/CoasterModal";
+import { FeedEventBadge } from "../components/FeedEventBadge";
 import { type CoasterSummary } from "../lib/coasterData";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { ScoreBadge } from "../components/ScoreBadge";
-import { getCoasterTypeBadgeClasses, getRideEventBadgeClasses } from "../lib/badges";
+import { getCoasterTypeBadgeClasses } from "../lib/badges";
 
 export function FeedPage({
   onViewPublicProfile,
@@ -89,19 +90,16 @@ function FeedCard({
   const coaster = item.coaster;
   const user = item.user;
   const profile = item.profile;
-  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-  const rideDateTimestamp = item.rideDate
-    ? new Date(`${item.rideDate}T12:00:00`).getTime()
-    : Number.NaN;
-  const isHistoricalRide =
-    Number.isFinite(rideDateTimestamp) && item._creationTime - rideDateTimestamp >= ninetyDaysMs;
-  const badgeVariant = isHistoricalRide ? "historical" : item.isFirstRide ? "first" : "repeat";
-  const badgeClassName = getRideEventBadgeClasses(badgeVariant);
-  const badgeLabel = isHistoricalRide
-    ? "Logged a past ride"
+  const badges = Array.isArray(item.feedHighlights) && item.feedHighlights.length > 0
+    ? item.feedHighlights.map((highlight: any) => ({
+        label: highlight.label,
+        variant: highlight.kind,
+        country: highlight.country,
+        value: highlight.value,
+      }))
     : item.isFirstRide
-      ? "First ride 🎉"
-      : "Repeat ride";
+      ? [{ label: "First ride", variant: "first" as const }]
+      : [];
 
   return (
     <div className="surface-card interactive-lift rounded-xl p-4">
@@ -123,8 +121,10 @@ function FeedCard({
             <p className="text-xs text-gray-400 dark:text-gray-500">{formatDistanceToNow(item._creationTime)}</p>
           </div>
         </button>
-        <div className={`ml-auto ${badgeClassName}`}>
-          {badgeLabel}
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {badges.map((badge: { label: string; variant: "first" | "countMilestone" | "countryFirst"; country?: string; value?: number }, index: number) => (
+            <FeedEventBadge key={`${badge.label}-${index}`} badge={badge} />
+          ))}
         </div>
       </div>
       <button

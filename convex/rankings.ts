@@ -5,6 +5,7 @@ import { Id } from "./_generated/dataModel";
 import { LIMITS, validateOptionalText } from "./validation";
 import { internal } from "./_generated/api";
 import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
+import { FeedHighlight, formatOrdinal, isHistoricalRideDate } from "./feedEvents";
 
 export function computeRankingScore(rank: number, totalCount: number) {
   if (totalCount <= 1) {
@@ -209,11 +210,17 @@ export const saveRideWithRank = mutation({
       .query("rankings")
       .withIndex("by_user_and_rank", (q) => q.eq("userId", userId))
       .collect();
+    const coaster = await ctx.db.get(args.coasterId);
+    if (!coaster) {
+      throw new ConvexError("Coaster not found");
+    }
 
     const existingRanking = allRankings.find((r) => r.coasterId === args.coasterId);
     const rankingsWithoutCurrent = existingRanking
       ? allRankings.filter((r) => r._id !== existingRanking._id)
       : allRankings;
+    const isFirstCreditLog = !existingRanking;
+    const isHistoricalRide = isHistoricalRideDate(args.rideDate, Date.now());
 
     const existingForDay = await getExistingLogForRideDate(
       ctx,
@@ -235,12 +242,46 @@ export const saveRideWithRank = mutation({
       throw new ConvexError("Could not log ride");
     }
 
+    const feedHighlights: FeedHighlight[] = [];
+    if (isFirstCreditLog && !isHistoricalRide) {
+      const nextCreditCount = rankingsWithoutCurrent.length + 1;
+      if (nextCreditCount % 25 === 0) {
+        feedHighlights.push({
+          kind: "countMilestone",
+          label: `${formatOrdinal(nextCreditCount)} coaster`,
+          value: nextCreditCount,
+        });
+      }
+
+      const country = coaster.country?.trim();
+      if (country) {
+        const rankedCoasterDocs = await Promise.all(
+          rankingsWithoutCurrent.map(async (ranking) => await ctx.db.get(ranking.coasterId)),
+        );
+        const hasCountryCredit = rankedCoasterDocs.some(
+          (rankedCoaster) =>
+            typeof rankedCoaster?.country === "string" &&
+            rankedCoaster.country.trim().toLowerCase() === country.toLowerCase(),
+        );
+        if (!hasCountryCredit) {
+          feedHighlights.push({
+            kind: "countryFirst",
+            label: `First coaster in ${country}`,
+            country,
+          });
+        }
+      }
+    }
+
     await ctx.db.insert("rideLogs", {
       userId,
       coasterId: args.coasterId,
       riddenAt: args.riddenAt,
       rideDate: args.rideDate,
       notes,
+      isFirstCreditLog,
+      isFeedEvent: isFirstCreditLog && !isHistoricalRide,
+      feedHighlights,
     });
     await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
       userId,

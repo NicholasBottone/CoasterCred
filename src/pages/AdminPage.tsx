@@ -17,9 +17,14 @@ export function AdminPage({
     api.admin.getDashboard,
     adminAccess?.isAdmin ? {} : "skip",
   );
+  const countryBackfillStatus = useQuery(
+    api.admin.getCountryBackfillStatus,
+    adminAccess?.isAdmin ? {} : "skip",
+  );
   const syncCoaster = useAction(api.admin.syncCoaster);
   const linkAndSyncCoaster = useAction(api.admin.linkAndSyncCoaster);
   const migrateMultiTrackCoasters = useAction(api.admin.migrateMultiTrackCoasters);
+  const backfillCoasterCountries = useAction(api.admin.backfillCoasterCountries);
   const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
   const [syncingCoasterId, setSyncingCoasterId] = useState<string | null>(null);
   const [matchingCoasterId, setMatchingCoasterId] = useState<string | null>(null);
@@ -29,6 +34,7 @@ export function AdminPage({
   const [linkingCoasterId, setLinkingCoasterId] = useState<string | null>(null);
   const [syncSearchQuery, setSyncSearchQuery] = useState("");
   const [isMigratingMultiTrack, setIsMigratingMultiTrack] = useState(false);
+  const [isBackfillingCountries, setIsBackfillingCountries] = useState(false);
 
   const handleSync = async (coasterId: string) => {
     setSyncingCoasterId(coasterId);
@@ -103,7 +109,28 @@ export function AdminPage({
     }
   };
 
-  if (adminAccess === undefined || (adminAccess.isAdmin && dashboard === undefined)) {
+  const handleCountryBackfill = async () => {
+    setIsBackfillingCountries(true);
+    try {
+      const result = await backfillCoasterCountries({});
+      if (result.scanned === 0) {
+        toast.success("Country backfill is already complete");
+      } else {
+        toast.success(
+          `Backfilled ${result.updated} coaster countr${result.updated === 1 ? "y" : "ies"}${result.failed > 0 ? ` · ${result.failed} failed` : ""}`,
+        );
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not backfill coaster countries"));
+    } finally {
+      setIsBackfillingCountries(false);
+    }
+  };
+
+  if (
+    adminAccess === undefined ||
+    (adminAccess.isAdmin && (dashboard === undefined || countryBackfillStatus === undefined))
+  ) {
     return (
       <div className="flex justify-center py-20">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
@@ -147,6 +174,52 @@ export function AdminPage({
         />
         <SummaryCard label="Signed-Up Users" value={dashboard.summary.userCount} />
       </div>
+
+      <section className="surface-card p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Country backfill</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Fill the new normalized country field for Coasterpedia-backed coasters so country milestones can fire accurately.
+            </p>
+          </div>
+          <button
+            onClick={() => void handleCountryBackfill()}
+            disabled={isBackfillingCountries || (countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0) === 0}
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isBackfillingCountries ? "Backfilling..." : "Run country backfill batch"}
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <MiniStatCard label="Source-backed" value={countryBackfillStatus?.sourceBackedCoasterCount ?? 0} />
+          <MiniStatCard label="With country" value={countryBackfillStatus?.sourceBackedWithCountryCount ?? 0} />
+          <MiniStatCard label="Still missing" value={countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0} />
+          <MiniStatCard label="Manual missing" value={countryBackfillStatus?.manualMissingCountryCount ?? 0} />
+        </div>
+
+        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+          Each run processes up to {countryBackfillStatus?.batchSize ?? 0} missing Coasterpedia-linked coasters. Manual/local-only coasters are left unchanged.
+        </p>
+
+        {countryBackfillStatus && countryBackfillStatus.nextTargets.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {countryBackfillStatus.nextTargets.map((target) => (
+              <span
+                key={target.coasterId}
+                className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/25"
+              >
+                {target.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
+            All source-backed coasters currently have normalized country data.
+          </div>
+        )}
+      </section>
 
       <section className="surface-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -499,6 +572,15 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
     <div className="surface-card p-4">
       <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
       <p className="mt-2 text-3xl font-bold text-primary">{value}</p>
+    </div>
+  );
+}
+
+function MiniStatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+      <p className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
     </div>
   );
 }

@@ -12,6 +12,7 @@ export type ImportedCoaster = {
   parentName?: string;
   park: string;
   location: string;
+  country?: string;
   type: string;
   isMultiTrack?: boolean;
   multiTrackGroupId?: string;
@@ -182,6 +183,11 @@ function normalizeLocation(fields: Record<string, string>) {
   return parts.join(", ");
 }
 
+function normalizeCountry(fields: Record<string, string>) {
+  const country = cleanWikiText(fields.country);
+  return country || undefined;
+}
+
 function slugifyTrackName(trackName: string) {
   return cleanWikiText(trackName)
     .normalize("NFKD")
@@ -236,6 +242,7 @@ function buildImportedCoaster(
     sourceUrl?: string;
     park: string;
     location: string;
+    country?: string;
     measurementSystem: MeasurementSystem | undefined;
     parentName: string;
     isMultiTrack: boolean;
@@ -267,6 +274,7 @@ function buildImportedCoaster(
     parentName: options.parentName,
     park: options.park,
     location: options.location,
+    country: options.country,
     type: deriveType(fields),
     isMultiTrack: options.isMultiTrack || undefined,
     multiTrackGroupId: options.isMultiTrack ? buildCoasterGroupId(options.sourcePageId) : undefined,
@@ -307,6 +315,7 @@ export function normalizeCoasterEntries(page: any): ImportedCoaster[] {
   const { templateName, fields } = parseInfobox(revision);
   const park = cleanWikiText(fields.park);
   const location = normalizeLocation(fields);
+  const country = normalizeCountry(fields);
   const measurementSystem = inferMeasurementSystem(fields.units);
   const sourcePageId = String(page.pageid);
   const sourceUrl = page.canonicalurl ?? page.fullurl;
@@ -321,6 +330,7 @@ export function normalizeCoasterEntries(page: any): ImportedCoaster[] {
         sourceUrl,
         park,
         location,
+        country,
         measurementSystem,
         parentName,
         isMultiTrack: false,
@@ -334,6 +344,7 @@ export function normalizeCoasterEntries(page: any): ImportedCoaster[] {
       sourceUrl,
       park,
       location,
+      country,
       measurementSystem,
       parentName,
       isMultiTrack: true,
