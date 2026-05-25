@@ -8,6 +8,9 @@ import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
 import { ModalCloseButton } from "../components/ModalContainer";
 import { SignOutButton } from "../SignOutButton";
+import { ProfileWrappedStats } from "../components/ProfileWrappedStats";
+import { CoasterModal } from "../components/CoasterModal";
+import { type CoasterSummary } from "../lib/coasterData";
 
 export function ProfilePage({
   onViewPublicProfile,
@@ -29,6 +32,7 @@ export function ProfilePage({
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
   const [connectionsKind, setConnectionsKind] = useState<"followers" | "following" | null>(null);
+  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
 
   const handleEdit = () => {
     setDisplayName(myProfile?.user?.name ?? "");
@@ -167,6 +171,11 @@ export function ProfilePage({
         </div>
       </div>
 
+      <ProfileWrappedStats
+        stats={dashboard?.wrappedStats}
+        onSelectCoaster={(coaster) => setSelectedCoaster(coaster)}
+      />
+
       {/* Recent Rides */}
       <div className="surface-card p-4">
         <h3 className="ui-copy-disabled mb-3 font-semibold text-gray-800 dark:text-gray-100">Recent Rides</h3>
@@ -267,6 +276,12 @@ export function ProfilePage({
             setConnectionsKind(null);
             onViewPublicProfile(userId);
           }}
+        />
+      )}
+      {selectedCoaster && (
+        <CoasterModal
+          coaster={selectedCoaster}
+          onClose={() => setSelectedCoaster(null)}
         />
       )}
     </div>

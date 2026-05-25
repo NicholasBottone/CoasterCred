@@ -6,7 +6,38 @@ import {
   validateDisplayName,
   validateOptionalText,
 } from "./validation";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+
+const WRAPPED_METRIC_DEFS = [
+  { key: "heightFt", field: "heightFt" },
+  { key: "speedMph", field: "speedMph" },
+  { key: "lengthFt", field: "lengthFt" },
+  { key: "durationSeconds", field: "durationSeconds" },
+  { key: "inversions", field: "inversions" },
+] as const;
+
+type WrappedMetricKey = (typeof WRAPPED_METRIC_DEFS)[number]["key"] | "ageYears";
+type WrappedMetric = {
+  key: WrappedMetricKey;
+  coaster: Doc<"coasters"> | null;
+  value: number | null;
+  total: number | null;
+  average: number | null;
+  count: number;
+};
+type WrappedPeriodStats = {
+  key: string;
+  label: string;
+  year: number | null;
+  uniqueCoasterCount: number;
+  parkCount: number;
+  countryCount: number;
+  topManufacturer: {
+    name: string;
+    count: number;
+  } | null;
+  metrics: Record<WrappedMetricKey, WrappedMetric>;
+};
 
 function toClientMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) {
@@ -41,6 +72,165 @@ async function getPrimaryAuthProvider(ctx: QueryCtx, userId: Id<"users">) {
 
 function isPresent<T>(value: T | null): value is T {
   return value !== null;
+}
+
+function getRideLogYear(log: Doc<"rideLogs">) {
+  const rideDateYear = log.rideDate?.match(/^(\d{4})/)?.[1];
+  if (rideDateYear) {
+    const year = Number(rideDateYear);
+    return Number.isFinite(year) ? year : null;
+  }
+
+  const riddenAtYear = new Date(log.riddenAt).getUTCFullYear();
+  return Number.isFinite(riddenAtYear) ? riddenAtYear : null;
+}
+
+function normalizeStatKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function createEmptyWrappedMetric(key: WrappedMetricKey): WrappedMetric {
+  return {
+    key,
+    coaster: null,
+    value: null,
+    total: null,
+    average: null,
+    count: 0,
+  };
+}
+
+function getMetricValue(
+  coaster: Doc<"coasters">,
+  key: WrappedMetricKey,
+  currentYear: number,
+) {
+  if (key === "ageYears") {
+    if (typeof coaster.yearOpened !== "number") {
+      return null;
+    }
+    const ageYears = currentYear - coaster.yearOpened;
+    return Number.isFinite(ageYears) && ageYears >= 0 ? ageYears : null;
+  }
+
+  const value = coaster[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function buildWrappedPeriodStats(
+  key: string,
+  label: string,
+  year: number | null,
+  coasters: Doc<"coasters">[],
+  currentYear: number,
+): WrappedPeriodStats {
+  const parkKeys = new Set<string>();
+  const countryKeys = new Set<string>();
+  const manufacturerCounts = new Map<string, { name: string; count: number }>();
+  const metrics: Record<WrappedMetricKey, WrappedMetric> = {
+    heightFt: createEmptyWrappedMetric("heightFt"),
+    speedMph: createEmptyWrappedMetric("speedMph"),
+    lengthFt: createEmptyWrappedMetric("lengthFt"),
+    durationSeconds: createEmptyWrappedMetric("durationSeconds"),
+    inversions: createEmptyWrappedMetric("inversions"),
+    ageYears: createEmptyWrappedMetric("ageYears"),
+  };
+
+  for (const coaster of coasters) {
+    const park = coaster.park.trim();
+    if (park) {
+      parkKeys.add(normalizeStatKey(park));
+    }
+
+    const country = coaster.country?.trim();
+    if (country) {
+      countryKeys.add(normalizeStatKey(country));
+    }
+
+    const manufacturer = coaster.manufacturer?.trim();
+    if (manufacturer) {
+      const manufacturerKey = normalizeStatKey(manufacturer);
+      const current = manufacturerCounts.get(manufacturerKey);
+      manufacturerCounts.set(manufacturerKey, {
+        name: current?.name ?? manufacturer,
+        count: (current?.count ?? 0) + 1,
+      });
+    }
+
+    for (const metricKey of Object.keys(metrics) as WrappedMetricKey[]) {
+      const value = getMetricValue(coaster, metricKey, currentYear);
+      if (value === null) {
+        continue;
+      }
+
+      const metric = metrics[metricKey];
+      metric.count += 1;
+      metric.total = (metric.total ?? 0) + value;
+      metric.average = metric.total / metric.count;
+      if (metric.value === null || value > metric.value) {
+        metric.value = value;
+        metric.coaster = coaster;
+      }
+    }
+  }
+
+  const topManufacturer =
+    [...manufacturerCounts.values()].sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return a.name.localeCompare(b.name);
+    })[0] ?? null;
+
+  return {
+    key,
+    label,
+    year,
+    uniqueCoasterCount: coasters.length,
+    parkCount: parkKeys.size,
+    countryCount: countryKeys.size,
+    topManufacturer,
+    metrics,
+  };
+}
+
+async function buildWrappedStats(ctx: QueryCtx, logs: Doc<"rideLogs">[]) {
+  const uniqueCoasterIds = [...new Set(logs.map((log) => String(log.coasterId)))];
+  const coasterEntries = await Promise.all(
+    uniqueCoasterIds.map(async (coasterId) => [
+      coasterId,
+      await ctx.db.get(coasterId as Id<"coasters">),
+    ] as const),
+  );
+  const coasterMap = new Map(
+    coasterEntries.filter(
+      (entry): entry is readonly [string, Doc<"coasters">] => entry[1] !== null,
+    ),
+  );
+  const currentYear = new Date().getUTCFullYear();
+  const allTimeCoasters = [...coasterMap.values()];
+  const coastersByYear = new Map<number, Map<string, Doc<"coasters">>>();
+
+  for (const log of logs) {
+    const year = getRideLogYear(log);
+    const coaster = coasterMap.get(String(log.coasterId));
+    if (year === null || !coaster) {
+      continue;
+    }
+
+    const yearCoasters = coastersByYear.get(year) ?? new Map<string, Doc<"coasters">>();
+    yearCoasters.set(String(coaster._id), coaster);
+    coastersByYear.set(year, yearCoasters);
+  }
+
+  return {
+    allTime: buildWrappedPeriodStats("all", "All time", null, allTimeCoasters, currentYear),
+    yearly: [...coastersByYear.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([year, yearCoasters]) =>
+        buildWrappedPeriodStats(String(year), String(year), year, [...yearCoasters.values()], currentYear),
+      ),
+  };
 }
 
 async function getUserProfile(ctx: QueryCtx, userId: Id<"users">) {
@@ -127,7 +317,10 @@ async function getPublicUserSummary(
 
   const uniqueCoasterCount = new Set(logs.map((log) => String(log.coasterId))).size;
   const topRankingEntry = topRanking[0] ?? null;
-  const topCoaster = topRankingEntry ? await ctx.db.get(topRankingEntry.coasterId) : null;
+  const [topCoaster, wrappedStats] = await Promise.all([
+    topRankingEntry ? ctx.db.get(topRankingEntry.coasterId) : null,
+    buildWrappedStats(ctx, logs),
+  ]);
 
   return {
     user: {
@@ -140,6 +333,7 @@ async function getPublicUserSummary(
     followingCount,
     uniqueCoasterCount,
     topCoaster,
+    wrappedStats,
     isCurrentUser: viewerUserId === targetUserId,
     isFollowing,
   };
@@ -184,6 +378,7 @@ export const getMyProfileDashboard = query({
       coasterIds.map(async (coasterId) => [String(coasterId), await ctx.db.get(coasterId)] as const),
     );
     const coasterMap = new Map(coasterEntries);
+    const wrappedStats = await buildWrappedStats(ctx, logs);
 
     return {
       ...viewer,
@@ -191,6 +386,7 @@ export const getMyProfileDashboard = query({
       followerCount,
       followingCount,
       topCoaster: topRanking[0] ? coasterMap.get(String(topRanking[0].coasterId)) ?? null : null,
+      wrappedStats,
       recentRides: recentLogs.map((log) => ({
         ...log,
         coaster: coasterMap.get(String(log.coasterId)) ?? null,

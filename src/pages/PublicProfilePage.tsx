@@ -10,6 +10,7 @@ import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { CoasterModal } from "../components/CoasterModal";
 import { type CoasterSummary } from "../lib/coasterData";
+import { ProfileWrappedStats } from "../components/ProfileWrappedStats";
 
 const apiAny = api as any;
 const RANKINGS_PAGE_SIZE = 25;
@@ -177,6 +178,11 @@ export function PublicProfilePage({
             </div>
           )}
         </div>
+
+        <ProfileWrappedStats
+          stats={profileData.wrappedStats}
+          onSelectCoaster={openCoaster}
+        />
 
         <div className="surface-card p-4">
           <div className="flex items-center justify-between mb-3">
