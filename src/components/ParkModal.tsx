@@ -4,7 +4,12 @@ import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 import { getErrorMessage } from "../lib/errors";
-import { type CoasterSummary, getCoasterDisplayName } from "../lib/coasterData";
+import {
+  type CoasterGroupSummary,
+  type CoasterModalTarget,
+  type CoasterSummary,
+  getCoasterDisplayName,
+} from "../lib/coasterData";
 import { useScrollToTop } from "../hooks/useScrollToTop";
 import { ModalCloseButton, ModalContainer } from "./ModalContainer";
 import { ScoreBadge } from "./ScoreBadge";
@@ -17,6 +22,16 @@ type ParkLineupResponse = {
   coasters: CoasterSummary[];
 };
 
+function getTrackSelectionKey(
+  coaster: Pick<CoasterSummary, "_id" | "sourceId" | "name" | "trackIndex" | "multiTrackGroupId">,
+) {
+  if (coaster.multiTrackGroupId && typeof coaster.trackIndex === "number") {
+    return `${coaster.multiTrackGroupId}:${coaster.trackIndex}`;
+  }
+
+  return coaster.sourceId ?? coaster._id ?? `${coaster.name}:${coaster.trackIndex ?? 0}`;
+}
+
 export function ParkModal({
   park,
   initialLocation,
@@ -28,7 +43,7 @@ export function ParkModal({
   initialLocation?: string;
   initialSourceUrl?: string;
   onClose: () => void;
-  onSelectCoaster: (coaster: CoasterSummary) => void;
+  onSelectCoaster: (selection: { coaster: CoasterModalTarget; initialSelectedTrackKey?: string | null }) => void;
 }) {
   const scrollRef = useScrollToTop([park]);
   const [lineup, setLineup] = useState<ParkLineupResponse | null>(null);
@@ -103,6 +118,68 @@ export function ParkModal({
     if (!coaster._id) return false;
     return (myStatsByCoasterId?.[coaster._id]?.rideCount ?? 0) > 0;
   }).length;
+  const groupedCoasters = useMemo(() => {
+    const groups = new Map<string, CoasterSummary[]>();
+
+    for (const coaster of displayLineup.coasters) {
+      if (!coaster.isMultiTrack || !coaster.multiTrackGroupId) {
+        continue;
+      }
+
+      const tracks = groups.get(coaster.multiTrackGroupId) ?? [];
+      tracks.push(coaster);
+      groups.set(coaster.multiTrackGroupId, tracks);
+    }
+
+    for (const tracks of groups.values()) {
+      tracks.sort((a, b) => {
+        const aIndex = a.trackIndex ?? 0;
+        const bIndex = b.trackIndex ?? 0;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    return groups;
+  }, [displayLineup.coasters]);
+
+  const buildSelection = (coaster: CoasterSummary) => {
+    if (!coaster.isMultiTrack || !coaster.multiTrackGroupId) {
+      return {
+        coaster,
+        initialSelectedTrackKey: null,
+      };
+    }
+
+    const tracks = groupedCoasters.get(coaster.multiTrackGroupId) ?? [coaster];
+    if (tracks.length <= 1) {
+      return {
+        coaster,
+        initialSelectedTrackKey: getTrackSelectionKey(coaster),
+      };
+    }
+
+    const groupSummary: CoasterGroupSummary = {
+      kind: "multiTrackGroup",
+      name: coaster.parentName ?? coaster.name,
+      parentName: coaster.parentName ?? coaster.name,
+      park: coaster.park,
+      location: coaster.location,
+      country: coaster.country,
+      type: coaster.type,
+      source: coaster.source,
+      sourcePageId: coaster.sourcePageId ?? coaster.sourceId ?? "",
+      sourceUrl: coaster.sourceUrl,
+      isMultiTrack: true,
+      multiTrackGroupId: coaster.multiTrackGroupId,
+      tracks,
+    };
+
+    return {
+      coaster: groupSummary,
+      initialSelectedTrackKey: getTrackSelectionKey(coaster),
+    };
+  };
 
   return (
     <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
@@ -162,7 +239,7 @@ export function ParkModal({
               <button
                 key={coaster.sourceId ?? coaster._id ?? coaster.name}
                 type="button"
-                onClick={() => onSelectCoaster(coaster)}
+                onClick={() => onSelectCoaster(buildSelection(coaster))}
                 className="surface-card interactive-lift rounded-xl p-3 text-left"
               >
                 <div className="flex items-start justify-between gap-3">

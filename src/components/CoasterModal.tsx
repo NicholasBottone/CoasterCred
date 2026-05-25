@@ -51,16 +51,35 @@ function sortTracks(tracks: CoasterSummary[]) {
     });
 }
 
-function getTrackKey(coaster: Pick<CoasterSummary, "_id" | "sourceId" | "name" | "trackIndex">) {
+function getTrackKey(
+  coaster: Pick<CoasterSummary, "_id" | "sourceId" | "name" | "trackIndex" | "multiTrackGroupId">,
+) {
+  if (coaster.multiTrackGroupId && typeof coaster.trackIndex === "number") {
+    return `${coaster.multiTrackGroupId}:${coaster.trackIndex}`;
+  }
+
   return coaster.sourceId ?? coaster._id ?? `${coaster.name}:${coaster.trackIndex ?? 0}`;
 }
 
 function mergeGroupTrackEntries(
   seedTracks: CoasterSummary[],
   localTrackEntries: GroupTrackEntry[] | undefined,
+  groupId?: string,
 ) {
+  const seedTrackKeys = new Set(seedTracks.map((track) => getTrackKey(track)));
+  const relevantLocalTrackEntries = (localTrackEntries ?? []).filter((entry) => {
+    if (seedTrackKeys.has(getTrackKey(entry.coaster))) {
+      return true;
+    }
+
+    if (!groupId) {
+      return true;
+    }
+
+    return entry.coaster.multiTrackGroupId === groupId;
+  });
   const localEntryByKey = new Map(
-    (localTrackEntries ?? []).map((entry) => [getTrackKey(entry.coaster), entry] as const),
+    relevantLocalTrackEntries.map((entry) => [getTrackKey(entry.coaster), entry] as const),
   );
 
   const merged = sortTracks(seedTracks).map((track) => {
@@ -84,7 +103,7 @@ function mergeGroupTrackEntries(
     };
   });
 
-  for (const entry of localTrackEntries ?? []) {
+  for (const entry of relevantLocalTrackEntries) {
     if (!merged.some((existingEntry) => getTrackKey(existingEntry.coaster) === getTrackKey(entry.coaster))) {
       merged.push(entry);
     }
@@ -124,9 +143,11 @@ function buildFallbackGroupSummary(coaster: CoasterModalTarget, tracks: CoasterS
 
 export function CoasterModal({
   coaster,
+  initialSelectedTrackKey,
   onClose,
 }: {
   coaster: CoasterModalTarget;
+  initialSelectedTrackKey?: string | null;
   onClose: () => void;
 }) {
   const isGroupedRide = isCoasterGroupSummary(coaster) || Boolean(!isCoasterGroupSummary(coaster) && coaster.isMultiTrack);
@@ -137,8 +158,15 @@ export function CoasterModal({
     return isGroupedRide ? [coaster] : [];
   }, [coaster, isGroupedRide]);
   const fallbackGroupSummary = useMemo(() => buildFallbackGroupSummary(coaster, seedTracks), [coaster, seedTracks]);
+  const resolvedInitialTrackKey = useMemo(() => {
+    if (initialSelectedTrackKey && seedTracks.some((track) => getTrackKey(track) === initialSelectedTrackKey)) {
+      return initialSelectedTrackKey;
+    }
+
+    return seedTracks[0] ? getTrackKey(seedTracks[0]) : null;
+  }, [initialSelectedTrackKey, seedTracks]);
   const [selectedTrackKey, setSelectedTrackKey] = useState<string | null>(
-    seedTracks[0] ? getTrackKey(seedTracks[0]) : null,
+    resolvedInitialTrackKey,
   );
   const scrollRef = useScrollToTop([
     isCoasterGroupSummary(coaster) ? coaster.multiTrackGroupId : coaster._id,
@@ -162,7 +190,10 @@ export function CoasterModal({
     location?: string;
     sourceUrl?: string;
   } | null>(null);
-  const [drilldownCoaster, setDrilldownCoaster] = useState<CoasterModalTarget | null>(null);
+  const [drilldownCoaster, setDrilldownCoaster] = useState<{
+    coaster: CoasterModalTarget;
+    initialSelectedTrackKey?: string | null;
+  } | null>(null);
   const pendingLogModalOpenRef = useRef(false);
 
   const groupData = useQuery(
@@ -186,8 +217,8 @@ export function CoasterModal({
     | undefined;
 
   const groupTrackEntries = useMemo(
-    () => mergeGroupTrackEntries(seedTracks, groupData?.tracks),
-    [groupData?.tracks, seedTracks],
+    () => mergeGroupTrackEntries(seedTracks, groupData?.tracks, fallbackGroupSummary?.multiTrackGroupId),
+    [fallbackGroupSummary?.multiTrackGroupId, groupData?.tracks, seedTracks],
   );
   const selectedTrackEntry =
     groupTrackEntries.find((entry) => getTrackKey(entry.coaster) === selectedTrackKey) ?? groupTrackEntries[0] ?? null;
@@ -195,8 +226,8 @@ export function CoasterModal({
   const groupParent = groupData?.parent ?? fallbackGroupSummary;
 
   useEffect(() => {
-    setSelectedTrackKey(seedTracks[0] ? getTrackKey(seedTracks[0]) : null);
-  }, [coaster, seedTracks]);
+    setSelectedTrackKey(resolvedInitialTrackKey);
+  }, [coaster, resolvedInitialTrackKey]);
 
   useEffect(() => {
     if (!selectedTrack) return;
@@ -873,13 +904,14 @@ export function CoasterModal({
           initialLocation={selectedPark.location}
           initialSourceUrl={selectedPark.sourceUrl}
           onClose={() => setSelectedPark(null)}
-          onSelectCoaster={(nextCoaster) => setDrilldownCoaster(nextCoaster)}
+          onSelectCoaster={(selection) => setDrilldownCoaster(selection)}
         />
       )}
 
       {drilldownCoaster && (
         <CoasterModal
-          coaster={drilldownCoaster}
+          coaster={drilldownCoaster.coaster}
+          initialSelectedTrackKey={drilldownCoaster.initialSelectedTrackKey}
           onClose={() => setDrilldownCoaster(null)}
         />
       )}
