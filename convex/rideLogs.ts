@@ -5,6 +5,7 @@ import { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { computeRankingScore } from "./rankings";
 import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
+import { LIMITS, validateOptionalText } from "./validation";
 
 const FEED_LIMIT = 50;
 const FEED_SCAN_LIMIT = 250;
@@ -22,6 +23,57 @@ async function getExistingLogForRideDate(
     )
     .unique();
 }
+
+export const updateLog = mutation({
+  args: {
+    logId: v.id("rideLogs"),
+    rideDate: v.string(),
+    riddenAt: v.number(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Not authenticated");
+
+    const log = await ctx.db.get(args.logId);
+    if (!log || log.userId !== userId) throw new ConvexError("Ride log not found");
+
+    let notes: string | undefined;
+    try {
+      notes = validateOptionalText(args.notes, "Notes", LIMITS.notes);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ConvexError(error.message);
+      }
+      throw new ConvexError("Could not update ride");
+    }
+
+    const existingForDay = await getExistingLogForRideDate(
+      ctx,
+      userId,
+      log.coasterId,
+      args.rideDate,
+    );
+    if (existingForDay && existingForDay._id !== log._id) {
+      throw new ConvexError("You already logged this coaster for that date");
+    }
+
+    const rideTimingChanged = log.rideDate !== args.rideDate || log.riddenAt !== args.riddenAt;
+
+    await ctx.db.patch(log._id, {
+      rideDate: args.rideDate,
+      riddenAt: args.riddenAt,
+      notes,
+    });
+
+    if (rideTimingChanged) {
+      await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {
+        userId,
+        coasterId: log.coasterId,
+      });
+    }
+  },
+});
 
 export const removeLog = mutation({
   args: { logId: v.id("rideLogs") },

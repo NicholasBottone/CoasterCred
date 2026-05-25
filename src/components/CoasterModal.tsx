@@ -33,6 +33,12 @@ type GroupTrackEntry = {
   };
 };
 
+type EditingLogState = {
+  id: string;
+  rideDate: string;
+  notes: string;
+};
+
 function sortTracks(tracks: CoasterSummary[]) {
   return tracks
     .slice()
@@ -149,6 +155,7 @@ export function CoasterModal({
   const [rideHistoryLimit, setRideHistoryLimit] = useState(10);
   const [shouldLoadComparisonList, setShouldLoadComparisonList] = useState(false);
   const [isRerankRequested, setIsRerankRequested] = useState(false);
+  const [editingLog, setEditingLog] = useState<EditingLogState | null>(null);
   const pendingLogModalOpenRef = useRef(false);
 
   const groupData = useQuery(
@@ -224,6 +231,7 @@ export function CoasterModal({
     shouldLoadComparisonList ? {} : "skip",
   );
   const saveRideWithRank = useMutation(api.rankings.saveRideWithRank);
+  const updateLog = useMutation(api.rideLogs.updateLog);
   const removeLog = useMutation(api.rideLogs.removeLog);
   const materializeCoaster = useAction(api.coasters.materializeCoasterpediaCoaster);
 
@@ -250,6 +258,7 @@ export function CoasterModal({
       : Math.floor((comparisonBounds.low + comparisonBounds.high) / 2);
   const comparisonTarget =
     comparisonIndex === null ? null : rankedCoasters[comparisonIndex];
+  const isEditingLog = editingLog !== null;
 
   const ensureLocalCoasterId = async () => {
     if (currentLocalCoasterId) return currentLocalCoasterId;
@@ -280,6 +289,26 @@ export function CoasterModal({
       resetLogState(false);
     } catch (e: any) {
       toast.error(getErrorMessage(e, "Could not log ride"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEditedLog = async () => {
+    if (!editingLog) return;
+
+    setSaving(true);
+    try {
+      await updateLog({
+        logId: editingLog.id as any,
+        riddenAt: dateInputValueToTimestamp(rideDate),
+        rideDate,
+        notes: notes || undefined,
+      });
+      toast.success("Ride log updated");
+      resetLogState(false);
+    } catch (e: any) {
+      toast.error(getErrorMessage(e, "Could not update ride"));
     } finally {
       setSaving(false);
     }
@@ -369,6 +398,20 @@ export function CoasterModal({
     }
   };
 
+  const handleEditLog = (log: { _id: string; rideDate?: string | null; notes?: string | null }) => {
+    setEditingLog({
+      id: log._id,
+      rideDate: log.rideDate ?? todayDateInputValue(),
+      notes: log.notes ?? "",
+    });
+    setRideDate(log.rideDate ?? todayDateInputValue());
+    setNotes(log.notes ?? "");
+    setComparisonBounds(null);
+    setShouldLoadComparisonList(false);
+    setIsRerankRequested(false);
+    setIsLogModalOpen(true);
+  };
+
   const resetLogState = (nextIsOpen = false) => {
     setNotes("");
     setRideDate(todayDateInputValue());
@@ -376,16 +419,17 @@ export function CoasterModal({
     setIsLogModalOpen(nextIsOpen);
     setShouldLoadComparisonList(false);
     setIsRerankRequested(false);
+    setEditingLog(null);
   };
 
   const openLogModal = () => {
     if (!selectedTrack) return;
-    setIsLogModalOpen(true);
+    resetLogState(true);
   };
 
   const openLogModalForTrack = (trackKey: string) => {
     if (trackKey === selectedTrackKey) {
-      setIsLogModalOpen(true);
+      resetLogState(true);
       return;
     }
 
@@ -406,7 +450,13 @@ export function CoasterModal({
       : null);
   const selectedTrackLabel = displayCoaster ? getCoasterTrackLabel(displayCoaster) : null;
   const logButtonLabel = groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log ride";
-  const logModalTitle = groupParent ? `Log ${selectedTrackLabel ?? "track"}` : "Log Ride";
+  const logModalTitle = isEditingLog
+    ? groupParent
+      ? `Edit ${selectedTrackLabel ?? "track"} log`
+      : "Edit Ride Log"
+    : groupParent
+      ? `Log ${selectedTrackLabel ?? "track"}`
+      : "Log Ride";
   const logModalSubtitle = displayCoaster
     ? `${getCoasterDisplayName(displayCoaster)} · ${displayCoaster.park ?? "Unknown park"}`
     : "Add a ride and place it in your rankings.";
@@ -705,13 +755,22 @@ export function CoasterModal({
                               <p className="mt-0.5 break-words text-xs text-gray-500 dark:text-gray-400">{log.notes}</p>
                             )}
                           </div>
-                          <button
-                            onClick={() => void handleRemove(log._id)}
-                            disabled={saving}
-                            className="text-xs font-medium text-red-500 transition-colors hover:text-red-400 disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <button
+                              onClick={() => handleEditLog(log)}
+                              disabled={saving}
+                              className="text-xs font-medium text-primary transition-colors hover:text-primary-hover disabled:opacity-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => void handleRemove(log._id)}
+                              disabled={saving}
+                              className="text-xs font-medium text-red-500 transition-colors hover:text-red-400 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -746,7 +805,8 @@ export function CoasterModal({
 
       {displayCoaster && isLogModalOpen && (
         <LogRideModal
-          onClose={() => setIsLogModalOpen(false)}
+          mode={isEditingLog ? "edit" : "create"}
+          onClose={() => resetLogState(false)}
           title={logModalTitle}
           subtitle={logModalSubtitle}
           coasterName={getCoasterDisplayName(displayCoaster)}
@@ -764,7 +824,7 @@ export function CoasterModal({
           rankedCoasterCount={rankedCoasters.length}
           onRideDateChange={setRideDate}
           onNotesChange={setNotes}
-          onStartComparisonFlow={() => void startComparisonFlow()}
+          onPrimaryAction={() => void (isEditingLog ? saveEditedLog() : startComparisonFlow())}
           onComparisonChoice={(winner) => void handleComparisonChoice(winner)}
           onRerank={() => {
             setIsLogModalOpen(true);
@@ -839,6 +899,7 @@ function PlusIcon({ className = "h-5 w-5" }: { className?: string }) {
 }
 
 function LogRideModal({
+  mode,
   onClose,
   title,
   subtitle,
@@ -857,10 +918,11 @@ function LogRideModal({
   rankedCoasterCount,
   onRideDateChange,
   onNotesChange,
-  onStartComparisonFlow,
+  onPrimaryAction,
   onComparisonChoice,
   onRerank,
 }: {
+  mode: "create" | "edit";
   onClose: () => void;
   title: string;
   subtitle: string;
@@ -879,7 +941,7 @@ function LogRideModal({
   rankedCoasterCount: number;
   onRideDateChange: (value: string) => void;
   onNotesChange: (value: string) => void;
-  onStartComparisonFlow: () => void;
+  onPrimaryAction: () => void;
   onComparisonChoice: (winner: "selected" | "other") => void;
   onRerank: () => void;
 }) {
@@ -901,7 +963,7 @@ function LogRideModal({
         <ModalCloseButton onClose={onClose} />
       </div>
 
-      {typeof currentRank === "number" && (
+      {mode === "create" && typeof currentRank === "number" && (
         <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
           Currently ranked #{currentRank}
           {typeof currentScore === "number" ? ` with a ${currentScore.toFixed(1)}` : ""}.
@@ -928,7 +990,7 @@ function LogRideModal({
         className="input-field mb-3 resize-none"
       />
 
-      {loadingData ? (
+      {mode === "edit" ? null : loadingData ? (
         <div className="mb-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
           Loading your current rankings...
         </div>
@@ -982,13 +1044,19 @@ function LogRideModal({
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={onStartComparisonFlow}
-          disabled={saving || loadingData}
+          onClick={onPrimaryAction}
+          disabled={saving || (mode === "create" && loadingData)}
           className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
         >
-          {comparisonTarget ? "Restart Comparisons" : hasCurrentRank ? "Log Ride" : "Log and Rank Ride"}
+          {mode === "edit"
+            ? "Save Changes"
+            : comparisonTarget
+              ? "Restart Comparisons"
+              : hasCurrentRank
+                ? "Log Ride"
+                : "Log and Rank Ride"}
         </button>
-        {hasCurrentRank && (
+        {mode === "create" && hasCurrentRank && (
           <button
             type="button"
             onClick={onRerank}
