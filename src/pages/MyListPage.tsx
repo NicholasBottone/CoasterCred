@@ -10,6 +10,33 @@ import { getErrorMessage } from "../lib/errors";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
 
+function csvEscape(value: string | number | null | undefined) {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function timestampToDateValue(timestamp: number | null | undefined) {
+  if (!timestamp) return "";
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function buildRankingsCsv(rankings: any[]) {
+  const rows = [
+    ["Rank", "Name", "Park", "Last Ridden"],
+    ...rankings.map((item, index) => [
+      index + 1,
+      item.coaster?.name ?? "",
+      item.coaster?.park ?? "",
+      item.log?.rideDate ?? timestampToDateValue(item.log?.riddenAt),
+    ]),
+  ];
+
+  return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
+}
+
 export function MyListPage() {
   const rankings = useQuery(api.rankings.getMyRankings);
   const moveRank = useMutation(api.rankings.moveRank);
@@ -32,6 +59,25 @@ export function MyListPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    if (rankings.length === 0) {
+      toast.error("There are no coasters to export yet.");
+      return;
+    }
+
+    const csv = buildRankingsCsv(rankings);
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `coastercred-rankings-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Exported your rankings CSV.");
+  };
+
   return (
     <>
       <div className="max-w-lg mx-auto px-4 py-4">
@@ -40,13 +86,23 @@ export function MyListPage() {
             <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">My List</h2>
             <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">{rankings.length} coasters</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsImportOpen(true)}
-            className="rounded-xl border border-primary/30 px-3 py-2 text-sm font-semibold text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
-          >
-            Import CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={rankings.length === 0}
+              className="rounded-xl border border-primary/30 px-3 py-2 text-sm font-semibold text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="rounded-xl border border-primary/30 px-3 py-2 text-sm font-semibold text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
+            >
+              Import CSV
+            </button>
+          </div>
         </div>
         <p className="ui-copy-disabled mb-3 text-xs text-gray-400 dark:text-gray-500">
           Head-to-head logging builds your list. Use arrows here for quick manual tweaks.
