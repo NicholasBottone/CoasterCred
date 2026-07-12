@@ -260,6 +260,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
   const [stage, setStage] = useState<"paste" | "review" | "complete">("paste");
   const [csvError, setCsvError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<ImportCandidate | null>(null);
   const [isResolving, setIsResolving] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const scrollRef = useScrollToTop([stage, currentIndex]);
@@ -274,15 +275,22 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
   const importedCount = rows.filter((row) => row.status === "imported").length;
   const skippedCount = rows.filter((row) => row.status === "skipped").length;
   const pendingCount = rows.filter((row) => row.status === "pending").length;
+  const selectedMatch = selectedCandidate ?? validationResult?.exactMatch ?? null;
   const canImportCurrentRow =
     currentRow !== null &&
     Object.keys(currentErrors).length === 0 &&
-    Boolean(validationResult?.exactMatch) &&
+    Boolean(selectedMatch) &&
     !isResolving &&
     !isImporting;
 
   useEffect(() => {
     if (stage !== "review" || !currentRow) {
+      setValidationResult(null);
+      setIsResolving(false);
+      return;
+    }
+
+    if (selectedCandidate) {
       setValidationResult(null);
       setIsResolving(false);
       return;
@@ -332,7 +340,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [currentErrors, currentRow, stage, validateRankingImportRow]);
+  }, [currentErrors, currentRow, selectedCandidate, stage, validateRankingImportRow]);
 
   const handleStartImport = () => {
     try {
@@ -342,6 +350,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
       }
       setRows(parsedRows);
       setCurrentIndex(0);
+      setSelectedCandidate(null);
       setCsvError(null);
       setStage("review");
     } catch (error) {
@@ -351,6 +360,9 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
 
   const updateCurrentRow = (patch: Partial<ImportRow>) => {
     if (!currentRow) return;
+    if (patch.name !== undefined || patch.park !== undefined) {
+      setSelectedCandidate(null);
+    }
     setRows((previousRows) =>
       previousRows.map((row, index) =>
         index === currentIndex
@@ -364,10 +376,19 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const applyCandidate = (candidate: ImportCandidate) => {
-    updateCurrentRow({
-      name: candidate.name,
-      park: candidate.park,
-    });
+    if (!currentRow) return;
+    setSelectedCandidate(candidate);
+    setRows((previousRows) =>
+      previousRows.map((row, index) =>
+        index === currentIndex
+          ? {
+              ...row,
+              name: candidate.name,
+              park: candidate.park,
+            }
+          : row,
+      ),
+    );
   };
 
   const moveToNextPendingRow = (nextStatus: ImportRow["status"]) => {
@@ -386,6 +407,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
     );
 
     setRows(nextRows);
+    setSelectedCandidate(null);
 
     if (nextPendingIndex === -1) {
       setStage("complete");
@@ -396,17 +418,17 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
   };
 
   const importCurrentRow = async () => {
-    if (!currentRow || !validationResult?.exactMatch || !resolvedDate) return;
+    if (!currentRow || !selectedMatch || !resolvedDate) return;
 
     const rankResult = parsePositiveRank(currentRow.rank);
     if ("error" in rankResult) return;
 
     setIsImporting(true);
     try {
-      let coasterId = validationResult.exactMatch._id;
-      if (!coasterId && validationResult.exactMatch.sourceId) {
+      let coasterId = selectedMatch._id;
+      if (!coasterId && selectedMatch.sourceId) {
         coasterId = (await materializeCoaster({
-          sourceId: validationResult.exactMatch.sourceId,
+          sourceId: selectedMatch.sourceId,
         })) as string;
       }
 
@@ -593,7 +615,22 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {!isResolving && validationResult?.exactMatch && (
+          {!isResolving && selectedCandidate && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
+              <p className="text-sm font-semibold text-green-800 dark:text-green-200">Selected Coasterpedia match</p>
+              <div className="mt-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{selectedCandidate.name}</p>
+                  <p className="truncate text-sm text-gray-500 dark:text-gray-400">
+                    {selectedCandidate.park} · {selectedCandidate.location}
+                  </p>
+                </div>
+                <span className={getCoasterTypeBadgeClasses(selectedCandidate.type)}>{selectedCandidate.type}</span>
+              </div>
+            </div>
+          )}
+
+          {!isResolving && !selectedCandidate && validationResult?.exactMatch && (
             <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
               <p className="text-sm font-semibold text-green-800 dark:text-green-200">Exact Coasterpedia match found</p>
               <div className="mt-3 flex items-start justify-between gap-3">
