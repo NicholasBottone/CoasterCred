@@ -85,8 +85,8 @@ const applicationTables = {
     riddenAt: v.number(),
     rideDate: v.optional(v.string()),
     notes: v.optional(v.string()),
-    isFirstCreditLog: v.optional(v.boolean()),
-    isFeedEvent: v.optional(v.boolean()),
+    isFirstCreditLog: v.boolean(),
+    isFeedEvent: v.boolean(),
     feedHighlights: v.optional(
       v.array(
         v.object({
@@ -99,6 +99,7 @@ const applicationTables = {
     ),
   })
     .index("by_user", ["userId"])
+    .index("by_user_and_isFeedEvent", ["userId", "isFeedEvent"])
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_riddenAt", ["userId", "riddenAt"])
     .index("by_user_and_coaster_and_rideDate", ["userId", "coasterId", "rideDate"])

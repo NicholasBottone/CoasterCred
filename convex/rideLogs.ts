@@ -9,7 +9,6 @@ import { LIMITS, validateOptionalText } from "./validation";
 import { isHistoricalRideDate } from "./feedEvents";
 
 const FEED_LIMIT = 50;
-const FEED_SCAN_LIMIT = 500;
 
 async function getExistingLogForRideDate(
   ctx: any,
@@ -233,9 +232,21 @@ export const getFeed = query({
       userId,
       ...follows.map((f) => f.followingId),
     ];
-    const followingSet = new Set(followingIds.map((id) => String(id)));
-    const recentLogs = await ctx.db.query("rideLogs").order("desc").take(FEED_SCAN_LIMIT);
-    const candidateLogs = recentLogs.filter((log) => followingSet.has(String(log.userId)));
+    const logsByUser = await Promise.all(
+      followingIds.map(async (followingId) =>
+        await ctx.db
+          .query("rideLogs")
+          .withIndex("by_user_and_isFeedEvent", (q) =>
+            q.eq("userId", followingId).eq("isFeedEvent", true),
+          )
+          .order("desc")
+          .take(FEED_LIMIT),
+      ),
+    );
+    const candidateLogs = logsByUser
+      .flat()
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .slice(0, FEED_LIMIT);
 
     const uniqueUserIds = [...new Set(candidateLogs.map((log) => String(log.userId)))];
     const uniqueCoasterIds = [...new Set(candidateLogs.map((log) => String(log.coasterId)))];
@@ -294,10 +305,6 @@ export const getFeed = query({
         const coaster = coasterMap.get(String(log.coasterId)) ?? null;
         const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
         const pairData = pairMap.get(pairKey);
-        const isFirstRide = log.isFirstCreditLog ?? (pairData?.stat?.firstRiddenAt === log.riddenAt);
-        const isHistoricalRide = isHistoricalRideDate(log.rideDate, log._creationTime);
-        const isFeedEvent = log.isFeedEvent ?? (isFirstRide && !isHistoricalRide);
-
         return {
           ...log,
           coaster,
@@ -308,8 +315,8 @@ export const getFeed = query({
               }
             : null,
           profile: userData?.profile ?? null,
-          isFirstRide,
-          isFeedEvent,
+          isFirstRide: log.isFirstCreditLog,
+          isFeedEvent: log.isFeedEvent,
           feedHighlights: log.feedHighlights ?? [],
           rank: pairData?.ranking?.rank ?? null,
           score:
