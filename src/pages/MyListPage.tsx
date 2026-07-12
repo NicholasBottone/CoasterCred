@@ -114,7 +114,7 @@ export function MyListPage() {
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10"
               >
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                  <path d="M12 15V3m0 12 4-4m-4 4-4-4M5 17v3h14v-3" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 15V3m0 0 4 4m-4-4-4 4M5 17v3h14v-3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               <span
