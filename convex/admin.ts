@@ -24,6 +24,7 @@ import {
 const STALE_SYNC_WINDOW_DAYS = 365;
 const STALE_SYNC_WINDOW_MS = STALE_SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const COUNTRY_BACKFILL_BATCH_SIZE = 25;
+const MULTI_TRACK_MIGRATION_BATCH_SIZE = 25;
 
 async function getViewerRole(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -93,7 +94,9 @@ export const patchCoasterFromImport = internalMutation({
       .unique();
 
     if (existingLinkedCoaster && existingLinkedCoaster._id !== args.coasterId) {
-      throw new ConvexError("This Coasterpedia entry is already linked to another coaster");
+      throw new ConvexError(
+        "This Coasterpedia entry is already linked to another coaster",
+      );
     }
 
     await ctx.db.patch(args.coasterId, {
@@ -165,7 +168,43 @@ function getCountryBackfillTargetsFromCoasters(
       coasterId: coaster._id,
       name: coaster.name,
       sourceId: coaster.sourceId as string,
-      sourcePageId: coaster.sourcePageId ?? getCoasterSourcePageId(coaster.sourceId as string),
+      sourcePageId:
+        coaster.sourcePageId ??
+        getCoasterSourcePageId(coaster.sourceId as string),
+    }));
+}
+
+function isLegacyMultiTrackMigrationCandidate(coaster: Doc<"coasters">) {
+  return (
+    coaster.source === COASTERPEDIA_SOURCE &&
+    typeof coaster.sourceId === "string" &&
+    !coaster.sourceId.includes("::") &&
+    !coaster.multiTrackGroupId &&
+    !coaster.trackName
+  );
+}
+
+function getMultiTrackMigrationTargetsFromCoasters(
+  coasters: Doc<"coasters">[],
+  limit: number,
+) {
+  return coasters
+    .filter(
+      (coaster) =>
+        isLegacyMultiTrackMigrationCandidate(coaster) &&
+        !coaster.multiTrackMigrationCheckedAt,
+    )
+    .sort((a, b) => {
+      if ((a.lastSyncedAt ?? 0) !== (b.lastSyncedAt ?? 0)) {
+        return (a.lastSyncedAt ?? 0) - (b.lastSyncedAt ?? 0);
+      }
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, limit)
+    .map((coaster) => ({
+      coasterId: coaster._id,
+      name: coaster.name,
+      sourceId: coaster.sourceId as string,
     }));
 }
 
@@ -199,11 +238,15 @@ export const getCountryBackfillStatus = query({
         coaster.source === COASTERPEDIA_SOURCE &&
         typeof coaster.sourceId === "string",
     );
-    const sourceBackedMissingCountry = sourceBackedCoasters.filter((coaster) => !coaster.country);
+    const sourceBackedMissingCountry = sourceBackedCoasters.filter(
+      (coaster) => !coaster.country,
+    );
     const manualMissingCountry = coasters.filter(
       (coaster) =>
-        !(coaster.source === COASTERPEDIA_SOURCE && typeof coaster.sourceId === "string") &&
-        !coaster.country,
+        !(
+          coaster.source === COASTERPEDIA_SOURCE &&
+          typeof coaster.sourceId === "string"
+        ) && !coaster.country,
     );
 
     return {
@@ -211,13 +254,46 @@ export const getCountryBackfillStatus = query({
       totalCoasterCount: coasters.length,
       sourceBackedCoasterCount: sourceBackedCoasters.length,
       sourceBackedMissingCountryCount: sourceBackedMissingCountry.length,
-      sourceBackedWithCountryCount: sourceBackedCoasters.length - sourceBackedMissingCountry.length,
+      sourceBackedWithCountryCount:
+        sourceBackedCoasters.length - sourceBackedMissingCountry.length,
       manualMissingCountryCount: manualMissingCountry.length,
-      nextTargets: getCountryBackfillTargetsFromCoasters(coasters, 5).map((coaster) => ({
-        coasterId: coaster.coasterId,
-        name: coaster.name,
-        sourceId: coaster.sourceId,
-      })),
+      nextTargets: getCountryBackfillTargetsFromCoasters(coasters, 5).map(
+        (coaster) => ({
+          coasterId: coaster.coasterId,
+          name: coaster.name,
+          sourceId: coaster.sourceId,
+        }),
+      ),
+    };
+  },
+});
+
+export const getMultiTrackMigrationStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminQuery(ctx);
+
+    const coasters = await ctx.db.query("coasters").collect();
+    const legacyCandidates = coasters.filter(
+      isLegacyMultiTrackMigrationCandidate,
+    );
+    const pendingCandidates = legacyCandidates.filter(
+      (coaster) => !coaster.multiTrackMigrationCheckedAt,
+    );
+
+    return {
+      batchSize: MULTI_TRACK_MIGRATION_BATCH_SIZE,
+      legacyCandidateCount: legacyCandidates.length,
+      pendingCandidateCount: pendingCandidates.length,
+      checkedSingleTrackCount:
+        legacyCandidates.length - pendingCandidates.length,
+      nextTargets: getMultiTrackMigrationTargetsFromCoasters(coasters, 5).map(
+        (coaster) => ({
+          coasterId: coaster.coasterId,
+          name: coaster.name,
+          sourceId: coaster.sourceId,
+        }),
+      ),
     };
   },
 });
@@ -227,14 +303,15 @@ export const getDashboard = query({
   handler: async (ctx) => {
     await requireAdminQuery(ctx);
 
-    const [coasters, users, profiles, rideLogs, rankings, authAccounts] = await Promise.all([
-      ctx.db.query("coasters").collect(),
-      ctx.db.query("users").collect(),
-      ctx.db.query("userProfiles").collect(),
-      ctx.db.query("rideLogs").collect(),
-      ctx.db.query("rankings").collect(),
-      ctx.db.query("authAccounts").collect(),
-    ]);
+    const [coasters, users, profiles, rideLogs, rankings, authAccounts] =
+      await Promise.all([
+        ctx.db.query("coasters").collect(),
+        ctx.db.query("users").collect(),
+        ctx.db.query("userProfiles").collect(),
+        ctx.db.query("rideLogs").collect(),
+        ctx.db.query("rankings").collect(),
+        ctx.db.query("authAccounts").collect(),
+      ]);
 
     const now = Date.now();
     const staleBefore = now - STALE_SYNC_WINDOW_MS;
@@ -284,9 +361,9 @@ export const getDashboard = query({
     const staleCoasters = coasters
       .filter(
         (coaster) =>
-          (coaster.lastSyncedAt === undefined ||
-            coaster.lastSyncedAt === null ||
-            coaster.lastSyncedAt < staleBefore),
+          coaster.lastSyncedAt === undefined ||
+          coaster.lastSyncedAt === null ||
+          coaster.lastSyncedAt < staleBefore,
       )
       .sort((a, b) => (a.lastSyncedAt ?? 0) - (b.lastSyncedAt ?? 0))
       .map((coaster) => ({
@@ -323,7 +400,10 @@ export const getDashboard = query({
         };
       });
 
-    const signupCounts = new Map<string, { date: string; label: string; count: number }>();
+    const signupCounts = new Map<
+      string,
+      { date: string; label: string; count: number }
+    >();
     for (const user of usersByNewest) {
       const { isoDate, label } = getSignupDateParts(user.createdAt);
       const existing = signupCounts.get(isoDate);
@@ -348,7 +428,9 @@ export const getDashboard = query({
         staleCoasterCount: staleCoasters.length,
         userCount: usersByNewest.length,
       },
-      syncableCoasters: syncableCoasters.sort((a, b) => a.name.localeCompare(b.name)),
+      syncableCoasters: syncableCoasters.sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
       staleCoasters,
       signupSeries,
       users: usersByNewest,
@@ -374,23 +456,31 @@ export const getSyncTarget = internalQuery({
 });
 
 export const getMultiTrackMigrationTargets = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+  args: { limit: v.number() },
+  handler: async (ctx, args) => {
     const coasters = await ctx.db.query("coasters").collect();
-    return coasters
-      .filter(
-        (coaster) =>
-          coaster.source === COASTERPEDIA_SOURCE &&
-          typeof coaster.sourceId === "string" &&
-          !coaster.sourceId.includes("::") &&
-          !coaster.multiTrackGroupId &&
-          !coaster.trackName,
-      )
-      .map((coaster) => ({
-        _id: coaster._id,
+    const safeLimit = Math.max(1, Math.min(args.limit, 100));
+    return getMultiTrackMigrationTargetsFromCoasters(coasters, safeLimit).map(
+      (coaster) => ({
+        _id: coaster.coasterId,
         name: coaster.name,
-        sourceId: coaster.sourceId as string,
-      }));
+        sourceId: coaster.sourceId,
+      }),
+    );
+  },
+});
+
+export const markMultiTrackMigrationChecked = internalMutation({
+  args: { coasterId: v.id("coasters") },
+  handler: async (ctx, args) => {
+    const coaster = await ctx.db.get(args.coasterId);
+    if (!coaster) {
+      throw new ConvexError("Could not find this coaster");
+    }
+
+    await ctx.db.patch(args.coasterId, {
+      multiTrackMigrationCheckedAt: Date.now(),
+    });
   },
 });
 
@@ -449,15 +539,17 @@ export const migrateLegacyMultiTrackCoasterData = internalMutation({
 
     for (const log of logs) {
       affectedUserIds.add(log.userId);
-      const existingLog =
-        log.rideDate
-          ? await ctx.db
-              .query("rideLogs")
-              .withIndex("by_user_and_coaster_and_rideDate", (q) =>
-                q.eq("userId", log.userId).eq("coasterId", args.replacementCoasterId).eq("rideDate", log.rideDate!),
-              )
-              .unique()
-          : null;
+      const existingLog = log.rideDate
+        ? await ctx.db
+            .query("rideLogs")
+            .withIndex("by_user_and_coaster_and_rideDate", (q) =>
+              q
+                .eq("userId", log.userId)
+                .eq("coasterId", args.replacementCoasterId)
+                .eq("rideDate", log.rideDate!),
+            )
+            .unique()
+        : null;
 
       if (existingLog) {
         await ctx.db.delete(log._id);
@@ -473,7 +565,9 @@ export const migrateLegacyMultiTrackCoasterData = internalMutation({
       const existingRanking = await ctx.db
         .query("rankings")
         .withIndex("by_user_and_coaster", (q) =>
-          q.eq("userId", ranking.userId).eq("coasterId", args.replacementCoasterId),
+          q
+            .eq("userId", ranking.userId)
+            .eq("coasterId", args.replacementCoasterId),
         )
         .unique();
 
@@ -514,7 +608,11 @@ export const syncCoaster = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ coasterId: Id<"coasters">; name: string; lastSyncedAt: number }> => {
+  ): Promise<{
+    coasterId: Id<"coasters">;
+    name: string;
+    lastSyncedAt: number;
+  }> => {
     await requireAdminAction(ctx);
 
     const target: {
@@ -549,7 +647,9 @@ export const syncCoaster = action({
       throw new ConvexError("Could not refresh this coaster right now");
     }
 
-    const page: any = (details as any).query?.pages?.[getCoasterSourcePageId(target.sourceId)];
+    const page: any = (details as any).query?.pages?.[
+      getCoasterSourcePageId(target.sourceId)
+    ];
     if (!page) {
       throw new ConvexError("Could not find this coaster on Coasterpedia");
     }
@@ -557,8 +657,9 @@ export const syncCoaster = action({
     let coaster;
     try {
       coaster =
-        normalizeCoasterEntries(page).find((entry) => entry.sourceId === target.sourceId) ??
-        normalizeCoaster(page);
+        normalizeCoasterEntries(page).find(
+          (entry) => entry.sourceId === target.sourceId,
+        ) ?? normalizeCoaster(page);
     } catch (error) {
       logCoasterpediaNormalizationFailure("admin.syncCoaster", page, error);
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
@@ -601,7 +702,9 @@ export const linkAndSyncCoaster = action({
       throw new ConvexError("Could not load this coaster right now");
     }
 
-    const page: any = (details as any).query?.pages?.[getCoasterSourcePageId(args.sourceId)];
+    const page: any = (details as any).query?.pages?.[
+      getCoasterSourcePageId(args.sourceId)
+    ];
     if (!page) {
       throw new ConvexError("Could not find this coaster on Coasterpedia");
     }
@@ -609,10 +712,15 @@ export const linkAndSyncCoaster = action({
     let coaster;
     try {
       coaster =
-        normalizeCoasterEntries(page).find((entry) => entry.sourceId === args.sourceId) ??
-        normalizeCoaster(page);
+        normalizeCoasterEntries(page).find(
+          (entry) => entry.sourceId === args.sourceId,
+        ) ?? normalizeCoaster(page);
     } catch (error) {
-      logCoasterpediaNormalizationFailure("admin.linkAndSyncCoaster", page, error);
+      logCoasterpediaNormalizationFailure(
+        "admin.linkAndSyncCoaster",
+        page,
+        error,
+      );
       throw new ConvexError("Could not parse this coaster from Coasterpedia");
     }
 
@@ -640,7 +748,10 @@ export const backfillCoasterCountries = action({
   handler: async (ctx, args) => {
     await requireAdminAction(ctx);
 
-    const batchSize = Math.max(1, Math.min(args.batchSize ?? COUNTRY_BACKFILL_BATCH_SIZE, 100));
+    const batchSize = Math.max(
+      1,
+      Math.min(args.batchSize ?? COUNTRY_BACKFILL_BATCH_SIZE, 100),
+    );
     const targets: {
       coasterId: Id<"coasters">;
       name: string;
@@ -662,7 +773,12 @@ export const backfillCoasterCountries = action({
 
     const targetsByPageId = new Map<
       string,
-      { coasterId: Id<"coasters">; name: string; sourceId: string; sourcePageId: string }[]
+      {
+        coasterId: Id<"coasters">;
+        name: string;
+        sourceId: string;
+        sourcePageId: string;
+      }[]
     >();
     for (const target of targets) {
       const existing = targetsByPageId.get(target.sourcePageId) ?? [];
@@ -687,13 +803,19 @@ export const backfillCoasterCountries = action({
       try {
         importedEntries = normalizeCoasterEntries(page);
       } catch (error) {
-        logCoasterpediaNormalizationFailure("admin.backfillCoasterCountries", page, error);
+        logCoasterpediaNormalizationFailure(
+          "admin.backfillCoasterCountries",
+          page,
+          error,
+        );
         failed += pageTargets.length;
         continue;
       }
 
       for (const target of pageTargets) {
-        const imported = importedEntries.find((entry) => entry.sourceId === target.sourceId);
+        const imported = importedEntries.find(
+          (entry) => entry.sourceId === target.sourceId,
+        );
         const country = imported?.country?.trim();
         if (!country) {
           skippedNoCountryInSource += 1;
@@ -715,7 +837,11 @@ export const backfillCoasterCountries = action({
       sourceBackedMissingCountryCount: number;
       sourceBackedWithCountryCount: number;
       manualMissingCountryCount: number;
-      nextTargets: { coasterId: Id<"coasters">; name: string; sourceId: string }[];
+      nextTargets: {
+        coasterId: Id<"coasters">;
+        name: string;
+        sourceId: string;
+      }[];
     } = await ctx.runQuery(api.admin.getCountryBackfillStatus, {});
 
     return {
@@ -724,35 +850,57 @@ export const backfillCoasterCountries = action({
       skippedNoCountryInSource,
       failed,
       done: remainingStatus.sourceBackedMissingCountryCount === 0,
-      remainingSourceBackedMissingCountryCount: remainingStatus.sourceBackedMissingCountryCount,
+      remainingSourceBackedMissingCountryCount:
+        remainingStatus.sourceBackedMissingCountryCount,
     };
   },
 });
 
 export const migrateMultiTrackCoasters = action({
-  args: {},
-  handler: async (ctx) => {
+  args: { batchSize: v.optional(v.number()) },
+  handler: async (ctx, args) => {
     await requireAdminAction(ctx);
 
-    const targets: { _id: Id<"coasters">; name: string; sourceId: string }[] = await ctx.runQuery(
-      internal.admin.getMultiTrackMigrationTargets,
-      {},
+    const batchSize = Math.max(
+      1,
+      Math.min(args.batchSize ?? MULTI_TRACK_MIGRATION_BATCH_SIZE, 100),
     );
+    const targets: { _id: Id<"coasters">; name: string; sourceId: string }[] =
+      await ctx.runQuery(internal.admin.getMultiTrackMigrationTargets, {
+        limit: batchSize,
+      });
+
+    if (targets.length === 0) {
+      return {
+        scanned: 0,
+        migratedCoasterCount: 0,
+        createdTrackCount: 0,
+        movedLogCount: 0,
+        movedRankingCount: 0,
+        checkedSingleTrackCount: 0,
+        failed: 0,
+        done: true,
+      };
+    }
 
     let migratedCoasterCount = 0;
     let createdTrackCount = 0;
     let movedLogCount = 0;
     let movedRankingCount = 0;
+    let checkedSingleTrackCount = 0;
+    let failed = 0;
 
     for (const target of targets) {
       let page: any;
       try {
         page = await fetchCoasterpediaPageById(target.sourceId);
       } catch {
+        failed += 1;
         continue;
       }
 
       if (!page) {
+        failed += 1;
         continue;
       }
 
@@ -760,11 +908,20 @@ export const migrateMultiTrackCoasters = action({
       try {
         importedCoasters = normalizeCoasterEntries(page);
       } catch (error) {
-        logCoasterpediaNormalizationFailure("admin.migrateMultiTrackCoasters", page, error);
+        logCoasterpediaNormalizationFailure(
+          "admin.migrateMultiTrackCoasters",
+          page,
+          error,
+        );
+        failed += 1;
         continue;
       }
 
       if (importedCoasters.length <= 1) {
+        await ctx.runMutation(internal.admin.markMultiTrackMigrationChecked, {
+          coasterId: target._id,
+        });
+        checkedSingleTrackCount += 1;
         continue;
       }
 
@@ -788,10 +945,13 @@ export const migrateMultiTrackCoasters = action({
       const migrationResult: {
         movedLogCount: number;
         movedRankingCount: number;
-      } = await ctx.runMutation(internal.admin.migrateLegacyMultiTrackCoasterData, {
-        legacyCoasterId: target._id,
-        replacementCoasterId,
-      });
+      } = await ctx.runMutation(
+        internal.admin.migrateLegacyMultiTrackCoasterData,
+        {
+          legacyCoasterId: target._id,
+          replacementCoasterId,
+        },
+      );
 
       migratedCoasterCount += 1;
       createdTrackCount += importedCoasters.length;
@@ -799,11 +959,19 @@ export const migrateMultiTrackCoasters = action({
       movedRankingCount += migrationResult.movedRankingCount;
     }
 
+    const remainingStatus: { pendingCandidateCount: number } =
+      await ctx.runQuery(api.admin.getMultiTrackMigrationStatus, {});
+
     return {
+      scanned: targets.length,
       migratedCoasterCount,
       createdTrackCount,
       movedLogCount,
       movedRankingCount,
+      checkedSingleTrackCount,
+      failed,
+      done: remainingStatus.pendingCandidateCount === 0,
+      remainingCandidateCount: remainingStatus.pendingCandidateCount,
     };
   },
 });

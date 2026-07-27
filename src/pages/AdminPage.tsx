@@ -21,13 +21,23 @@ export function AdminPage({
     api.admin.getCountryBackfillStatus,
     adminAccess?.isAdmin ? {} : "skip",
   );
+  const multiTrackMigrationStatus = useQuery(
+    api.admin.getMultiTrackMigrationStatus,
+    adminAccess?.isAdmin ? {} : "skip",
+  );
   const syncCoaster = useAction(api.admin.syncCoaster);
   const linkAndSyncCoaster = useAction(api.admin.linkAndSyncCoaster);
-  const migrateMultiTrackCoasters = useAction(api.admin.migrateMultiTrackCoasters);
-  const backfillCoasterCountries = useAction(api.admin.backfillCoasterCountries);
+  const migrateMultiTrackCoasters = useAction(
+    api.admin.migrateMultiTrackCoasters,
+  );
+  const backfillCoasterCountries = useAction(
+    api.admin.backfillCoasterCountries,
+  );
   const searchCoasterpedia = useAction(api.coasters.searchCoasterpedia);
   const [syncingCoasterId, setSyncingCoasterId] = useState<string | null>(null);
-  const [matchingCoasterId, setMatchingCoasterId] = useState<string | null>(null);
+  const [matchingCoasterId, setMatchingCoasterId] = useState<string | null>(
+    null,
+  );
   const [matchQuery, setMatchQuery] = useState("");
   const [matchResults, setMatchResults] = useState<any[]>([]);
   const [searchingMatches, setSearchingMatches] = useState(false);
@@ -69,7 +79,9 @@ export function AdminPage({
     try {
       const results = await searchCoasterpedia({ q: queryText });
       setMatchResults(
-        (results as any[]).flatMap((result) => (result.kind === "multiTrackGroup" ? result.tracks : [result])),
+        (results as any[]).flatMap((result) =>
+          result.kind === "multiTrackGroup" ? result.tracks : [result],
+        ),
       );
     } catch (error) {
       toast.error(getErrorMessage(error, "Could not search Coasterpedia"));
@@ -82,13 +94,17 @@ export function AdminPage({
     setIsMigratingMultiTrack(true);
     try {
       const result = await migrateMultiTrackCoasters({});
-      toast.success(
-        result.migratedCoasterCount > 0
-          ? `Migrated ${result.migratedCoasterCount} legacy multi-track coaster${result.migratedCoasterCount === 1 ? "" : "s"}`
-          : "No legacy multi-track coasters needed migration",
-      );
+      if (result.scanned === 0) {
+        toast.success("Multi-track migration is already complete");
+      } else {
+        toast.success(
+          `Migrated ${result.migratedCoasterCount} coaster${result.migratedCoasterCount === 1 ? "" : "s"} · Checked ${result.checkedSingleTrackCount} single-track${result.failed > 0 ? ` · ${result.failed} failed` : ""}`,
+        );
+      }
     } catch (error) {
-      toast.error(getErrorMessage(error, "Could not migrate legacy multi-track coasters"));
+      toast.error(
+        getErrorMessage(error, "Could not migrate legacy multi-track coasters"),
+      );
     } finally {
       setIsMigratingMultiTrack(false);
     }
@@ -97,13 +113,18 @@ export function AdminPage({
   const handleLinkAndSync = async (coasterId: string, sourceId: string) => {
     setLinkingCoasterId(coasterId);
     try {
-      const result = await linkAndSyncCoaster({ coasterId: coasterId as any, sourceId });
+      const result = await linkAndSyncCoaster({
+        coasterId: coasterId as any,
+        sourceId,
+      });
       toast.success(`Linked and synced ${result.name}`);
       setMatchingCoasterId(null);
       setMatchQuery("");
       setMatchResults([]);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Could not link this coaster to Coasterpedia"));
+      toast.error(
+        getErrorMessage(error, "Could not link this coaster to Coasterpedia"),
+      );
     } finally {
       setLinkingCoasterId(null);
     }
@@ -121,7 +142,9 @@ export function AdminPage({
         );
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, "Could not backfill coaster countries"));
+      toast.error(
+        getErrorMessage(error, "Could not backfill coaster countries"),
+      );
     } finally {
       setIsBackfillingCountries(false);
     }
@@ -129,7 +152,10 @@ export function AdminPage({
 
   if (
     adminAccess === undefined ||
-    (adminAccess.isAdmin && (dashboard === undefined || countryBackfillStatus === undefined))
+    (adminAccess.isAdmin &&
+      (dashboard === undefined ||
+        countryBackfillStatus === undefined ||
+        multiTrackMigrationStatus === undefined))
   ) {
     return (
       <div className="flex justify-center py-20">
@@ -142,9 +168,12 @@ export function AdminPage({
     return (
       <div className="mx-auto max-w-lg px-4 py-6">
         <div className="surface-card p-5 text-center">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Admin access required</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            Admin access required
+          </h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Set your user document&apos;s <code>role</code> field to <code>admin</code> to unlock this dashboard.
+            Set your user document&apos;s <code>role</code> field to{" "}
+            <code>admin</code> to unlock this dashboard.
           </p>
         </div>
       </div>
@@ -155,55 +184,92 @@ export function AdminPage({
     return null;
   }
 
-  const maxSignupCount = Math.max(...dashboard.signupSeries.map((entry) => entry.count), 1);
+  const maxSignupCount = Math.max(
+    ...dashboard.signupSeries.map((entry) => entry.count),
+    1,
+  );
   const normalizedSyncSearchQuery = syncSearchQuery.trim().toLowerCase();
-  const filteredSyncableCoasters = dashboard.syncableCoasters.filter((coaster) => {
-    if (!normalizedSyncSearchQuery) return true;
-    return [coaster.name, coaster.park, coaster.location]
-      .filter(Boolean)
-      .some((value) => value.toLowerCase().includes(normalizedSyncSearchQuery));
-  });
+  const filteredSyncableCoasters = dashboard.syncableCoasters.filter(
+    (coaster) => {
+      if (!normalizedSyncSearchQuery) return true;
+      return [coaster.name, coaster.park, coaster.location]
+        .filter(Boolean)
+        .some((value) =>
+          value.toLowerCase().includes(normalizedSyncSearchQuery),
+        );
+    },
+  );
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4">
       <div className="grid gap-3 md:grid-cols-3">
-        <SummaryCard label="Synced Coasters" value={dashboard.summary.syncedCoasterCount} />
+        <SummaryCard
+          label="Synced Coasters"
+          value={dashboard.summary.syncedCoasterCount}
+        />
         <SummaryCard
           label={`Older Than ${dashboard.staleThresholdDays} Days`}
           value={dashboard.summary.staleCoasterCount}
         />
-        <SummaryCard label="Signed-Up Users" value={dashboard.summary.userCount} />
+        <SummaryCard
+          label="Signed-Up Users"
+          value={dashboard.summary.userCount}
+        />
       </div>
 
       <section className="surface-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Country backfill</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              Country backfill
+            </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Fill the new normalized country field for Coasterpedia-backed coasters so country milestones can fire accurately.
+              Fill the new normalized country field for Coasterpedia-backed
+              coasters so country milestones can fire accurately.
             </p>
           </div>
           <button
             onClick={() => void handleCountryBackfill()}
-            disabled={isBackfillingCountries || (countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0) === 0}
+            disabled={
+              isBackfillingCountries ||
+              (countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0) ===
+                0
+            }
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isBackfillingCountries ? "Backfilling..." : "Run country backfill batch"}
+            {isBackfillingCountries
+              ? "Backfilling..."
+              : "Run country backfill batch"}
           </button>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <MiniStatCard label="Source-backed" value={countryBackfillStatus?.sourceBackedCoasterCount ?? 0} />
-          <MiniStatCard label="With country" value={countryBackfillStatus?.sourceBackedWithCountryCount ?? 0} />
-          <MiniStatCard label="Still missing" value={countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0} />
-          <MiniStatCard label="Manual missing" value={countryBackfillStatus?.manualMissingCountryCount ?? 0} />
+          <MiniStatCard
+            label="Source-backed"
+            value={countryBackfillStatus?.sourceBackedCoasterCount ?? 0}
+          />
+          <MiniStatCard
+            label="With country"
+            value={countryBackfillStatus?.sourceBackedWithCountryCount ?? 0}
+          />
+          <MiniStatCard
+            label="Still missing"
+            value={countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0}
+          />
+          <MiniStatCard
+            label="Manual missing"
+            value={countryBackfillStatus?.manualMissingCountryCount ?? 0}
+          />
         </div>
 
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-          Each run processes up to {countryBackfillStatus?.batchSize ?? 0} missing Coasterpedia-linked coasters. Manual/local-only coasters are left unchanged.
+          Each run processes up to {countryBackfillStatus?.batchSize ?? 0}{" "}
+          missing Coasterpedia-linked coasters. Manual/local-only coasters are
+          left unchanged.
         </p>
 
-        {countryBackfillStatus && countryBackfillStatus.nextTargets.length > 0 ? (
+        {countryBackfillStatus &&
+        countryBackfillStatus.nextTargets.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {countryBackfillStatus.nextTargets.map((target) => (
               <span
@@ -224,28 +290,81 @@ export function AdminPage({
       <section className="surface-card p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Multi-track migration</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              Multi-track migration
+            </h2>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Split legacy combined Coasterpedia multi-track coasters into separate track credits and move old logs to the first listed track.
+              Split legacy combined Coasterpedia multi-track coasters into
+              separate track credits and move old logs to the first listed
+              track.
             </p>
           </div>
           <button
             onClick={() => void handleMultiTrackMigration()}
-            disabled={isMigratingMultiTrack}
+            disabled={
+              isMigratingMultiTrack ||
+              (multiTrackMigrationStatus?.pendingCandidateCount ?? 0) === 0
+            }
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isMigratingMultiTrack ? "Migrating..." : "Run multi-track migration"}
+            {isMigratingMultiTrack
+              ? "Migrating..."
+              : "Run multi-track migration batch"}
           </button>
         </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <MiniStatCard
+            label="Legacy entries"
+            value={multiTrackMigrationStatus?.legacyCandidateCount ?? 0}
+          />
+          <MiniStatCard
+            label="Pending review"
+            value={multiTrackMigrationStatus?.pendingCandidateCount ?? 0}
+          />
+          <MiniStatCard
+            label="Kept single-track"
+            value={multiTrackMigrationStatus?.checkedSingleTrackCount ?? 0}
+          />
+        </div>
+
+        <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+          Each run reviews up to {multiTrackMigrationStatus?.batchSize ?? 0}{" "}
+          legacy Coasterpedia entries. Entries that remain single-track are
+          marked as checked; only source entries that now expose multiple tracks
+          are split.
+        </p>
+
+        {multiTrackMigrationStatus &&
+        multiTrackMigrationStatus.nextTargets.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {multiTrackMigrationStatus.nextTargets.map((target) => (
+              <span
+                key={target.coasterId}
+                className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 ring-1 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-200 dark:ring-violet-500/25"
+              >
+                {target.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
+            All legacy Coasterpedia entries have been reviewed for multi-track
+            migration.
+          </div>
+        )}
       </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr,0.95fr]">
         <section className="surface-card p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Stale coaster syncs</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Stale coaster syncs
+              </h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Coasterpedia-backed entries that have never been synced or have gone stale.
+                Coasterpedia-backed entries that have never been synced or have
+                gone stale.
               </p>
             </div>
           </div>
@@ -329,7 +448,9 @@ export function AdminPage({
                           <input
                             type="text"
                             value={matchQuery}
-                            onChange={(event) => setMatchQuery(event.target.value)}
+                            onChange={(event) =>
+                              setMatchQuery(event.target.value)
+                            }
                             placeholder="Search Coasterpedia"
                             className="input-field flex-1"
                           />
@@ -354,8 +475,10 @@ export function AdminPage({
                         </div>
 
                         <p className="mt-3 text-xs text-sky-800 dark:text-sky-200">
-                          Choose the matching Coasterpedia coaster. This keeps the existing CoasterCred coaster ID,
-                          but replaces its catalog fields and records that it is now synced from Coasterpedia.
+                          Choose the matching Coasterpedia coaster. This keeps
+                          the existing CoasterCred coaster ID, but replaces its
+                          catalog fields and records that it is now synced from
+                          Coasterpedia.
                         </p>
 
                         <div className="mt-3 flex flex-col gap-2">
@@ -369,7 +492,11 @@ export function AdminPage({
                                   <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {result.name}
                                   </p>
-                                  <span className={getCoasterTypeBadgeClasses(result.type)}>
+                                  <span
+                                    className={getCoasterTypeBadgeClasses(
+                                      result.type,
+                                    )}
+                                  >
                                     {result.type}
                                   </span>
                                   {result._id && (
@@ -394,7 +521,12 @@ export function AdminPage({
                                   </a>
                                 )}
                                 <button
-                                  onClick={() => handleLinkAndSync(coaster._id, result.sourceId)}
+                                  onClick={() =>
+                                    handleLinkAndSync(
+                                      coaster._id,
+                                      result.sourceId,
+                                    )
+                                  }
                                   disabled={isLinking || !!result._id}
                                   className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
@@ -405,7 +537,8 @@ export function AdminPage({
                           ))}
                           {!searchingMatches && matchResults.length === 0 && (
                             <div className="rounded-xl border border-dashed border-sky-200 px-3 py-4 text-sm text-sky-800 dark:border-sky-900 dark:text-sky-200">
-                              Search Coasterpedia to find a matching source for this coaster.
+                              Search Coasterpedia to find a matching source for
+                              this coaster.
                             </div>
                           )}
                         </div>
@@ -424,7 +557,8 @@ export function AdminPage({
                   Sync on demand
                 </h2>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Re-sync any coaster already linked to Coasterpedia, even if it is not stale yet.
+                  Re-sync any coaster already linked to Coasterpedia, even if it
+                  is not stale yet.
                 </p>
               </div>
 
@@ -499,7 +633,9 @@ export function AdminPage({
         </section>
 
         <section className="surface-card p-4">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">User signups</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+            User signups
+          </h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Daily signup volume and the full list of users currently in the app.
           </p>
@@ -507,20 +643,31 @@ export function AdminPage({
           <div className="mt-4 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
             <div className="flex items-end gap-2 overflow-x-auto pb-2">
               {dashboard.signupSeries.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No users yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No users yet.
+                </p>
               ) : (
                 dashboard.signupSeries.map((entry) => (
-                  <div key={entry.date} className="flex min-w-12 flex-col items-center gap-2">
+                  <div
+                    key={entry.date}
+                    className="flex min-w-12 flex-col items-center gap-2"
+                  >
                     <div className="flex h-32 items-end">
                       <div
                         className="w-8 rounded-t-xl bg-primary/80"
-                        style={{ height: `${Math.max((entry.count / maxSignupCount) * 100, 10)}%` }}
+                        style={{
+                          height: `${Math.max((entry.count / maxSignupCount) * 100, 10)}%`,
+                        }}
                         title={`${entry.label}: ${entry.count} signup${entry.count === 1 ? "" : "s"}`}
                       />
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{entry.count}</p>
-                      <p className="text-[11px] text-gray-400 dark:text-gray-500">{entry.label}</p>
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        {entry.count}
+                      </p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                        {entry.label}
+                      </p>
                     </div>
                   </div>
                 ))
@@ -555,7 +702,8 @@ export function AdminPage({
                     {user.homepark ? `· ${user.homepark}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    Joined {formatDateTime(user.createdAt)} · {user.rideCount} rides · {user.rankingCount} ranked
+                    Joined {formatDateTime(user.createdAt)} · {user.rideCount}{" "}
+                    rides · {user.rankingCount} ranked
                   </p>
                 </div>
               </button>
@@ -579,8 +727,12 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 function MiniStatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
-      <p className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+        {value}
+      </p>
     </div>
   );
 }

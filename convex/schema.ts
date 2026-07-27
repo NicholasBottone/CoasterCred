@@ -51,6 +51,7 @@ const applicationTables = {
     type: v.string(), // "Steel", "Wood", "Hybrid"
     isMultiTrack: v.optional(v.boolean()),
     multiTrackGroupId: v.optional(v.string()),
+    multiTrackMigrationCheckedAt: v.optional(v.number()),
     sourcePageId: v.optional(v.string()),
     trackName: v.optional(v.string()),
     trackIndex: v.optional(v.number()),
@@ -73,7 +74,10 @@ const applicationTables = {
     .index("by_name", ["name"])
     .index("by_park", ["park"])
     .index("by_source_and_sourceId", ["source", "sourceId"])
-    .index("by_multiTrackGroupId_and_trackIndex", ["multiTrackGroupId", "trackIndex"])
+    .index("by_multiTrackGroupId_and_trackIndex", [
+      "multiTrackGroupId",
+      "trackIndex",
+    ])
     .searchIndex("search_coasters", {
       searchField: "name",
       filterFields: ["park", "type"],
@@ -102,7 +106,11 @@ const applicationTables = {
     .index("by_user_and_isFeedEvent", ["userId", "isFeedEvent"])
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_riddenAt", ["userId", "riddenAt"])
-    .index("by_user_and_coaster_and_rideDate", ["userId", "coasterId", "rideDate"])
+    .index("by_user_and_coaster_and_rideDate", [
+      "userId",
+      "coasterId",
+      "rideDate",
+    ])
     .index("by_coaster", ["coasterId"]),
 
   rankings: defineTable({
