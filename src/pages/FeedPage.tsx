@@ -264,16 +264,16 @@ function RiderChip({ rider, onSelectUser }: { rider: FeedRider; onSelectUser: (u
     <button
       type="button"
       onClick={() => onSelectUser(rider._id)}
-      className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left transition-colors ${rider.isFirstCreditLog ? "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800" : "border border-gray-200/70 bg-transparent hover:bg-gray-50 dark:border-gray-700/70 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"}`}
+      className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left transition-colors ${rider.isFirstCreditLog ? "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800" : "border border-gray-200/50 bg-gray-50/60 hover:bg-gray-100/70 dark:border-gray-700/50 dark:bg-gray-800/30 dark:hover:bg-gray-800/50"}`}
       aria-label={`${rider.name}${rider.isFirstCreditLog ? "" : ", reride"}${rider.score !== null ? `, score ${rider.score.toFixed(1)} out of 10` : ""}`}
     >
       <Avatar
         avatarUrl={rider.avatarUrl}
         name={rider.name}
-        sizeClassName="h-7 w-7"
+        sizeClassName={rider.isFirstCreditLog ? "h-7 w-7" : "h-7 w-7 grayscale opacity-80"}
         textClassName="text-[10px]"
       />
-      <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{rider.name}</span>
+      <span className={`max-w-24 truncate text-xs font-semibold ${rider.isFirstCreditLog ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{rider.name}</span>
       {!rider.isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" aria-hidden="true">↻</span>}
       <RiderScore rider={rider} />
     </button>
@@ -282,11 +282,11 @@ function RiderChip({ rider, onSelectUser }: { rider: FeedRider; onSelectUser: (u
 
 function RiderScore({ rider }: { rider: FeedRider }) {
   if (rider.score !== null) {
-    return <ScoreBadge score={rider.score} size="sm" className="!h-8 !w-8 !text-[11px]" />;
+    return <ScoreBadge score={rider.score} size="sm" muted={!rider.isFirstCreditLog} className="!h-8 !w-8 !text-[11px]" />;
   }
   if (rider.rank !== null) {
     return (
-      <span className="rounded-full border border-primary/20 px-2 py-1 text-[11px] font-medium text-primary dark:border-primary/30">
+      <span className={`rounded-full border px-2 py-1 text-[11px] font-medium ${rider.isFirstCreditLog ? "border-primary/20 text-primary dark:border-primary/30" : "border-gray-300/60 text-gray-500 dark:border-gray-700 dark:text-gray-400"}`}>
         #{rider.rank}
       </span>
     );

@@ -204,18 +204,18 @@ function DemoFeedPage({
                   {soloRider && rides.length === 1 && (
                     <>
                       {!rides[0].isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" role="img" aria-label="Reride">↻</span>}
-                      <ScoreBadge score={rides[0].score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                      <ScoreBadge score={rides[0].score} size="sm" muted={!rides[0].isFirstCreditLog} className="!h-8 !w-8 !text-[11px]" />
                     </>
                   )}
                 </div>
                 {(!soloRider || rides.length !== 1) && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {[...rides].sort((a, b) => Number(b.isFirstCreditLog) - Number(a.isFirstCreditLog)).map((ride) => (
-                      <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left ${ride.isFirstCreditLog ? "bg-gray-50 dark:bg-gray-800/80" : "border border-gray-200/70 bg-transparent dark:border-gray-700/70 dark:bg-gray-900/20"}`} aria-label={`${ride.user.name}${ride.isFirstCreditLog ? "" : ", reride"}, score ${ride.score.toFixed(1)} out of 10`}>
-                        <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName="h-7 w-7" textClassName="text-[10px]" />
-                        <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{ride.user.name}</span>
+                      <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left ${ride.isFirstCreditLog ? "bg-gray-50 dark:bg-gray-800/80" : "border border-gray-200/50 bg-gray-50/60 dark:border-gray-700/50 dark:bg-gray-800/30"}`} aria-label={`${ride.user.name}${ride.isFirstCreditLog ? "" : ", reride"}, score ${ride.score.toFixed(1)} out of 10`}>
+                        <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName={ride.isFirstCreditLog ? "h-7 w-7" : "h-7 w-7 grayscale opacity-80"} textClassName="text-[10px]" />
+                        <span className={`max-w-24 truncate text-xs font-semibold ${ride.isFirstCreditLog ? "text-gray-800 dark:text-gray-100" : "text-gray-500 dark:text-gray-400"}`}>{ride.user.name}</span>
                         {!ride.isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" aria-hidden="true">↻</span>}
-                        <ScoreBadge score={ride.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                        <ScoreBadge score={ride.score} size="sm" muted={!ride.isFirstCreditLog} className="!h-8 !w-8 !text-[11px]" />
                       </button>
                     ))}
                   </div>
