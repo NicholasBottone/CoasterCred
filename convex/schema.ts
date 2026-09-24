@@ -104,6 +104,12 @@ const applicationTables = {
   })
     .index("by_user", ["userId"])
     .index("by_user_and_isFeedEvent", ["userId", "isFeedEvent"])
+    // Remove after the recent-reride backfill has completed in every deployment.
+    .index("by_isFirstCreditLog_and_isFeedEvent_and_riddenAt", [
+      "isFirstCreditLog",
+      "isFeedEvent",
+      "riddenAt",
+    ])
     .index("by_user_and_coaster", ["userId", "coasterId"])
     .index("by_user_and_riddenAt", ["userId", "riddenAt"])
     .index("by_user_and_coaster_and_rideDate", [

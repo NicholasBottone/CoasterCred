@@ -60,16 +60,13 @@ export const updateLog = mutation({
     }
 
     const rideTimingChanged = log.rideDate !== args.rideDate || log.riddenAt !== args.riddenAt;
-    const nextIsFeedEvent =
-      log.isFirstCreditLog === true
-        ? !isHistoricalRideDate(args.rideDate, log._creationTime)
-        : log.isFeedEvent;
+    const nextIsFeedEvent = !isHistoricalRideDate(args.rideDate, log._creationTime);
 
     await ctx.db.patch(log._id, {
       rideDate: args.rideDate,
       riddenAt: args.riddenAt,
       notes,
-      ...(typeof nextIsFeedEvent === "boolean" ? { isFeedEvent: nextIsFeedEvent } : {}),
+      isFeedEvent: nextIsFeedEvent,
     });
 
     if (rideTimingChanged) {

@@ -137,6 +137,13 @@ export function groupFeedLogs(
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
     .map((group) => ({
       ...group,
-      coasters: group.coasters.sort((a, b) => b.lastActivityAt - a.lastActivityAt),
+      coasters: group.coasters
+        .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+        .map((coaster) => ({
+          ...coaster,
+          riders: coaster.riders.sort(
+            (a, b) => Number(b.isFirstCreditLog) - Number(a.isFirstCreditLog),
+          ),
+        })),
     }));
 }

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.94",
+    "@convex-dev/migrations": "^0.3.6",
     "clsx": "^2.1.1",
     "convex": "^1.42.1",
     "openai": "^6.46.0",

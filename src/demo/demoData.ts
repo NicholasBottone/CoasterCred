@@ -172,6 +172,7 @@ export const demoFeed = [
     relativeTime: "2h ago",
     badges: [{ label: "250th coaster", tone: "countMilestone" as const, value: 250 }],
     score: 9.8,
+    isFirstCreditLog: true,
     notes: "That first drop absolutely erased me.",
   },
   {
@@ -182,6 +183,7 @@ export const demoFeed = [
     relativeTime: "3h ago",
     badges: [],
     score: 9.5,
+    isFirstCreditLog: false,
     notes: "Still my favorite hybrid.",
   },
   {
@@ -192,6 +194,7 @@ export const demoFeed = [
     relativeTime: "3h ago",
     badges: [],
     score: 9.3,
+    isFirstCreditLog: true,
     notes: "",
   },
   {
@@ -202,6 +205,7 @@ export const demoFeed = [
     relativeTime: "4h ago",
     badges: [],
     score: 9.1,
+    isFirstCreditLog: true,
     notes: "",
   },
   {
@@ -212,6 +216,7 @@ export const demoFeed = [
     relativeTime: "4h ago",
     badges: [],
     score: 3.2,
+    isFirstCreditLog: true,
     notes: "",
   },
   {
@@ -224,6 +229,7 @@ export const demoFeed = [
       { label: "100th coaster", tone: "countMilestone" as const, value: 100 },
     ],
     score: 9.4,
+    isFirstCreditLog: true,
     notes: "Still the best giga pacing I’ve felt.",
   },
   {
@@ -234,7 +240,19 @@ export const demoFeed = [
     relativeTime: "1d ago",
     badges: [{ label: "25th coaster", tone: "countMilestone" as const, value: 25 }],
     score: 8.9,
+    isFirstCreditLog: true,
     notes: "Way more airtime than I expected.",
+  },
+  {
+    id: "feed-4",
+    user: demoUsers[1],
+    coaster: demoCoasters[0],
+    rideDate: "2026-03-20",
+    relativeTime: "2d ago",
+    badges: [],
+    score: 9.5,
+    isFirstCreditLog: false,
+    notes: "",
   },
 ];
 

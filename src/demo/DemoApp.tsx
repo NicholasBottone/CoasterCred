@@ -153,7 +153,8 @@ function DemoFeedPage({
         <DemoInlineCta onClick={onOpenAuth} />
       </div>
       {[...trips.values()].map((trip) => {
-        const creditCount = trip.coasters.reduce((count, coaster) => count + coaster.rides.length, 0);
+        const creditCount = trip.coasters.reduce((count, coaster) => count + coaster.rides.filter((ride) => ride.isFirstCreditLog).length, 0);
+        const rerideCount = trip.coasters.reduce((count, coaster) => count + coaster.rides.filter((ride) => !ride.isFirstCreditLog).length, 0);
         const soloRider = trip.people.length === 1 ? trip.people[0] : null;
         return <article key={trip.key} className="surface-card rounded-xl p-4">
           <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
@@ -168,7 +169,9 @@ function DemoFeedPage({
                 <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
               </button>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"} · {creditCount} new {creditCount === 1 ? "credit" : "credits"}
+                {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"}
+                {creditCount > 0 && ` · ${creditCount} new ${creditCount === 1 ? "credit" : "credits"}`}
+                {rerideCount > 0 && ` · ${rerideCount} ${rerideCount === 1 ? "reride" : "rerides"}`}
               </p>
               <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">Latest log {trip.coasters[0]?.rides[0]?.relativeTime}</p>
             </div>
@@ -199,15 +202,19 @@ function DemoFeedPage({
                   <button type="button" onClick={() => onOpenCoaster(coaster)} className="min-w-0 flex-1 text-left text-sm font-bold text-gray-900 hover:text-primary dark:text-gray-100">{coaster.name}</button>
                   <span className={getCoasterTypeBadgeClasses(coaster.type)}>{coaster.type}</span>
                   {soloRider && rides.length === 1 && (
-                    <ScoreBadge score={rides[0].score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                    <>
+                      {!rides[0].isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" role="img" aria-label="Reride">↻</span>}
+                      <ScoreBadge score={rides[0].score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                    </>
                   )}
                 </div>
                 {(!soloRider || rides.length !== 1) && (
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {rides.map((ride) => (
-                      <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-1.5 text-left dark:bg-gray-800/80">
+                    {[...rides].sort((a, b) => Number(b.isFirstCreditLog) - Number(a.isFirstCreditLog)).map((ride) => (
+                      <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left ${ride.isFirstCreditLog ? "bg-gray-50 dark:bg-gray-800/80" : "border border-gray-200/70 bg-transparent dark:border-gray-700/70 dark:bg-gray-900/20"}`} aria-label={`${ride.user.name}${ride.isFirstCreditLog ? "" : ", reride"}, score ${ride.score.toFixed(1)} out of 10`}>
                         <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName="h-7 w-7" textClassName="text-[10px]" />
                         <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{ride.user.name}</span>
+                        {!ride.isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" aria-hidden="true">↻</span>}
                         <ScoreBadge score={ride.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
                       </button>
                     ))}

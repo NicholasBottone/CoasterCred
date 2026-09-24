@@ -125,7 +125,8 @@ function TripCard({
             )}
           </button>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"} · {trip.firstCreditCount} new {trip.firstCreditCount === 1 ? "credit" : "credits"}
+            {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"}
+            {trip.firstCreditCount > 0 && ` · ${trip.firstCreditCount} new ${trip.firstCreditCount === 1 ? "credit" : "credits"}`}
             {trip.rerideCount > 0 && ` · ${trip.rerideCount} ${trip.rerideCount === 1 ? "reride" : "rerides"}`}
           </p>
           <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">
@@ -224,7 +225,7 @@ function CoasterRow({
         {soloRide && (
           <>
             {!soloRide.isFirstCreditLog && (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">↻ Reride</span>
+              <span className="text-sm leading-none text-gray-500 dark:text-gray-400" role="img" aria-label="Reride">↻</span>
             )}
             <RiderScore rider={soloRide} />
           </>
@@ -263,7 +264,7 @@ function RiderChip({ rider, onSelectUser }: { rider: FeedRider; onSelectUser: (u
     <button
       type="button"
       onClick={() => onSelectUser(rider._id)}
-      className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left transition-colors ${rider.isFirstCreditLog ? "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800" : "border border-dashed border-gray-200 bg-gray-50/70 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/40 dark:hover:bg-gray-800"}`}
+      className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-1.5 text-left transition-colors ${rider.isFirstCreditLog ? "bg-gray-50 hover:bg-gray-100 dark:bg-gray-800/80 dark:hover:bg-gray-800" : "border border-gray-200/70 bg-transparent hover:bg-gray-50 dark:border-gray-700/70 dark:bg-gray-900/20 dark:hover:bg-gray-800/40"}`}
       aria-label={`${rider.name}${rider.isFirstCreditLog ? "" : ", reride"}${rider.score !== null ? `, score ${rider.score.toFixed(1)} out of 10` : ""}`}
     >
       <Avatar
@@ -273,7 +274,7 @@ function RiderChip({ rider, onSelectUser }: { rider: FeedRider; onSelectUser: (u
         textClassName="text-[10px]"
       />
       <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{rider.name}</span>
-      {!rider.isFirstCreditLog && <span className="text-[11px] text-gray-500 dark:text-gray-400">↻ Reride</span>}
+      {!rider.isFirstCreditLog && <span className="text-sm leading-none text-gray-500 dark:text-gray-400" aria-hidden="true">↻</span>}
       <RiderScore rider={rider} />
     </button>
   );

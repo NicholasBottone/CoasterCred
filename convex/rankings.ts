@@ -272,7 +272,7 @@ export const saveRideWithRank = mutation({
       rideDate: args.rideDate,
       notes,
       isFirstCreditLog,
-      isFeedEvent: isFirstCreditLog && !isHistoricalRide,
+      isFeedEvent: !isHistoricalRide,
       feedHighlights,
     });
     await ctx.runMutation(internal.usageStats.refreshDerivedStatsForRide, {

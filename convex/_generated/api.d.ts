@@ -16,6 +16,7 @@ import type * as crons from "../crons.js";
 import type * as feedEvents from "../feedEvents.js";
 import type * as feedGrouping from "../feedGrouping.js";
 import type * as http from "../http.js";
+import type * as migrations from "../migrations.js";
 import type * as profiles from "../profiles.js";
 import type * as rankingScore from "../rankingScore.js";
 import type * as rankings from "../rankings.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   feedEvents: typeof feedEvents;
   feedGrouping: typeof feedGrouping;
   http: typeof http;
+  migrations: typeof migrations;
   profiles: typeof profiles;
   rankingScore: typeof rankingScore;
   rankings: typeof rankings;
@@ -74,4 +76,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};
