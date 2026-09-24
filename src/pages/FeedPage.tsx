@@ -6,7 +6,8 @@ import { formatDate, formatDistanceToNow } from "../lib/dateUtils";
 import { Avatar } from "../components/Avatar";
 import { CoasterModal } from "../components/CoasterModal";
 import { FeedRiderDetails } from "../components/FeedRiderDetails";
-import { type CoasterSummary } from "../lib/coasterData";
+import { ParkModal } from "../components/ParkModal";
+import { type CoasterModalTarget, type CoasterSummary } from "../lib/coasterData";
 import { UserProfileModal } from "../components/UserProfileModal";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
@@ -14,6 +15,8 @@ import { getCoasterTypeBadgeClasses } from "../lib/badges";
 type FeedTrip = FunctionReturnType<typeof api.rideLogs.getFeed>[number];
 type FeedCoaster = FeedTrip["coasters"][number];
 type FeedRider = FeedCoaster["riders"][number];
+type SelectedCoaster = { coaster: CoasterModalTarget; initialSelectedTrackKey?: string | null };
+type SelectedPark = { park: string; location: string };
 
 export function FeedPage({
   onViewPublicProfile,
@@ -23,7 +26,8 @@ export function FeedPage({
   onOpenSearch: () => void;
 }) {
   const feed = useQuery(api.rideLogs.getFeed);
-  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
+  const [selectedCoaster, setSelectedCoaster] = useState<SelectedCoaster | null>(null);
+  const [selectedPark, setSelectedPark] = useState<SelectedPark | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   if (feed === undefined) return <LoadingSpinner />;
@@ -54,14 +58,27 @@ export function FeedPage({
           <TripCard
             key={trip.key}
             trip={trip}
-            onSelectCoaster={setSelectedCoaster}
+            onSelectCoaster={(coaster) => setSelectedCoaster({ coaster })}
+            onSelectPark={setSelectedPark}
             onSelectUser={setSelectedUserId}
           />
         ))}
       </div>
 
+      {selectedPark && (
+        <ParkModal
+          park={selectedPark.park}
+          initialLocation={selectedPark.location}
+          onClose={() => setSelectedPark(null)}
+          onSelectCoaster={setSelectedCoaster}
+        />
+      )}
       {selectedCoaster && (
-        <CoasterModal coaster={selectedCoaster} onClose={() => setSelectedCoaster(null)} />
+        <CoasterModal
+          coaster={selectedCoaster.coaster}
+          initialSelectedTrackKey={selectedCoaster.initialSelectedTrackKey}
+          onClose={() => setSelectedCoaster(null)}
+        />
       )}
       {selectedUserId && (
         <UserProfileModal
@@ -80,20 +97,31 @@ export function FeedPage({
 function TripCard({
   trip,
   onSelectCoaster,
+  onSelectPark,
   onSelectUser,
 }: {
   trip: FeedTrip;
   onSelectCoaster: (coaster: CoasterSummary) => void;
+  onSelectPark: (park: SelectedPark) => void;
   onSelectUser: (userId: string) => void;
 }) {
   return (
     <article className="surface-card rounded-xl p-4">
       <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{trip.park}</h3>
-          {trip.location && (
-            <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
-          )}
+          <button
+            type="button"
+            onClick={() => onSelectPark({ park: trip.park, location: trip.location })}
+            className="group block max-w-full rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={`Browse coasters at ${trip.park}`}
+          >
+            <h3 className="text-base font-bold text-gray-900 transition-colors group-hover:text-primary group-focus-visible:text-primary dark:text-gray-100">
+              {trip.park}
+            </h3>
+            {trip.location && (
+              <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
+            )}
+          </button>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"} · {trip.firstCreditCount} new {trip.firstCreditCount === 1 ? "credit" : "credits"}
             {trip.rerideCount > 0 && ` · ${trip.rerideCount} ${trip.rerideCount === 1 ? "reride" : "rerides"}`}

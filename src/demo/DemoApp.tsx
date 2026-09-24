@@ -21,6 +21,7 @@ export function DemoApp() {
   const [tab, setTab] = useState<Tab>("feed");
   const [authOpen, setAuthOpen] = useState(false);
   const [selectedCoaster, setSelectedCoaster] = useState<DemoCoaster | null>(null);
+  const [selectedPark, setSelectedPark] = useState<{ park: string; location: string } | null>(null);
   const [selectedUser, setSelectedUser] = useState<DemoUser | null>(null);
 
   const openAuth = () => setAuthOpen(true);
@@ -48,6 +49,7 @@ export function DemoApp() {
           <DemoFeedPage
             onOpenAuth={openAuth}
             onOpenCoaster={setSelectedCoaster}
+            onOpenPark={setSelectedPark}
             onOpenUser={setSelectedUser}
           />
         )}
@@ -73,7 +75,14 @@ export function DemoApp() {
         )}
       </AppShell>
 
-      {authOpen && <AuthPromptModal onClose={() => setAuthOpen(false)} />}
+      {selectedPark && (
+        <DemoParkModal
+          park={selectedPark.park}
+          location={selectedPark.location}
+          onClose={() => setSelectedPark(null)}
+          onOpenCoaster={setSelectedCoaster}
+        />
+      )}
       {selectedCoaster && (
         <DemoCoasterModal
           coaster={selectedCoaster}
@@ -88,6 +97,7 @@ export function DemoApp() {
           onOpenAuth={openAuth}
         />
       )}
+      {authOpen && <AuthPromptModal onClose={() => setAuthOpen(false)} />}
     </>
   );
 }
@@ -95,10 +105,12 @@ export function DemoApp() {
 function DemoFeedPage({
   onOpenAuth,
   onOpenCoaster,
+  onOpenPark,
   onOpenUser,
 }: {
   onOpenAuth: () => void;
   onOpenCoaster: (coaster: DemoCoaster) => void;
+  onOpenPark: (park: { park: string; location: string }) => void;
   onOpenUser: (user: DemoUser) => void;
 }) {
   type DemoFeedItem = (typeof demoFeed)[number];
@@ -145,8 +157,15 @@ function DemoFeedPage({
         return <article key={trip.key} className="surface-card rounded-xl p-4">
           <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{trip.park}</h3>
-              <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
+              <button
+                type="button"
+                onClick={() => onOpenPark({ park: trip.park, location: trip.location })}
+                className="group block max-w-full rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label={`Browse coasters at ${trip.park}`}
+              >
+                <h3 className="text-base font-bold text-gray-900 transition-colors group-hover:text-primary group-focus-visible:text-primary dark:text-gray-100">{trip.park}</h3>
+                <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
+              </button>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"} · {creditCount} new {creditCount === 1 ? "credit" : "credits"}
               </p>
@@ -328,6 +347,54 @@ function AuthPromptModal({ onClose }: { onClose: () => void }) {
         </p>
       </div>
       <SignInForm />
+    </ModalContainer>
+  );
+}
+
+function DemoParkModal({
+  park,
+  location,
+  onClose,
+  onOpenCoaster,
+}: {
+  park: string;
+  location: string;
+  onClose: () => void;
+  onOpenCoaster: (coaster: DemoCoaster) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const coasters = demoCoasters.filter((coaster) => coaster.park === park);
+
+  return (
+    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-xl font-bold text-gray-900 dark:text-gray-100">{park}</h3>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
+              {coasters.length} coaster{coasters.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {location && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{location}</p>}
+        </div>
+        <ModalCloseButton onClose={onClose} />
+      </div>
+      <div className="flex flex-col gap-2">
+        {coasters.map((coaster) => (
+          <button
+            key={coaster.name}
+            type="button"
+            onClick={() => onOpenCoaster(coaster)}
+            className="surface-card interactive-lift flex items-center gap-3 rounded-xl p-3 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+              {coaster.name}
+            </span>
+            <span className={getCoasterTypeBadgeClasses(coaster.type)}>{coaster.type}</span>
+            <ScoreBadge score={coaster.score} size="sm" />
+          </button>
+        ))}
+      </div>
     </ModalContainer>
   );
 }
