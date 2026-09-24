@@ -154,6 +154,7 @@ function DemoFeedPage({
       </div>
       {[...trips.values()].map((trip) => {
         const creditCount = trip.coasters.reduce((count, coaster) => count + coaster.rides.length, 0);
+        const soloRider = trip.people.length === 1 ? trip.people[0] : null;
         return <article key={trip.key} className="surface-card rounded-xl p-4">
           <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
             <div className="min-w-0 flex-1">
@@ -171,13 +172,25 @@ function DemoFeedPage({
               </p>
               <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">Latest log {trip.coasters[0]?.rides[0]?.relativeTime}</p>
             </div>
-            <div className="flex shrink-0 items-center pl-2 pt-0.5" aria-label="Riders on this park day">
-              {trip.people.slice(0, 3).map((person) => (
-                <button key={person.name} type="button" onClick={() => onOpenUser(person)} className="-ml-2 rounded-full ring-2 ring-white dark:ring-gray-900" aria-label={`View ${person.name}'s profile`}>
-                  <Avatar avatarUrl={person.avatarUrl} name={person.name} sizeClassName="h-8 w-8" textClassName="text-xs" />
-                </button>
-              ))}
-            </div>
+            {soloRider ? (
+              <button
+                type="button"
+                onClick={() => onOpenUser(soloRider)}
+                className="flex max-w-[48%] shrink-0 items-center gap-2 rounded-full px-1 py-0.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label={`View ${soloRider.name}'s profile`}
+              >
+                <Avatar avatarUrl={soloRider.avatarUrl} name={soloRider.name} sizeClassName="h-8 w-8" textClassName="text-xs" />
+                <span className="min-w-0 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{soloRider.name}</span>
+              </button>
+            ) : (
+              <div className="flex shrink-0 items-center pl-2 pt-0.5" aria-label="Riders on this park day">
+                {trip.people.slice(0, 3).map((person) => (
+                  <button key={person.name} type="button" onClick={() => onOpenUser(person)} className="-ml-2 rounded-full ring-2 ring-white dark:ring-gray-900" aria-label={`View ${person.name}'s profile`}>
+                    <Avatar avatarUrl={person.avatarUrl} name={person.name} sizeClassName="h-8 w-8" textClassName="text-xs" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {trip.coasters.map(({ coaster, rides }) => (
@@ -185,16 +198,21 @@ function DemoFeedPage({
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => onOpenCoaster(coaster)} className="min-w-0 flex-1 text-left text-sm font-bold text-gray-900 hover:text-primary dark:text-gray-100">{coaster.name}</button>
                   <span className={getCoasterTypeBadgeClasses(coaster.type)}>{coaster.type}</span>
+                  {soloRider && rides.length === 1 && (
+                    <ScoreBadge score={rides[0].score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                  )}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {rides.map((ride) => (
-                    <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-1.5 text-left dark:bg-gray-800/80">
-                      <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName="h-7 w-7" textClassName="text-[10px]" />
-                      <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{ride.user.name}</span>
-                      <ScoreBadge score={ride.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
-                    </button>
-                  ))}
-                </div>
+                {(!soloRider || rides.length !== 1) && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {rides.map((ride) => (
+                      <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-1.5 text-left dark:bg-gray-800/80">
+                        <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName="h-7 w-7" textClassName="text-[10px]" />
+                        <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{ride.user.name}</span>
+                        <ScoreBadge score={ride.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {rides.map((ride) => ride.badges.length > 0 || ride.notes ? (
                   <div key={ride.id} className="mt-2">
                     <FeedRiderDetails

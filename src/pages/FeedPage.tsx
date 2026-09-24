@@ -105,6 +105,8 @@ function TripCard({
   onSelectPark: (park: SelectedPark) => void;
   onSelectUser: (userId: string) => void;
 }) {
+  const soloRider = trip.people.length === 1 ? trip.people[0] : null;
+
   return (
     <article className="surface-card rounded-xl p-4">
       <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
@@ -130,29 +132,48 @@ function TripCard({
             Latest log {formatDistanceToNow(trip.lastActivityAt)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center pl-2 pt-0.5" aria-label="Riders on this park day">
-          {trip.people.slice(0, 3).map((person) => (
-            <button
-              key={person._id}
-              type="button"
-              onClick={() => onSelectUser(person._id)}
-              className="-ml-2 rounded-full ring-2 ring-white transition-transform hover:z-10 hover:-translate-y-0.5 dark:ring-gray-900"
-              aria-label={`View ${person.name}'s profile`}
-            >
-              <Avatar
-                avatarUrl={person.avatarUrl}
-                name={person.name}
-                sizeClassName="h-8 w-8"
-                textClassName="text-xs"
-              />
-            </button>
-          ))}
-          {trip.people.length > 3 && (
-            <span className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-900">
-              +{trip.people.length - 3}
+        {soloRider ? (
+          <button
+            type="button"
+            onClick={() => onSelectUser(soloRider._id)}
+            className="flex max-w-[48%] shrink-0 items-center gap-2 rounded-full px-1 py-0.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label={`View ${soloRider.name}'s profile`}
+          >
+            <Avatar
+              avatarUrl={soloRider.avatarUrl}
+              name={soloRider.name}
+              sizeClassName="h-8 w-8"
+              textClassName="text-xs"
+            />
+            <span className="min-w-0 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">
+              {soloRider.name}
             </span>
-          )}
-        </div>
+          </button>
+        ) : (
+          <div className="flex shrink-0 items-center pl-2 pt-0.5" aria-label="Riders on this park day">
+            {trip.people.slice(0, 3).map((person) => (
+              <button
+                key={person._id}
+                type="button"
+                onClick={() => onSelectUser(person._id)}
+                className="-ml-2 rounded-full ring-2 ring-white transition-transform hover:z-10 hover:-translate-y-0.5 dark:ring-gray-900"
+                aria-label={`View ${person.name}'s profile`}
+              >
+                <Avatar
+                  avatarUrl={person.avatarUrl}
+                  name={person.name}
+                  sizeClassName="h-8 w-8"
+                  textClassName="text-xs"
+                />
+              </button>
+            ))}
+            {trip.people.length > 3 && (
+              <span className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-[10px] font-semibold text-gray-600 ring-2 ring-white dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-900">
+                +{trip.people.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -160,6 +181,7 @@ function TripCard({
           <CoasterRow
             key={item.coaster?._id ?? `${trip.key}-${index}`}
             item={item}
+            isSoloTrip={soloRider !== null}
             onSelectCoaster={onSelectCoaster}
             onSelectUser={onSelectUser}
           />
@@ -171,13 +193,17 @@ function TripCard({
 
 function CoasterRow({
   item,
+  isSoloTrip,
   onSelectCoaster,
   onSelectUser,
 }: {
   item: FeedCoaster;
+  isSoloTrip: boolean;
   onSelectCoaster: (coaster: CoasterSummary) => void;
   onSelectUser: (userId: string) => void;
 }) {
+  const soloRide = isSoloTrip && item.riders.length === 1 ? item.riders[0] : null;
+
   return (
     <section className="py-3 last:pb-0">
       <div className="flex items-center gap-2">
@@ -195,12 +221,22 @@ function CoasterRow({
         {item.coaster && (
           <span className={getCoasterTypeBadgeClasses(item.coaster.type)}>{item.coaster.type}</span>
         )}
+        {soloRide && (
+          <>
+            {!soloRide.isFirstCreditLog && (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">↻ Reride</span>
+            )}
+            <RiderScore rider={soloRide} />
+          </>
+        )}
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {item.riders.map((rider) => (
-          <RiderChip key={rider.logId} rider={rider} onSelectUser={onSelectUser} />
-        ))}
-      </div>
+      {!soloRide && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {item.riders.map((rider) => (
+            <RiderChip key={rider.logId} rider={rider} onSelectUser={onSelectUser} />
+          ))}
+        </div>
+      )}
       {item.riders.some((rider) => rider.feedHighlights.length > 0 || rider.notes) && (
         <div className="mt-2 flex flex-col gap-1.5">
           {item.riders.map((rider) => (
@@ -238,15 +274,23 @@ function RiderChip({ rider, onSelectUser }: { rider: FeedRider; onSelectUser: (u
       />
       <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{rider.name}</span>
       {!rider.isFirstCreditLog && <span className="text-[11px] text-gray-500 dark:text-gray-400">↻ Reride</span>}
-      {rider.score !== null ? (
-        <ScoreBadge score={rider.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
-      ) : rider.rank !== null ? (
-        <span className="rounded-full border border-primary/20 px-2 py-1 text-[11px] font-medium text-primary dark:border-primary/30">
-          #{rider.rank}
-        </span>
-      ) : null}
+      <RiderScore rider={rider} />
     </button>
   );
+}
+
+function RiderScore({ rider }: { rider: FeedRider }) {
+  if (rider.score !== null) {
+    return <ScoreBadge score={rider.score} size="sm" className="!h-8 !w-8 !text-[11px]" />;
+  }
+  if (rider.rank !== null) {
+    return (
+      <span className="rounded-full border border-primary/20 px-2 py-1 text-[11px] font-medium text-primary dark:border-primary/30">
+        #{rider.rank}
+      </span>
+    );
+  }
+  return null;
 }
 
 function LoadingSpinner() {
