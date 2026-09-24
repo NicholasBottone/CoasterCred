@@ -155,7 +155,6 @@ export const demoFeed = [
     relativeTime: "5h ago",
     badges: [
       { label: "100th coaster", tone: "countMilestone" as const, value: 100 },
-      { label: "First coaster in Canada", tone: "countryFirst" as const, country: "Canada" },
     ],
     score: 9.4,
     notes: "Still the best giga pacing I’ve felt.",
