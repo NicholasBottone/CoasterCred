@@ -1,14 +1,15 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { computeRankingScore } from "./rankings";
+import { feedGroupKey, feedRideDate, groupFeedLogs, type FeedLog } from "./feedGrouping";
 import { getUserRankingStatsDoc, upsertUserRankingStats } from "./usageStats";
 import { LIMITS, validateOptionalText } from "./validation";
 import { isHistoricalRideDate } from "./feedEvents";
 
 const FEED_LIMIT = 50;
+const FEED_GROUP_LIMIT = 20;
 
 async function getExistingLogForRideDate(
   ctx: any,
@@ -228,10 +229,10 @@ export const getFeed = query({
       .withIndex("by_follower", (q) => q.eq("followerId", userId))
       .collect();
 
-    const followingIds: Id<"users">[] = [
+    const followingIds: Id<"users">[] = [...new Set([
       userId,
       ...follows.map((f) => f.followingId),
-    ];
+    ])];
     const logsByUser = await Promise.all(
       followingIds.map(async (followingId) =>
         await ctx.db
@@ -243,89 +244,93 @@ export const getFeed = query({
           .take(FEED_LIMIT),
       ),
     );
-    const candidateLogs = logsByUser
-      .flat()
-      .sort((a, b) => b._creationTime - a._creationTime)
-      .slice(0, FEED_LIMIT);
+    const pooledLogs = logsByUser.flat().sort((a, b) => b._creationTime - a._creationTime);
+    const candidateLogs = pooledLogs.slice(0, FEED_LIMIT);
+    if (candidateLogs.length === 0) return [];
 
-    const uniqueUserIds = [...new Set(candidateLogs.map((log) => String(log.userId)))];
-    const uniqueCoasterIds = [...new Set(candidateLogs.map((log) => String(log.coasterId)))];
-    const uniquePairKeys = [...new Set(candidateLogs.map((log) => `${String(log.userId)}:${String(log.coasterId)}`))];
-
-    const userEntries = await Promise.all(
-      uniqueUserIds.map(async (id) => {
-        const nextUserId = id as Id<"users">;
-        const [user, profile, rankingCount] = await Promise.all([
-          ctx.db.get(nextUserId),
-          ctx.db
-            .query("userProfiles")
-            .withIndex("by_userId", (q) => q.eq("userId", nextUserId))
-            .unique(),
-          getUserRankingStatsDoc(ctx, nextUserId),
-        ]);
-        return [id, { user, profile, rankingCount: rankingCount?.rankingCount ?? 0 }] as const;
-      })
-    );
-    const userMap = new Map(userEntries);
-
-    const coasterEntries = await Promise.all(
-      uniqueCoasterIds.map(async (id) => [id, await ctx.db.get(id as Id<"coasters">)] as const)
-    );
-    const coasterMap = new Map(coasterEntries);
-
-    const pairEntries = await Promise.all(
-      uniquePairKeys.map(async (key) => {
-        const [rawUserId, rawCoasterId] = key.split(":");
-        const [stat, ranking] = await Promise.all([
-          ctx.db
-            .query("userCoasterStats")
-            .withIndex("by_user_and_coaster", (q) =>
-              q
-                .eq("userId", rawUserId as Id<"users">)
-                .eq("coasterId", rawCoasterId as Id<"coasters">),
-            )
-            .unique(),
-          ctx.db
-            .query("rankings")
-            .withIndex("by_user_and_coaster", (q) =>
-              q
-                .eq("userId", rawUserId as Id<"users">)
-                .eq("coasterId", rawCoasterId as Id<"coasters">),
-            )
-            .unique(),
-        ]);
-        return [key, { stat, ranking }] as const;
+    // Use the existing per-person bounded reads to include friends whose logs
+    // fall outside the global 50-log window but belong to a visible park day.
+    const coasterMap = new Map<Id<"coasters">, Doc<"coasters"> | null>();
+    await Promise.all(
+      [...new Set(candidateLogs.map((log) => log.coasterId))].map(async (coasterId) => {
+        coasterMap.set(coasterId, await ctx.db.get(coasterId));
       }),
     );
-    const pairMap = new Map(pairEntries);
+    const seedFeedLogs: FeedLog[] = candidateLogs.map((log) => ({
+      ...log,
+      coaster: coasterMap.get(log.coasterId) ?? null,
+    }));
+    const selectedKeys = new Set<string>();
+    for (const log of seedFeedLogs) {
+      if (selectedKeys.size === FEED_GROUP_LIMIT) break;
+      selectedKeys.add(feedGroupKey(log, log.coaster));
+    }
+    const visibleDates = new Set(
+      seedFeedLogs
+        .filter((log) => selectedKeys.has(feedGroupKey(log, log.coaster)))
+        .map((log) => feedRideDate(log)),
+    );
+    const sameDayPoolLogs = pooledLogs
+      .slice(FEED_LIMIT)
+      .filter((log) => visibleDates.has(feedRideDate(log)));
+    await Promise.all(
+      [...new Set(sameDayPoolLogs.map((log) => log.coasterId))]
+        .filter((coasterId) => !coasterMap.has(coasterId))
+        .map(async (coasterId) => {
+          coasterMap.set(coasterId, await ctx.db.get(coasterId));
+        }),
+    );
+    const feedLogs: FeedLog[] = [
+      ...seedFeedLogs,
+      ...sameDayPoolLogs.map((log) => ({
+        ...log,
+        coaster: coasterMap.get(log.coasterId) ?? null,
+      })),
+    ]
+      .filter((log) => selectedKeys.has(feedGroupKey(log, log.coaster)))
+      .sort((a, b) => b._creationTime - a._creationTime);
 
-    return candidateLogs
-      .map((log) => {
-        const userData = userMap.get(String(log.userId));
-        const coaster = coasterMap.get(String(log.coasterId)) ?? null;
-        const pairKey = `${String(log.userId)}:${String(log.coasterId)}`;
-        const pairData = pairMap.get(pairKey);
-        return {
-          ...log,
-          coaster,
-          user: userData?.user
-            ? {
-                _id: userData.user._id,
-                name: userData.user.name,
-              }
-            : null,
-          profile: userData?.profile ?? null,
-          isFirstRide: log.isFirstCreditLog,
-          isFeedEvent: log.isFeedEvent,
-          feedHighlights: log.feedHighlights ?? [],
-          rank: pairData?.ranking?.rank ?? null,
-          score:
-            pairData?.ranking && typeof userData?.rankingCount === "number" && userData.rankingCount > 0
-              ? computeRankingScore(pairData.ranking.rank, userData.rankingCount)
-              : null,
-        };
-      })
-      .filter((item) => item.isFeedEvent)
-      .slice(0, FEED_LIMIT);
+    const uniqueUserIds = [...new Set(feedLogs.map((log) => log.userId))];
+    const userMap = new Map(
+      await Promise.all(
+        uniqueUserIds.map(async (feedUserId) => {
+          const [user, profile, rankingStats] = await Promise.all([
+            ctx.db.get(feedUserId),
+            ctx.db
+              .query("userProfiles")
+              .withIndex("by_userId", (q) => q.eq("userId", feedUserId))
+              .unique(),
+            getUserRankingStatsDoc(ctx, feedUserId),
+          ]);
+          return [feedUserId, {
+            name: user?.name ?? "Unknown",
+            avatarUrl: profile?.avatarUrl ?? null,
+            rankingCount: rankingStats?.rankingCount ?? 0,
+          }] as const;
+        }),
+      ),
+    );
+    const uniquePairs = new Map<string, { userId: Id<"users">; coasterId: Id<"coasters"> }>();
+    for (const log of feedLogs) {
+      uniquePairs.set(`${log.userId}:${log.coasterId}`, {
+        userId: log.userId,
+        coasterId: log.coasterId,
+      });
+    }
+    const rankingMap = new Map(
+      await Promise.all(
+        [...uniquePairs.entries()].map(async ([key, pair]) => [
+          key,
+          await ctx.db
+            .query("rankings")
+            .withIndex("by_user_and_coaster", (q) =>
+              q.eq("userId", pair.userId).eq("coasterId", pair.coasterId),
+            )
+            .unique(),
+        ] as const),
+      ),
+    );
+
+    return groupFeedLogs(feedLogs, userMap, rankingMap);
   },
 });

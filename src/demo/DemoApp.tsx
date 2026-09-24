@@ -2,10 +2,11 @@ import { useRef, useState } from "react";
 import { SignInForm } from "../SignInForm";
 import { AppShell, type Tab } from "../components/AppShell";
 import { Avatar } from "../components/Avatar";
-import { FeedEventBadge } from "../components/FeedEventBadge";
+import { FeedRiderDetails } from "../components/FeedRiderDetails";
 import { ModalCloseButton, ModalContainer } from "../components/ModalContainer";
 import { ScoreBadge } from "../components/ScoreBadge";
 import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { formatDate } from "../lib/dateUtils";
 import {
   demoCoasters,
   demoFeed,
@@ -100,59 +101,99 @@ function DemoFeedPage({
   onOpenCoaster: (coaster: DemoCoaster) => void;
   onOpenUser: (user: DemoUser) => void;
 }) {
+  type DemoFeedItem = (typeof demoFeed)[number];
+  type DemoTrip = {
+    key: string;
+    park: string;
+    location: string;
+    rideDate: string;
+    people: DemoUser[];
+    coasters: Array<{ coaster: DemoCoaster; rides: DemoFeedItem[] }>;
+  };
+  const trips = new Map<string, DemoTrip>();
+  for (const item of demoFeed) {
+    const key = JSON.stringify([item.rideDate, item.coaster.park, item.coaster.location]);
+    let trip = trips.get(key);
+    if (!trip) {
+      trip = {
+        key,
+        park: item.coaster.park,
+        location: item.coaster.location,
+        rideDate: item.rideDate,
+        people: [],
+        coasters: [],
+      };
+      trips.set(key, trip);
+    }
+    if (!trip.people.includes(item.user)) trip.people.push(item.user);
+    let coaster = trip.coasters.find((entry) => entry.coaster === item.coaster);
+    if (!coaster) {
+      coaster = { coaster: item.coaster, rides: [] };
+      trip.coasters.push(coaster);
+    }
+    coaster.rides.push(item);
+  }
+
   return (
     <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
       <div className="flex items-end justify-between">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Activity Feed</h2>
         <DemoInlineCta onClick={onOpenAuth} />
       </div>
-      {demoFeed.map((item) => (
-        <div key={item.id} className="surface-card interactive-lift rounded-xl p-4">
-          <div className="mb-3 flex items-center gap-3">
-            <button
-              onClick={() => onOpenUser(item.user)}
-              className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
-            >
-              <Avatar
-                avatarUrl={item.user.avatarUrl}
-                name={item.user.name}
-                sizeClassName="w-9 h-9"
-                textClassName="text-sm"
-              />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{item.user.name}</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{item.relativeTime}</p>
-              </div>
-            </button>
-            <div className="ml-auto flex flex-wrap justify-end gap-2">
-              {item.badges.map((badge, index) => (
-                <FeedEventBadge
-                  key={`${badge.label}-${index}`}
-                  badge={{
-                    label: badge.label,
-                    variant: badge.tone,
-                    country: "country" in badge ? badge.country : undefined,
-                    value: "value" in badge ? badge.value : undefined,
-                  }}
-                />
+      {[...trips.values()].map((trip) => {
+        const creditCount = trip.coasters.reduce((count, coaster) => count + coaster.rides.length, 0);
+        return <article key={trip.key} className="surface-card rounded-xl p-4">
+          <div className="flex items-start gap-3 border-b border-gray-100 pb-3 dark:border-gray-800">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">{trip.park}</h3>
+              <p className="mt-0.5 text-xs text-gray-700 dark:text-gray-300">{trip.location}</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {formatDate(trip.rideDate)} · {trip.people.length} {trip.people.length === 1 ? "rider" : "riders"} · {creditCount} new {creditCount === 1 ? "credit" : "credits"}
+              </p>
+              <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">Latest log {trip.coasters[0]?.rides[0]?.relativeTime}</p>
+            </div>
+            <div className="flex shrink-0 items-center pl-2 pt-0.5" aria-label="Riders on this park day">
+              {trip.people.slice(0, 3).map((person) => (
+                <button key={person.name} type="button" onClick={() => onOpenUser(person)} className="-ml-2 rounded-full ring-2 ring-white dark:ring-gray-900" aria-label={`View ${person.name}'s profile`}>
+                  <Avatar avatarUrl={person.avatarUrl} name={person.name} sizeClassName="h-8 w-8" textClassName="text-xs" />
+                </button>
               ))}
             </div>
           </div>
-          <button onClick={() => onOpenCoaster(item.coaster)} className="interactive-lift w-full surface-subtle p-3 text-left">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-gray-900 dark:text-gray-100">{item.coaster.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{item.coaster.park} · {item.coaster.location}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className={getCoasterTypeBadgeClasses(item.coaster.type)}>{item.coaster.type}</span>
-                <ScoreBadge score={item.score} size="sm" />
-              </div>
-            </div>
-            <p className="mt-2 text-sm italic text-gray-600 dark:text-gray-300">"{item.notes}"</p>
-          </button>
-        </div>
-      ))}
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {trip.coasters.map(({ coaster, rides }) => (
+              <section key={coaster.name} className="py-3 last:pb-0">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => onOpenCoaster(coaster)} className="min-w-0 flex-1 text-left text-sm font-bold text-gray-900 hover:text-primary dark:text-gray-100">{coaster.name}</button>
+                  <span className={getCoasterTypeBadgeClasses(coaster.type)}>{coaster.type}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {rides.map((ride) => (
+                    <button key={ride.id} type="button" onClick={() => onOpenUser(ride.user)} className="flex items-center gap-1.5 rounded-full bg-gray-50 py-1 pl-1 pr-1.5 text-left dark:bg-gray-800/80">
+                      <Avatar avatarUrl={ride.user.avatarUrl} name={ride.user.name} sizeClassName="h-7 w-7" textClassName="text-[10px]" />
+                      <span className="max-w-24 truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{ride.user.name}</span>
+                      <ScoreBadge score={ride.score} size="sm" className="!h-8 !w-8 !text-[11px]" />
+                    </button>
+                  ))}
+                </div>
+                {rides.map((ride) => ride.badges.length > 0 || ride.notes ? (
+                  <div key={ride.id} className="mt-2">
+                    <FeedRiderDetails
+                      name={ride.user.name}
+                      badges={ride.badges.map((badge) => ({
+                        label: badge.label,
+                        variant: badge.tone,
+                        value: "value" in badge && typeof badge.value === "number" ? badge.value : undefined,
+                      }))}
+                      notes={ride.notes}
+                    />
+                  </div>
+                ) : null)}
+              </section>
+            ))}
+          </div>
+        </article>;
+      })}
     </div>
   );
 }
