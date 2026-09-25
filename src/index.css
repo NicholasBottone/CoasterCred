@@ -170,6 +170,14 @@ select {
   background: var(--cc-page);
   color: var(--cc-text);
 }
+.app-shell-with-bottom-banner {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+.app-bottom-banner {
+  z-index: 20;
+  border-top: 1px solid var(--cc-line);
+  background: var(--cc-surface);
+}
 .app-header {
   z-index: 20;
   background: var(--cc-surface);
@@ -723,6 +731,9 @@ select {
     grid-template-columns: 144px minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
   }
+  .app-shell-with-bottom-banner {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
   .app-header {
     grid-column: 1 / -1;
   }
@@ -730,9 +741,13 @@ select {
     grid-column: 2;
     grid-row: 2;
   }
+  .app-bottom-banner {
+    grid-column: 2;
+    grid-row: 3;
+  }
   .app-nav {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 2 / -1;
     border-top: 0;
     border-right: 1px solid var(--cc-line);
     flex-direction: column;

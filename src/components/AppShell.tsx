@@ -28,6 +28,7 @@ export function AppShell({
   children,
   headerAction,
   banner,
+  bottomBanner,
   availableTabs,
 }: {
   tab: Tab;
@@ -35,6 +36,7 @@ export function AppShell({
   children: ReactNode;
   headerAction?: ReactNode;
   banner?: ReactNode;
+  bottomBanner?: ReactNode;
   availableTabs?: Tab[];
 }) {
   const visibleNavItems = NAV_ITEMS.filter(
@@ -47,7 +49,9 @@ export function AppShell({
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell${bottomBanner ? " app-shell-with-bottom-banner" : ""}`}
+    >
       <header className="app-chrome app-header">
         <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
@@ -82,6 +86,8 @@ export function AppShell({
           </div>
         </div>
       </main>
+
+      {bottomBanner && <div className="app-bottom-banner">{bottomBanner}</div>}
 
       <nav className="app-chrome app-nav" aria-label="Main navigation">
         {visibleNavItems.map(({ id, label, icon: Icon }) => (

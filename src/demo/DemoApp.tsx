@@ -9,7 +9,7 @@ import { Home, LockKeyhole, Repeat2 } from "lucide-react";
 import { PageHeading } from "../components/TrackMotif";
 import { VisitTicket } from "../components/VisitTicket";
 import { ProfileSummary } from "../components/ProfileSummary";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { SignInForm } from "../SignInForm";
 import { AppShell, type Tab } from "../components/AppShell";
 import { Avatar } from "../components/Avatar";
@@ -61,6 +61,21 @@ export function DemoApp() {
             stacks up.
           </div>
         }
+        bottomBanner={
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2 text-center text-sm">
+            <span className="text-gray-700 dark:text-gray-200">
+              You’re viewing a demo. Sign in to unlock the full CoasterCred
+              experience.
+            </span>
+            <button
+              type="button"
+              onClick={openAuth}
+              className="min-h-11 rounded px-2 font-semibold text-primary hover:underline"
+            >
+              Sign in
+            </button>
+          </div>
+        }
       >
         {tab === "feed" && (
           <DemoFeedPage
@@ -70,12 +85,7 @@ export function DemoApp() {
             onOpenUser={setSelectedUser}
           />
         )}
-        {tab === "myList" && (
-          <DemoMyListPage
-            onOpenAuth={openAuth}
-            onOpenCoaster={setSelectedCoaster}
-          />
-        )}
+        {tab === "myList" && <DemoMyListPage onOpenAuth={openAuth} />}
         {tab === "search" && (
           <LockedDemoPage
             title="Search Coasters"
@@ -83,12 +93,7 @@ export function DemoApp() {
             onOpenAuth={openAuth}
           />
         )}
-        {tab === "rankings" && (
-          <DemoRankingsPage
-            onOpenAuth={openAuth}
-            onOpenUser={setSelectedUser}
-          />
-        )}
+        {tab === "rankings" && <DemoRankingsPage onOpenAuth={openAuth} />}
         {tab === "profile" && (
           <LockedDemoPage
             title="Build your profile"
@@ -374,30 +379,18 @@ function DemoFeedPage({
   );
 }
 
-function DemoMyListPage({
-  onOpenAuth,
-  onOpenCoaster,
-}: {
-  onOpenAuth: () => void;
-  onOpenCoaster: (coaster: DemoCoaster) => void;
-}) {
+function DemoMyListPage({ onOpenAuth }: { onOpenAuth: () => void }) {
   return (
     <div className="page-content">
       <PageHeading title="My List" motif="roll" />
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="mb-0 mt-1 text-xs text-gray-400 dark:text-gray-500">
-            Head-to-head logging builds your list. Use arrows here for quick
-            manual tweaks.
-          </p>
-        </div>
-        <DemoInlineCta onClick={onOpenAuth} />
-      </div>
-      <div className="flex flex-col gap-2">
+      <DemoPreviewGate
+        title="Build your own list"
+        body="Sign in to log rides and rank your coasters."
+        onOpenAuth={onOpenAuth}
+      >
         {demoRankings.map((item) => (
-          <button
+          <div
             key={item.rank}
-            onClick={() => onOpenCoaster(item.coaster)}
             className="flat-row flex items-center gap-3 text-left"
           >
             <div className="rank-number shrink-0 text-sm">{item.rank}</div>
@@ -413,36 +406,25 @@ function DemoMyListPage({
               {item.coaster.type}
             </span>
             <ScoreBadge score={item.score} size="sm" />
-          </button>
+          </div>
         ))}
-      </div>
+      </DemoPreviewGate>
     </div>
   );
 }
 
-function DemoRankingsPage({
-  onOpenAuth,
-  onOpenUser,
-}: {
-  onOpenAuth: () => void;
-  onOpenUser: (user: DemoUser) => void;
-}) {
+function DemoRankingsPage({ onOpenAuth }: { onOpenAuth: () => void }) {
   return (
     <div className="page-content">
       <PageHeading title="Rankings" motif="topHat" />
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            Most coaster credits in the last 30 days
-          </p>
-        </div>
-        <DemoInlineCta onClick={onOpenAuth} />
-      </div>
-      <div className="flex flex-col gap-2">
+      <DemoPreviewGate
+        title="See where you stand"
+        body="Sign in to log rides and join the rankings."
+        onOpenAuth={onOpenAuth}
+      >
         {demoLeaderboard.map((entry) => (
-          <button
+          <div
             key={entry.rank}
-            onClick={() => onOpenUser(entry.user)}
             className="flat-row flex items-center gap-3 text-left"
           >
             <div className="rank-number shrink-0 text-sm">{entry.rank}</div>
@@ -474,8 +456,52 @@ function DemoRankingsPage({
                 {entry.totalRideCount} total
               </p>
             </div>
-          </button>
+          </div>
         ))}
+      </DemoPreviewGate>
+    </div>
+  );
+}
+
+function DemoPreviewGate({
+  title,
+  body,
+  onOpenAuth,
+  children,
+}: {
+  title: string;
+  body: string;
+  onOpenAuth: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative min-h-[440px]">
+      <div
+        aria-hidden="true"
+        className="flex flex-col gap-2 opacity-35 blur-[1px]"
+      >
+        {children}
+      </div>
+      <div className="absolute inset-x-0 top-8 flex justify-center px-2 sm:top-12">
+        <div className="surface-card w-full max-w-sm p-6 text-center shadow-xl">
+          <LockKeyhole
+            className="mx-auto mb-4 h-8 w-8 text-primary"
+            aria-hidden="true"
+          />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {title}
+          </h2>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {body}
+          </p>
+          <button
+            type="button"
+            onClick={onOpenAuth}
+            className="mt-6 min-h-11 rounded bg-primary px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover"
+          >
+            Sign in
+          </button>
+        </div>
       </div>
     </div>
   );
