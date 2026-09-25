@@ -342,21 +342,21 @@ select {
 .visit-ticket-header::after {
   content: "";
   position: absolute;
-  bottom: -5px;
-  width: 5px;
-  height: 10px;
+  bottom: -8px;
+  width: 8px;
+  height: 16px;
   background: var(--cc-page);
   border: 1px solid var(--cc-line);
 }
 .visit-ticket-header::before {
   left: calc(-1 * var(--ticket-padding) - 1px);
   border-left: 0;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 9px 9px 0;
 }
 .visit-ticket-header::after {
   right: calc(-1 * var(--ticket-padding) - 1px);
   border-right: 0;
-  border-radius: 6px 0 0 6px;
+  border-radius: 9px 0 0 9px;
 }
 .visit-date {
   grid-row: 1 / span 2;
