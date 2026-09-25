@@ -2,7 +2,7 @@ import { useAction, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
-import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { getCoasterMaterialClasses } from "../lib/badges";
 import { getErrorMessage } from "../lib/errors";
 import {
   type CoasterGroupSummary,
@@ -214,7 +214,7 @@ export function ParkModal({
       </div>
 
       {displayLineup.source === "localFallback" && (
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
           Showing only coasters already in CoasterCred for this park. This park&apos;s full lineup could not be loaded from Coasterpedia.
         </div>
       )}
@@ -224,11 +224,11 @@ export function ParkModal({
           <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary" />
         </div>
       ) : loadError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
           {loadError}
         </div>
       ) : displayLineup.coasters.length === 0 ? (
-        <div className="surface-card rounded-xl px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="surface-card rounded-md px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
           No coasters are available for this park yet.
         </div>
       ) : (
@@ -240,7 +240,7 @@ export function ParkModal({
                 key={coaster.sourceId ?? coaster._id ?? coaster.name}
                 type="button"
                 onClick={() => onSelectCoaster(buildSelection(coaster))}
-                className="surface-card interactive-lift rounded-xl p-3 text-left"
+                className="surface-card interactive-lift rounded-md p-3 text-left"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -252,7 +252,7 @@ export function ParkModal({
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className={getCoasterTypeBadgeClasses(coaster.type)}>{coaster.type}</span>
+                    <span className={getCoasterMaterialClasses(coaster.type)}>{coaster.type}</span>
                     {typeof stats?.currentScore === "number" ? (
                       <ScoreBadge score={stats.currentScore} size="sm" />
                     ) : (stats?.rideCount ?? 0) > 0 ? (

@@ -1,3 +1,5 @@
+import { Trophy } from "lucide-react";
+import { PageHeading } from "../components/TrackMotif";
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -8,7 +10,7 @@ import { RankingCsvImportModal } from "../components/RankingCsvImportModal";
 import { type CoasterSummary } from "../lib/coasterData";
 import { getErrorMessage } from "../lib/errors";
 import { ScoreBadge } from "../components/ScoreBadge";
-import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { getCoasterMaterialClasses } from "../lib/badges";
 
 function csvEscape(value: string | number | null | undefined) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -40,7 +42,9 @@ function buildRankingsCsv(rankings: any[]) {
 export function MyListPage() {
   const rankings = useQuery(api.rankings.getMyRankings);
   const moveRank = useMutation(api.rankings.moveRank);
-  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
+  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(
+    null,
+  );
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   if (rankings === undefined) {
@@ -51,7 +55,10 @@ export function MyListPage() {
     );
   }
 
-  const handleMove = async (coasterId: Id<"coasters">, direction: "up" | "down") => {
+  const handleMove = async (
+    coasterId: Id<"coasters">,
+    direction: "up" | "down",
+  ) => {
     try {
       await moveRank({ coasterId, direction });
     } catch (e: any) {
@@ -80,11 +87,16 @@ export function MyListPage() {
 
   return (
     <>
-      <div className="max-w-lg mx-auto px-4 py-4">
-        <div className="flex items-center justify-between mb-4" data-onboarding-target="my-list-summary">
+      <div className="page-content">
+        <PageHeading title="My List" motif="roll" />
+        <div
+          className="flex items-center justify-between mb-4"
+          data-onboarding-target="my-list-summary"
+        >
           <div>
-            <h2 className="ui-copy-disabled text-lg font-bold text-gray-800 dark:text-gray-100">My List</h2>
-            <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">{rankings.length} coasters</p>
+            <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">
+              {rankings.length} coasters
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="group relative">
@@ -93,15 +105,26 @@ export function MyListPage() {
                 onClick={handleExportCsv}
                 disabled={rankings.length === 0}
                 aria-label="Export CSV"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
               <span
                 role="tooltip"
-                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
+                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
               >
                 Export CSV
               </span>
@@ -111,15 +134,26 @@ export function MyListPage() {
                 type="button"
                 onClick={() => setIsImportOpen(true)}
                 aria-label="Import CSV"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10"
               >
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                  <path d="M12 15V3m0 0 4 4m-4-4-4 4M5 17v3h14v-3" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-5 w-5"
+                >
+                  <path
+                    d="M12 15V3m0 0 4 4m-4-4-4 4M5 17v3h14v-3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
               <span
                 role="tooltip"
-                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
+                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
               >
                 Import CSV
               </span>
@@ -127,26 +161,28 @@ export function MyListPage() {
           </div>
         </div>
         <p className="ui-copy-disabled mb-3 text-xs text-gray-400 dark:text-gray-500">
-          Head-to-head logging builds your list. Use arrows here for quick manual tweaks.
+          Head-to-head logging builds your list. Use arrows here for quick
+          manual tweaks.
         </p>
         {rankings.length === 0 ? (
-          <div className="surface-card flex flex-col items-center justify-center rounded-xl px-4 py-14 text-center">
-            <div className="mb-4 text-5xl">🏆</div>
-            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-100">No rankings yet</h3>
+          <div className="surface-card flex flex-col items-center justify-center rounded-md px-4 py-14 text-center">
+            <Trophy
+              className="mb-4 h-10 w-10 text-primary"
+              aria-hidden="true"
+            />
+            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-100">
+              No rankings yet
+            </h3>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Log rides in Search, or paste a rankings CSV here to build your list faster.
+              Log rides in Search, or paste a rankings CSV here to build your
+              list faster.
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {rankings.map((item: any, idx: number) => (
-              <div
-                key={item._id}
-                className="surface-card interactive-lift rounded-xl p-3 flex items-center gap-3"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                  {idx + 1}
-                </div>
+              <div key={item._id} className="flat-row flex items-center gap-3">
+                <div className="rank-number shrink-0 text-sm">{idx + 1}</div>
                 <button
                   onClick={() => setSelectedCoaster(item.coaster)}
                   className="flex flex-1 min-w-0 items-center gap-3 text-left"
@@ -155,12 +191,18 @@ export function MyListPage() {
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
                       {item.coaster?.name ?? "Unknown"}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.coaster?.park}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {item.coaster?.park}
+                    </p>
                   </div>
-                  <span className={getCoasterTypeBadgeClasses(item.coaster?.type)}>
+                  <span
+                    className={getCoasterMaterialClasses(item.coaster?.type)}
+                  >
                     {item.coaster?.type}
                   </span>
-                  {item.score !== undefined && <ScoreBadge score={item.score} size="sm" />}
+                  {item.score !== undefined && (
+                    <ScoreBadge score={item.score} size="sm" />
+                  )}
                 </button>
                 <div className="flex flex-col gap-0.5 shrink-0">
                   <button
@@ -185,9 +227,14 @@ export function MyListPage() {
       </div>
 
       {selectedCoaster && (
-        <CoasterModal coaster={selectedCoaster} onClose={() => setSelectedCoaster(null)} />
+        <CoasterModal
+          coaster={selectedCoaster}
+          onClose={() => setSelectedCoaster(null)}
+        />
       )}
-      {isImportOpen && <RankingCsvImportModal onClose={() => setIsImportOpen(false)} />}
+      {isImportOpen && (
+        <RankingCsvImportModal onClose={() => setIsImportOpen(false)} />
+      )}
     </>
   );
 }

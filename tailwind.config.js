@@ -18,9 +18,20 @@ module.exports = {
         hover: "0 2px 8px rgba(0, 0, 0, 0.12)",
       },
       colors: {
+        gray: {
+          50: "#f2f4f7",
+          100: "#eef2f8",
+          200: "#d7dde6",
+          400: "#8d9aad",
+          500: "#6e7e93",
+          600: "#5d6a7c",
+          800: "#344051",
+          900: "#19212d",
+          950: "#111720",
+        },
         primary: {
-          DEFAULT: "#4F46E5",
-          hover: "#4338CA",
+          DEFAULT: "rgb(var(--cc-brand) / <alpha-value>)",
+          hover: "rgb(var(--cc-brand) / 0.85)",
         },
         secondary: {
           DEFAULT: "#6B7280",

@@ -1,3 +1,5 @@
+For UI and design work, read [DESIGN.md](DESIGN.md) first. Follow its shared tokens, reusable components, and signature visual patterns.
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

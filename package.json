@@ -20,6 +20,7 @@
     "@convex-dev/migrations": "^0.3.6",
     "clsx": "^2.1.1",
     "convex": "^1.42.1",
+    "lucide-react": "^1.48.0",
     "openai": "^6.46.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

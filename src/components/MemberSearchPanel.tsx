@@ -90,7 +90,7 @@ function MemberSearchRow({ user }: { user: any }) {
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
+    <div className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
       <Avatar
         avatarUrl={user.profile?.avatarUrl}
         name={user.name}

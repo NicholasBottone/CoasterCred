@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { dateInputValueToTimestamp, formatDate } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
-import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { getCoasterMaterialClasses } from "../lib/badges";
 import { useScrollToTop } from "../hooks/useScrollToTop";
 import { ModalCloseButton, ModalContainer } from "./ModalContainer";
 
@@ -472,7 +472,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
 
       {stage === "paste" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
             Expected columns: <span className="font-medium">Rank, Name, Park, Last Ridden</span>.
             Year-only dates will import as January 1 of that year.
           </div>
@@ -485,7 +485,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
           />
 
           {csvError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-200">
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/60 dark:text-red-200">
               {csvError}
             </div>
           )}
@@ -494,14 +494,14 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
+              className="rounded-md border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleStartImport}
-              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md"
+              className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover "
             >
               Start Import
             </button>
@@ -511,7 +511,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
 
       {stage === "review" && currentRow && (
         <div className="space-y-4">
-          <div className="surface-card rounded-xl p-4">
+          <div className="surface-card rounded-md p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -599,13 +599,13 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
           </label>
 
           {isResolving && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
               Validating this coaster against Coasterpedia...
             </div>
           )}
 
           {!isResolving && validationResult?.issue && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/50 dark:text-amber-200">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/50 dark:text-amber-200">
               {validationResult.issue.message}
               {validationResult.normalizedName !== currentRow.name.trim() && (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
@@ -616,7 +616,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
           )}
 
           {!isResolving && selectedCandidate && (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
+            <div className="rounded-md border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
               <p className="text-sm font-semibold text-green-800 dark:text-green-200">Selected Coasterpedia match</p>
               <div className="mt-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -625,13 +625,13 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                     {selectedCandidate.park} · {selectedCandidate.location}
                   </p>
                 </div>
-                <span className={getCoasterTypeBadgeClasses(selectedCandidate.type)}>{selectedCandidate.type}</span>
+                <span className={getCoasterMaterialClasses(selectedCandidate.type)}>{selectedCandidate.type}</span>
               </div>
             </div>
           )}
 
           {!isResolving && !selectedCandidate && validationResult?.exactMatch && (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
+            <div className="rounded-md border border-green-200 bg-green-50 px-4 py-4 dark:border-green-900/60 dark:bg-green-950/40">
               <p className="text-sm font-semibold text-green-800 dark:text-green-200">Exact Coasterpedia match found</p>
               <div className="mt-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -642,7 +642,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                     {validationResult.exactMatch.park} · {validationResult.exactMatch.location}
                   </p>
                 </div>
-                <span className={getCoasterTypeBadgeClasses(validationResult.exactMatch.type)}>
+                <span className={getCoasterMaterialClasses(validationResult.exactMatch.type)}>
                   {validationResult.exactMatch.type}
                 </span>
               </div>
@@ -657,7 +657,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
               {validationResult.candidates.slice(0, 6).map((candidate) => (
                 <div
                   key={`${candidate.source ?? "coasterpedia"}:${candidate.sourceId ?? candidate.name}`}
-                  className="surface-card rounded-xl p-3"
+                  className="surface-card rounded-md p-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -676,7 +676,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                       )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className={getCoasterTypeBadgeClasses(candidate.type)}>{candidate.type}</span>
+                      <span className={getCoasterMaterialClasses(candidate.type)}>{candidate.type}</span>
                       <button
                         type="button"
                         onClick={() => applyCandidate(candidate)}
@@ -695,7 +695,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={() => setStage("paste")}
-              className="rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
+              className="rounded-md border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
             >
               Back to CSV
             </button>
@@ -704,7 +704,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={skipCurrentRow}
                 disabled={isImporting}
-                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all hover:-translate-y-0.5 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Skip Row
               </button>
@@ -712,7 +712,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={importCurrentRow}
                 disabled={!canImportCurrentRow}
-                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isImporting ? "Importing..." : "Import This Row"}
               </button>
@@ -735,7 +735,7 @@ export function RankingCsvImportModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md"
+            className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover "
           >
             Done
           </button>

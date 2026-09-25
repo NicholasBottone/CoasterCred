@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { Avatar } from "../components/Avatar";
 import { formatDateTime, formatDistanceToNow } from "../lib/dateUtils";
 import { getErrorMessage } from "../lib/errors";
-import { getCoasterTypeBadgeClasses } from "../lib/badges";
+import { getCoasterMaterialClasses } from "../lib/badges";
 
 export function AdminPage({
   onViewPublicProfile,
@@ -235,7 +235,7 @@ export function AdminPage({
               (countryBackfillStatus?.sourceBackedMissingCountryCount ?? 0) ===
                 0
             }
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isBackfillingCountries
               ? "Backfilling..."
@@ -281,7 +281,7 @@ export function AdminPage({
             ))}
           </div>
         ) : (
-          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
+          <div className="mt-3 rounded-md bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
             All source-backed coasters currently have normalized country data.
           </div>
         )}
@@ -305,7 +305,7 @@ export function AdminPage({
               isMigratingMultiTrack ||
               (multiTrackMigrationStatus?.pendingCandidateCount ?? 0) === 0
             }
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isMigratingMultiTrack
               ? "Migrating..."
@@ -348,7 +348,7 @@ export function AdminPage({
             ))}
           </div>
         ) : (
-          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
+          <div className="mt-3 rounded-md bg-emerald-50 px-3 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:ring-emerald-500/25">
             All legacy Coasterpedia entries have been reviewed for multi-track
             migration.
           </div>
@@ -371,7 +371,7 @@ export function AdminPage({
 
           <div className="mt-4 flex flex-col gap-3">
             {dashboard.staleCoasters.length === 0 ? (
-              <div className="surface-subtle rounded-xl p-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="surface-subtle rounded-md p-4 text-sm text-gray-500 dark:text-gray-400">
                 Everything looks current right now.
               </div>
             ) : (
@@ -382,7 +382,7 @@ export function AdminPage({
                 return (
                   <div
                     key={coaster._id}
-                    className="surface-subtle flex flex-col gap-3 rounded-2xl p-4"
+                    className="surface-subtle flex flex-col gap-3 rounded-md p-4"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div className="min-w-0">
@@ -418,7 +418,7 @@ export function AdminPage({
                             href={coaster.sourceUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                           >
                             View source
                           </a>
@@ -427,14 +427,14 @@ export function AdminPage({
                           <button
                             onClick={() => handleSync(coaster._id)}
                             disabled={isSyncing}
-                            className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isSyncing ? "Syncing..." : "Sync now"}
                           </button>
                         ) : (
                           <button
                             onClick={() => openMatcher(coaster)}
-                            className="rounded-xl border border-primary/30 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
+                            className="rounded-md border border-primary/30 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10"
                           >
                             Match on Coasterpedia
                           </button>
@@ -443,7 +443,7 @@ export function AdminPage({
                     </div>
 
                     {isMatching && (
-                      <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+                      <div className="rounded-md border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-900 dark:bg-sky-950/30">
                         <div className="flex flex-col gap-3 md:flex-row">
                           <input
                             type="text"
@@ -458,7 +458,7 @@ export function AdminPage({
                             <button
                               onClick={runMatchSearch}
                               disabled={searchingMatches}
-                              className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                              className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               {searchingMatches ? "Searching..." : "Search"}
                             </button>
@@ -467,7 +467,7 @@ export function AdminPage({
                                 setMatchingCoasterId(null);
                                 setMatchResults([]);
                               }}
-                              className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                              className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                             >
                               Close
                             </button>
@@ -485,7 +485,7 @@ export function AdminPage({
                           {matchResults.map((result) => (
                             <div
                               key={result.sourceId}
-                              className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-white p-3 dark:border-sky-900 dark:bg-gray-950/40 md:flex-row md:items-center md:justify-between"
+                              className="flex flex-col gap-3 rounded-md border border-sky-200 bg-white p-3 dark:border-sky-900 dark:bg-gray-950/40 md:flex-row md:items-center md:justify-between"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -493,7 +493,7 @@ export function AdminPage({
                                     {result.name}
                                   </p>
                                   <span
-                                    className={getCoasterTypeBadgeClasses(
+                                    className={getCoasterMaterialClasses(
                                       result.type,
                                     )}
                                   >
@@ -515,7 +515,7 @@ export function AdminPage({
                                     href={result.sourceUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                                    className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                                   >
                                     View source
                                   </a>
@@ -528,7 +528,7 @@ export function AdminPage({
                                     )
                                   }
                                   disabled={isLinking || !!result._id}
-                                  className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-md bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {isLinking ? "Linking..." : "Use this match"}
                                 </button>
@@ -536,7 +536,7 @@ export function AdminPage({
                             </div>
                           ))}
                           {!searchingMatches && matchResults.length === 0 && (
-                            <div className="rounded-xl border border-dashed border-sky-200 px-3 py-4 text-sm text-sky-800 dark:border-sky-900 dark:text-sky-200">
+                            <div className="rounded-md border border-dashed border-sky-200 px-3 py-4 text-sm text-sky-800 dark:border-sky-900 dark:text-sky-200">
                               Search Coasterpedia to find a matching source for
                               this coaster.
                             </div>
@@ -575,7 +575,7 @@ export function AdminPage({
 
             <div className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
               {filteredSyncableCoasters.length === 0 ? (
-                <div className="surface-subtle rounded-xl p-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="surface-subtle rounded-md p-4 text-sm text-gray-500 dark:text-gray-400">
                   {dashboard.syncableCoasters.length === 0
                     ? "No coasters are linked to Coasterpedia yet."
                     : "No linked coasters match that search."}
@@ -586,7 +586,7 @@ export function AdminPage({
                   return (
                     <div
                       key={coaster._id}
-                      className="surface-subtle flex flex-col gap-3 rounded-2xl p-4 md:flex-row md:items-center md:justify-between"
+                      className="surface-subtle flex flex-col gap-3 rounded-md p-4 md:flex-row md:items-center md:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -611,7 +611,7 @@ export function AdminPage({
                             href={coaster.sourceUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                           >
                             View source
                           </a>
@@ -619,7 +619,7 @@ export function AdminPage({
                         <button
                           onClick={() => handleSync(coaster._id)}
                           disabled={isSyncing}
-                          className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isSyncing ? "Syncing..." : "Sync now"}
                         </button>
@@ -640,7 +640,7 @@ export function AdminPage({
             Daily signup volume and the full list of users currently in the app.
           </p>
 
-          <div className="mt-4 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+          <div className="mt-4 rounded-md border border-gray-200 p-4 dark:border-gray-800">
             <div className="flex items-end gap-2 overflow-x-auto pb-2">
               {dashboard.signupSeries.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -680,7 +680,7 @@ export function AdminPage({
               <button
                 key={user._id}
                 onClick={() => onViewPublicProfile(user._id)}
-                className="surface-subtle flex items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="surface-subtle flex items-center gap-3 rounded-md p-3 text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Avatar
                   avatarUrl={user.image ?? undefined}
@@ -726,7 +726,7 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 
 function MiniStatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-gray-200 px-4 py-3 dark:border-gray-800">
+    <div className="rounded-md border border-gray-200 px-4 py-3 dark:border-gray-800">
       <p className="text-xs font-medium uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
         {label}
       </p>

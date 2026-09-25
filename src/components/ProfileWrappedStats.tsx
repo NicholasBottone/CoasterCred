@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { ArrowUp, Gauge, Ruler, Timer, Orbit, History } from "lucide-react";
 import { type CoasterSummary } from "../lib/coasterData";
 
 type WrappedMetricKey =
@@ -144,7 +145,9 @@ const METRICS: MetricDefinition[] = [
     valueLabel: "Opened",
     averageLabel: "Avg age",
     formatValue: (value, coaster) =>
-      typeof coaster?.yearOpened === "number" ? String(coaster.yearOpened) : formatYears(value),
+      typeof coaster?.yearOpened === "number"
+        ? String(coaster.yearOpened)
+        : formatYears(value),
     formatAverage: formatYears,
   },
 ];
@@ -160,102 +163,83 @@ export function ProfileWrappedStats({
     () => (stats ? [stats.allTime, ...stats.yearly] : []),
     [stats],
   );
+  const periodId = useId();
   const [selectedKey, setSelectedKey] = useState("all");
-  const selectedPeriod = periods.find((period) => period.key === selectedKey) ?? periods[0] ?? null;
+  const selectedPeriod =
+    periods.find((period) => period.key === selectedKey) ?? periods[0] ?? null;
 
   if (!stats || !selectedPeriod || stats.allTime.uniqueCoasterCount === 0) {
     return null;
   }
 
   return (
-    <section className="surface-card p-4 mb-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <section className="ride-stats" aria-label="Ride statistics">
+      <div className="stats-heading">
         <div>
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Ride Stats</h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            {selectedPeriod.uniqueCoasterCount} coaster{selectedPeriod.uniqueCoasterCount === 1 ? "" : "s"}
+          <h2 className="technical-label">Ride Stats</h2>
+          <p aria-live="polite">
+            {selectedPeriod.uniqueCoasterCount} coaster
+            {selectedPeriod.uniqueCoasterCount === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <SummaryPill label="Parks" value={selectedPeriod.parkCount} />
-          <SummaryPill label="Countries" value={selectedPeriod.countryCount} />
-        </div>
-      </div>
-
-      {periods.length > 1 && (
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+        <label className="sr-only" htmlFor={periodId}>
+          Ride stats time range
+        </label>
+        <select
+          id={periodId}
+          value={selectedPeriod.key}
+          onChange={(event) => setSelectedKey(event.target.value)}
+        >
           {periods.map((period) => (
-            <button
-              key={period.key}
-              type="button"
-              onClick={() => setSelectedKey(period.key)}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                selectedPeriod.key === period.key
-                  ? "bg-primary text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              }`}
-            >
+            <option key={period.key} value={period.key}>
               {period.label}
-            </button>
+            </option>
           ))}
+        </select>
+      </div>
+      <dl className="stats-overview">
+        <div>
+          <dt>Parks</dt>
+          <dd>{numberFormatter.format(selectedPeriod.parkCount)}</dd>
         </div>
-      )}
-
-      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div className="surface-subtle p-3">
-          <p className="text-xs font-medium uppercase text-gray-400 dark:text-gray-500">
-            Most repeated maker
-          </p>
-          <p className="mt-1 truncate text-base font-bold text-gray-900 dark:text-gray-100">
+        <div>
+          <dt>Countries</dt>
+          <dd>{numberFormatter.format(selectedPeriod.countryCount)}</dd>
+        </div>
+        <div className="stats-maker">
+          <dt>Most repeated maker</dt>
+          <dd>
             {selectedPeriod.topManufacturer?.name ?? "Unknown"}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {selectedPeriod.topManufacturer
-              ? `${selectedPeriod.topManufacturer.count} coaster${
-                  selectedPeriod.topManufacturer.count === 1 ? "" : "s"
-                }`
-              : "No maker data"}
-          </p>
+            <span>
+              {selectedPeriod.topManufacturer
+                ? `${selectedPeriod.topManufacturer.count} coaster${selectedPeriod.topManufacturer.count === 1 ? "" : "s"}`
+                : "No maker data"}
+            </span>
+          </dd>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <SummaryTile label="Parks" value={selectedPeriod.parkCount} />
-          <SummaryTile label="Countries" value={selectedPeriod.countryCount} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2">
-        {METRICS.map((definition) => (
-          <MetricTile
-            key={definition.key}
-            definition={definition}
-            metric={selectedPeriod.metrics[definition.key]}
-            onSelectCoaster={onSelectCoaster}
-          />
-        ))}
-      </div>
+      </dl>
+      {METRICS.map((definition) => (
+        <MetricRow
+          key={definition.key}
+          definition={definition}
+          metric={selectedPeriod.metrics[definition.key]}
+          onSelectCoaster={onSelectCoaster}
+        />
+      ))}
     </section>
   );
 }
 
-function SummaryPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg bg-primary/10 px-2.5 py-1 text-center">
-      <p className="text-sm font-bold leading-none text-primary">{numberFormatter.format(value)}</p>
-      <p className="mt-0.5 text-[10px] font-medium uppercase text-primary/70">{label}</p>
-    </div>
-  );
-}
+const METRIC_ICONS = {
+  heightFt: ArrowUp,
+  speedMph: Gauge,
+  lengthFt: Ruler,
+  durationSeconds: Timer,
+  inversions: Orbit,
+  ageYears: History,
+};
 
-function SummaryTile({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="surface-subtle flex min-h-24 flex-col items-center justify-center p-3 text-center">
-      <p className="text-xl font-bold text-primary">{numberFormatter.format(value)}</p>
-      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-    </div>
-  );
-}
-
-function MetricTile({
+function MetricRow({
   definition,
   metric,
   onSelectCoaster,
@@ -264,70 +248,69 @@ function MetricTile({
   metric: WrappedMetric;
   onSelectCoaster?: (coaster: CoasterSummary) => void;
 }) {
+  const Icon = METRIC_ICONS[definition.key];
+  const formatted =
+    metric.value === null
+      ? "—"
+      : definition.formatValue(metric.value, metric.coaster);
+  // Every row reserves the same unit column, including rows without a unit.
+  const match = formatted.match(/^(.*) (ft|mph|sec|yr)$/);
+  const value = match ? match[1] : formatted;
+  const unit = match?.[2] ?? "";
   const content = (
     <>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium uppercase text-gray-400 dark:text-gray-500">
-          {definition.title}
-        </p>
-        <p className="mt-1 truncate text-base font-bold text-gray-900 dark:text-gray-100">
-          {metric.coaster?.name ?? "Unknown"}
-        </p>
-        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-          {metric.coaster?.park ?? "No coaster data"}
-        </p>
-      </div>
-      <div className="shrink-0 text-right">
-        <p className="text-[10px] font-medium uppercase text-gray-400 dark:text-gray-500">
-          {definition.valueLabel}
-        </p>
-        <p className="text-lg font-bold text-primary">
-          {metric.value === null ? "—" : definition.formatValue(metric.value, metric.coaster)}
-        </p>
-      </div>
+      <span className="technical-label record-label">
+        <Icon aria-hidden="true" />
+        {definition.title}
+      </span>
+      <span
+        className="record-value"
+        aria-label={`${definition.valueLabel} ${formatted}`}
+      >
+        <span>{value}</span>
+        <span className="record-unit">{unit}</span>
+      </span>
+      <span className="record-coaster">
+        {metric.coaster?.name ?? "Unknown"}
+      </span>
+      <span className="record-park">
+        {metric.coaster?.park ?? "No coaster data"}
+      </span>
     </>
   );
-
   return (
-    <div className="surface-subtle p-3">
+    <div className="record-row">
       {metric.coaster && onSelectCoaster ? (
         <button
           type="button"
+          className="record-main"
           onClick={() => onSelectCoaster(metric.coaster!)}
-          className="interactive-lift flex w-full items-center gap-3 rounded-lg text-left"
         >
           {content}
         </button>
       ) : (
-        <div className="flex items-center gap-3">{content}</div>
+        <div className="record-main">{content}</div>
       )}
-      <div
-        className={`mt-3 grid gap-2 border-t border-gray-200 pt-3 dark:border-gray-700 ${
-          definition.totalLabel && definition.formatTotal ? "grid-cols-2" : "grid-cols-1"
-        }`}
-      >
-        <TinyStat
-          label={definition.averageLabel}
-          value={metric.average === null ? "—" : definition.formatAverage(metric.average)}
-        />
+      <div className="record-meta">
+        <span>
+          {definition.averageLabel}{" "}
+          <strong>
+            {metric.average === null
+              ? "—"
+              : definition.formatAverage(metric.average)}
+          </strong>
+        </span>
         {definition.totalLabel && definition.formatTotal && (
-          <TinyStat
-            label={definition.totalLabel}
-            value={metric.total === null ? "—" : definition.formatTotal(metric.total)}
-          />
+          <span>
+            {definition.totalLabel}{" "}
+            <strong>
+              {metric.total === null
+                ? "—"
+                : definition.formatTotal(metric.total)}
+            </strong>
+          </span>
         )}
       </div>
-    </div>
-  );
-}
-
-function TinyStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[10px] font-medium uppercase text-gray-400 dark:text-gray-500">
-        {label}
-      </p>
-      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{value}</p>
     </div>
   );
 }

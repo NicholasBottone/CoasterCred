@@ -1,9 +1,8 @@
 import {
   getRideEventBadgeClasses,
-  getRideEventBadgeEmoji,
-  getRideEventBadgeIconClasses,
   type RideEventBadgeVariant,
 } from "../lib/badges";
+import { Award, Globe2, Flag, History, Repeat2 } from "lucide-react";
 
 export type FeedEventBadgeData = {
   label: string;
@@ -13,16 +12,17 @@ export type FeedEventBadgeData = {
 };
 
 export function FeedEventBadge({ badge }: { badge: FeedEventBadgeData }) {
-  const emoji = getRideEventBadgeEmoji(badge.variant, {
-    country: badge.country,
-    value: badge.value,
-  });
+  const Icon = {
+    countMilestone: Award,
+    countryFirst: Globe2,
+    first: Flag,
+    historical: History,
+    repeat: Repeat2,
+  }[badge.variant];
 
   return (
     <div className={getRideEventBadgeClasses(badge.variant)}>
-      <span aria-hidden="true" className={getRideEventBadgeIconClasses(badge.variant)}>
-        {emoji}
-      </span>
+      <Icon aria-hidden="true" />
       <span>{badge.label}</span>
     </div>
   );

@@ -1,3 +1,4 @@
+import { RollerCoaster } from "lucide-react";
 import { Authenticated, Unauthenticated, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { flushSync } from "react-dom";
 import { Toaster } from "sonner";
@@ -72,7 +73,7 @@ function AuthLoadingScreen() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="flex items-center gap-3 text-primary">
-        <span className="text-3xl">🎢</span>
+        <RollerCoaster className="h-8 w-8" aria-hidden="true" />
         <span className="text-2xl font-bold">CoasterCred</span>
       </div>
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -325,7 +326,7 @@ function AuthenticatedHeaderActions({
       </button>
 
       <div
-        className={`absolute right-0 top-full z-30 mt-2 w-40 origin-top-right rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg transition-all dark:border-gray-700 dark:bg-gray-900 ${
+        className={`absolute right-0 top-full z-30 mt-2 w-40 origin-top-right rounded-md border border-gray-200 bg-white p-1.5 shadow-lg transition-all dark:border-gray-700 dark:bg-gray-900 ${
           menuOpen
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-1 opacity-0"

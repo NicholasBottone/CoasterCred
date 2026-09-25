@@ -156,14 +156,14 @@ export function OnboardingTour({
       {highlightRect && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed rounded-2xl border-2 border-white shadow-[0_0_0_9999px_rgba(3,7,18,0.58),0_18px_45px_rgba(0,0,0,0.28)] ring-4 ring-primary/40 transition-all"
+          className="pointer-events-none fixed rounded-md border-2 border-white shadow-[0_0_0_9999px_rgba(3,7,18,0.58),0_18px_45px_rgba(0,0,0,0.28)] ring-4 ring-primary/40 transition-all"
           style={highlightRect}
         />
       )}
 
       {!isWaitingForFirstTarget && (
         <div
-          className={`fixed rounded-2xl border border-gray-200 bg-white p-4 text-gray-900 opacity-100 shadow-2xl transition-[left,top,width,opacity] duration-200 ease-out dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+          className={`fixed rounded-md border border-gray-200 bg-white p-4 text-gray-900 opacity-100 shadow-2xl transition-[left,top,width,opacity] duration-200 ease-out dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
             popoverStyle
               ? ""
               : "left-1/2 top-1/2 w-[min(21rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2"
@@ -197,7 +197,7 @@ export function OnboardingTour({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-3 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+              className="rounded-md px-3 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             >
               Skip
             </button>
@@ -210,7 +210,7 @@ export function OnboardingTour({
                   setStepIndex(nextIndex);
                 }}
                 disabled={stepIndex === 0}
-                className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition-all hover:-translate-y-0.5 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                className="rounded-md border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
               >
                 Back
               </button>
@@ -225,7 +225,7 @@ export function OnboardingTour({
                   setIsMeasuringTarget(Boolean(steps[nextIndex]?.targetSelector));
                   setStepIndex(nextIndex);
                 }}
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md"
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover "
               >
                 {isLastStep ? "Finish" : "Next"}
               </button>

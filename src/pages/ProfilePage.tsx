@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { formatDate } from "../lib/dateUtils";
+import { Home, SlidersHorizontal } from "lucide-react";
+import { PageHeading } from "../components/TrackMotif";
+import { ProfileSummary } from "../components/ProfileSummary";
+import { RecentRides } from "../components/RecentRides";
 import { Avatar } from "../components/Avatar";
 import { getErrorMessage } from "../lib/errors";
 import { UserConnectionsModal } from "../components/UserConnectionsModal";
@@ -26,13 +29,18 @@ export function ProfilePage({
   const dashboard = useQuery(api.profiles.getMyProfileDashboard);
   const upsertProfile = useMutation(api.profiles.upsertProfile);
 
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [homepark, setHomepark] = useState("");
   const [saving, setSaving] = useState(false);
-  const [connectionsKind, setConnectionsKind] = useState<"followers" | "following" | null>(null);
-  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(null);
+  const [connectionsKind, setConnectionsKind] = useState<
+    "followers" | "following" | null
+  >(null);
+  const [selectedCoaster, setSelectedCoaster] = useState<CoasterSummary | null>(
+    null,
+  );
 
   const handleEdit = () => {
     setDisplayName(myProfile?.user?.name ?? "");
@@ -73,135 +81,111 @@ export function ProfilePage({
   const authProvider = dashboard?.authProvider;
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4">
-      {/* Profile Card */}
-      <div className="surface-card p-5 mb-4">
-        <div className="flex items-start gap-4">
+    <div className="page-content profile-page">
+      <PageHeading title="Rider profile" motif="airtime" eyebrow />
+      <div className="profile-intro">
+        <div className="flex items-start gap-3 sm:gap-4">
           <Avatar
             avatarUrl={profile?.avatarUrl ?? user?.image}
             name={user?.name}
-            sizeClassName="w-16 h-16"
+            sizeClassName="h-14 w-14 sm:h-16 sm:w-16"
             textClassName="text-2xl"
           />
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
-              {user?.name ?? "Enthusiast"}
-            </h2>
+          <div className="min-w-0 flex-1">
+            <h1>{user?.name ?? "Enthusiast"}</h1>
             {profile?.username && (
-              <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
-                {authProvider === "discord" && <DiscordProviderIcon className="h-3.5 w-3.5 shrink-0" />}
-                {authProvider === "google" && <GoogleProviderIcon className="h-3.5 w-3.5 shrink-0" />}
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {authProvider === "discord" && (
+                  <DiscordProviderIcon className="h-3.5 w-3.5 shrink-0" />
+                )}
+                {authProvider === "google" && (
+                  <GoogleProviderIcon className="h-3.5 w-3.5 shrink-0" />
+                )}
                 <p className="truncate">@{profile.username}</p>
               </div>
             )}
             {profile?.homepark && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">🏠 {profile.homepark}</p>
+              <p className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <Home size={14} aria-hidden="true" />
+                {profile.homepark}
+              </p>
             )}
             {profile?.bio && (
-              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{profile.bio}</p>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {profile.bio}
+              </p>
             )}
+            <div className="profile-connections">
+              <button
+                type="button"
+                onClick={() => setConnectionsKind("followers")}
+              >
+                <strong>{dashboard?.followerCount ?? 0}</strong>{" "}
+                {dashboard?.followerCount === 1 ? "follower" : "followers"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnectionsKind("following")}
+              >
+                <strong>{dashboard?.followingCount ?? 0}</strong> following
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleEdit}
-            className="shrink-0 rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary transition-all hover:-translate-y-0.5 hover:bg-primary/5 dark:hover:bg-primary/10"
-          >
-            Edit
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onOpenMyList}
-            className="surface-subtle interactive-lift p-3 text-center"
-          >
-            <p className="text-2xl font-bold text-primary">{uniqueCoasterCount}</p>
-            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Unique Coasters</p>
-          </button>
-          <button
-            type="button"
-            onClick={onOpenMyList}
-            className="surface-subtle interactive-lift p-3 text-center"
-          >
-            <p className="text-lg font-bold text-primary truncate">
-              {dashboard?.topCoaster?.name ?? "—"}
-            </p>
-            <p className="ui-copy-disabled mt-2 text-xs text-gray-500 dark:text-gray-400">Current #1</p>
-          </button>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setConnectionsKind("followers")}
-            className="surface-subtle interactive-lift p-3 text-center"
-          >
-            <p className="text-2xl font-bold text-primary">{dashboard?.followerCount ?? 0}</p>
-            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Followers</p>
-          </button>
-          <button
-            onClick={() => setConnectionsKind("following")}
-            className="surface-subtle interactive-lift p-3 text-center"
-          >
-            <p className="text-2xl font-bold text-primary">{dashboard?.followingCount ?? 0}</p>
-            <p className="ui-copy-disabled text-xs text-gray-500 dark:text-gray-400">Following</p>
-          </button>
-        </div>
-      </div>
-
-      <div className="surface-card p-4 mb-4">
-        <h3 className="ui-copy-disabled mb-3 font-semibold text-gray-800 dark:text-gray-100">Appearance</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {([
-            { value: "auto", label: "Auto" },
-            { value: "light", label: "Light" },
-            { value: "dark", label: "Dark" },
-          ] as const).map((option) => (
+          <div className="flex flex-col sm:flex-row gap-1">
             <button
-              key={option.value}
-              onClick={() => onThemeModeChange(option.value)}
-              className={`rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                themeMode === option.value
-                  ? "bg-primary text-white shadow-sm"
-                  : "surface-subtle text-gray-700 dark:text-gray-200 interactive-lift"
-              }`}
+              type="button"
+              onClick={handleEdit}
+              className="min-h-11 px-2 text-xs font-medium text-primary"
             >
-              {option.label}
+              Edit
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setAppearanceOpen(!appearanceOpen)}
+              aria-label="Appearance settings"
+              aria-expanded={appearanceOpen}
+              className="flex h-11 w-11 items-center justify-center rounded border border-gray-200 dark:border-gray-800"
+            >
+              <SlidersHorizontal size={18} aria-hidden="true" />
+            </button>
+          </div>
         </div>
-      </div>
-
-      <ProfileWrappedStats
-        stats={dashboard?.wrappedStats}
-        onSelectCoaster={(coaster) => setSelectedCoaster(coaster)}
-      />
-
-      {/* Recent Rides */}
-      <div className="surface-card p-4">
-        <h3 className="ui-copy-disabled mb-3 font-semibold text-gray-800 dark:text-gray-100">Recent Rides</h3>
-        {!dashboard?.recentRides || dashboard.recentRides.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No rides logged yet</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {dashboard.recentRides.map((log: any) => (
-              <div key={log._id} className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/70">
-                <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-                    {log.coaster?.name ?? "Unknown"}
-                  </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {log.coaster?.park} · {formatDate(log.rideDate)}
-                  </p>
-                </div>
-              </div>
-            ))}
+        {appearanceOpen && (
+          <div className="profile-settings">
+            <label htmlFor="profile-appearance" className="text-sm">
+              Appearance
+            </label>
+            <select
+              id="profile-appearance"
+              value={themeMode}
+              onChange={(event) =>
+                onThemeModeChange(event.target.value as typeof themeMode)
+              }
+            >
+              <option value="auto">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
         )}
       </div>
-
-      <div className="surface-card mt-4 p-4">
-        <SignOutButton className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800" />
+      <ProfileSummary
+        count={uniqueCoasterCount}
+        topName={dashboard?.topCoaster?.name}
+        onOpen={onOpenMyList}
+      />
+      <div className="profile-grid">
+        <ProfileWrappedStats
+          stats={dashboard?.wrappedStats}
+          onSelectCoaster={setSelectedCoaster}
+        />
+        <RecentRides
+          rides={dashboard?.recentRides ?? []}
+          onSelectCoaster={setSelectedCoaster}
+        />
+      </div>
+      <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-800">
+        <SignOutButton className="min-h-11 text-sm text-gray-500 dark:text-gray-400" />
       </div>
 
       {/* Edit Modal */}
@@ -210,14 +194,21 @@ export function ProfilePage({
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4"
           onClick={() => setEditing(false)}
         >
-          <div className="surface-card w-full max-w-md shadow-xl p-5" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="surface-card w-full max-w-md shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Edit Profile
+              </h3>
               <ModalCloseButton onClose={() => setEditing(false)} />
             </div>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Display Name</label>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Display Name
+                </label>
                 <input
                   type="text"
                   value={displayName}
@@ -228,13 +219,19 @@ export function ProfilePage({
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Connected username</label>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Connected username
+                </label>
                 <div className="input-field bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                  {profile?.username ? `@${profile.username}` : "Connected account"}
+                  {profile?.username
+                    ? `@${profile.username}`
+                    : "Connected account"}
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Home Park</label>
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Home Park
+                </label>
                 <input
                   type="text"
                   value={homepark}
@@ -258,7 +255,7 @@ export function ProfilePage({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-xl bg-primary py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md disabled:opacity-50"
+                className="rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
               >
                 Save Profile
               </button>
@@ -303,7 +300,12 @@ function DiscordProviderIcon({ className }: { className?: string }) {
 
 function GoogleProviderIcon({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="currentColor">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+    >
       <path d="M21.35 11.1H12v2.98h5.38c-.48 3.04-3.08 4.34-5.37 4.34a6.42 6.42 0 0 1 0-12.84 5.9 5.9 0 0 1 4.16 1.64l2.12-2.16A8.93 8.93 0 0 0 12 2.5a9.5 9.5 0 1 0 0 19 8.62 8.62 0 0 0 8.98-8.98 7.4 7.4 0 0 0-.13-1.42Z" />
     </svg>
   );
