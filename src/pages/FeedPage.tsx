@@ -84,6 +84,7 @@ export function FeedPage({
 
       {selectedPark && (
         <ParkModal
+          suspended={selectedCoaster !== null}
           park={selectedPark.park}
           initialLocation={selectedPark.location}
           onClose={() => setSelectedPark(null)}

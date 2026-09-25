@@ -2,7 +2,7 @@ import { useAction, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
-import { getCoasterMaterialClasses } from "../lib/badges";
+import { ParkCoasterRow } from "./DetailSheet";
 import { getErrorMessage } from "../lib/errors";
 import {
   type CoasterGroupSummary,
@@ -12,7 +12,6 @@ import {
 } from "../lib/coasterData";
 import { useScrollToTop } from "../hooks/useScrollToTop";
 import { ModalCloseButton, ModalContainer } from "./ModalContainer";
-import { ScoreBadge } from "./ScoreBadge";
 
 type ParkLineupResponse = {
   park: string;
@@ -23,13 +22,20 @@ type ParkLineupResponse = {
 };
 
 function getTrackSelectionKey(
-  coaster: Pick<CoasterSummary, "_id" | "sourceId" | "name" | "trackIndex" | "multiTrackGroupId">,
+  coaster: Pick<
+    CoasterSummary,
+    "_id" | "sourceId" | "name" | "trackIndex" | "multiTrackGroupId"
+  >,
 ) {
   if (coaster.multiTrackGroupId && typeof coaster.trackIndex === "number") {
     return `${coaster.multiTrackGroupId}:${coaster.trackIndex}`;
   }
 
-  return coaster.sourceId ?? coaster._id ?? `${coaster.name}:${coaster.trackIndex ?? 0}`;
+  return (
+    coaster.sourceId ??
+    coaster._id ??
+    `${coaster.name}:${coaster.trackIndex ?? 0}`
+  );
 }
 
 export function ParkModal({
@@ -38,12 +44,17 @@ export function ParkModal({
   initialSourceUrl,
   onClose,
   onSelectCoaster,
+  suspended = false,
 }: {
   park: string;
+  suspended?: boolean;
   initialLocation?: string;
   initialSourceUrl?: string;
   onClose: () => void;
-  onSelectCoaster: (selection: { coaster: CoasterModalTarget; initialSelectedTrackKey?: string | null }) => void;
+  onSelectCoaster: (selection: {
+    coaster: CoasterModalTarget;
+    initialSelectedTrackKey?: string | null;
+  }) => void;
 }) {
   const scrollRef = useScrollToTop([park]);
   const [lineup, setLineup] = useState<ParkLineupResponse | null>(null);
@@ -66,8 +77,12 @@ export function ParkModal({
       } catch (error: any) {
         if (cancelled) return;
         setLineup(null);
-        setLoadError(getErrorMessage(error, "Could not load this park right now"));
-        toast.error(getErrorMessage(error, "Could not load this park right now"));
+        setLoadError(
+          getErrorMessage(error, "Could not load this park right now"),
+        );
+        toast.error(
+          getErrorMessage(error, "Could not load this park right now"),
+        );
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -98,7 +113,9 @@ export function ParkModal({
   );
   const myStatsByCoasterId = useQuery(
     api.coasters.getMyStatsForCoasters,
-    localCoasterIds.length > 0 ? { coasterIds: localCoasterIds as any } : "skip",
+    localCoasterIds.length > 0
+      ? { coasterIds: localCoasterIds as any }
+      : "skip",
   ) as
     | Record<
         string,
@@ -182,19 +199,27 @@ export function ParkModal({
   };
 
   return (
-    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <ModalContainer
+      onClose={onClose}
+      maxWidth="2xl"
+      scrollRef={scrollRef}
+      label={`${displayLineup.park} coaster directory`}
+      contentClassName="park-sheet"
+      suspended={suspended}
+    >
+      <div className="detail-header">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-xl font-bold text-gray-900 dark:text-gray-100">
-              {displayLineup.park}
-            </h3>
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
-              {displayLineup.coasters.length} coaster{displayLineup.coasters.length === 1 ? "" : "s"}
+            <h3 className="detail-title">{displayLineup.park}</h3>
+            <span className="detail-muted text-xs">
+              {displayLineup.coasters.length} coaster
+              {displayLineup.coasters.length === 1 ? "" : "s"}
             </span>
           </div>
           {!!displayLineup.location && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{displayLineup.location}</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {displayLineup.location}
+            </p>
           )}
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
             {rankedCount} ranked · {riddenCount} ridden
@@ -204,7 +229,7 @@ export function ParkModal({
               href={displayLineup.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 inline-block text-xs text-primary hover:underline"
+              className="detail-link"
             >
               View park on Coasterpedia
             </a>
@@ -215,7 +240,8 @@ export function ParkModal({
 
       {displayLineup.source === "localFallback" && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-          Showing only coasters already in CoasterCred for this park. This park&apos;s full lineup could not be loaded from Coasterpedia.
+          Showing only coasters already in CoasterCred for this park. This
+          park&apos;s full lineup could not be loaded from Coasterpedia.
         </div>
       )}
 
@@ -228,47 +254,31 @@ export function ParkModal({
           {loadError}
         </div>
       ) : displayLineup.coasters.length === 0 ? (
-        <div className="surface-card rounded-md px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="py-8 text-sm text-gray-500 dark:text-gray-400">
           No coasters are available for this park yet.
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="park-directory" aria-label="Park coasters">
           {displayLineup.coasters.map((coaster) => {
-            const stats = coaster._id ? myStatsByCoasterId?.[coaster._id] : undefined;
+            const stats = coaster._id
+              ? myStatsByCoasterId?.[coaster._id]
+              : undefined;
             return (
-              <button
+              <ParkCoasterRow
                 key={coaster.sourceId ?? coaster._id ?? coaster.name}
-                type="button"
+                name={getCoasterDisplayName(coaster)}
+                material={coaster.type}
+                score={stats?.currentScore}
+                rideCount={stats?.rideCount ?? (coaster._id ? undefined : 0)}
+                rank={stats?.currentRank}
                 onClick={() => onSelectCoaster(buildSelection(coaster))}
-                className="surface-card interactive-lift rounded-md p-3 text-left"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      {getCoasterDisplayName(coaster)}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {coaster.location || displayLineup.location || "Location unavailable"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className={getCoasterMaterialClasses(coaster.type)}>{coaster.type}</span>
-                    {typeof stats?.currentScore === "number" ? (
-                      <ScoreBadge score={stats.currentScore} size="sm" />
-                    ) : (stats?.rideCount ?? 0) > 0 ? (
-                      <span className="rounded-full border border-green-200 bg-green-50 px-2 py-1 text-[11px] font-medium text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-200">
-                        Ridden
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </button>
+              />
             );
           })}
         </div>
       )}
 
-      <p className="mt-4 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+      <p className="mt-2 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
         Coaster data by{" "}
         <a
           href="https://coasterpedia.net/"

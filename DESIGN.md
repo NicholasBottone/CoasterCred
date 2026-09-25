@@ -38,3 +38,13 @@ Taxonomy uses 11px medium-weight **text only**: cyan Steel, amber Wood, orchid H
 - Keep the profile introduction compact. Target 20–24px **total vertical padding** per mobile record row, without compressing labels or numbers.
 - Containers express trips or shared control scope; typography, spacing, and rules handle internal hierarchy. Avoid nested stat tiles. Do not remove useful grouping to pursue minimalism.
 - Reuse `VisitTicket`, `ProfileSummary`, `ProfileWrappedStats`, `RecentRides`, `ScoreBadge`, and shared tokens; avoid page-specific copies. Verify light/dark, 320px and 390px phones, desktop columns, long names, keyboard focus, and period-filter scope.
+
+## Detail sheets
+
+- `CoasterDetailHeader` groups the title and taxonomy/rating with a 4px gap, keeps Log and close side by side, and gives park/location the full width. Normalize location with the shared country-aware helper; never remove matching city/state names indiscriminately.
+- Coaster/track specifications and social stats use shared `DetailSheet` grids, muted labels, stronger values, and rules—not nested tiles. Keep every useful field; format units with spaces and grouped digits (`3,510 ft`).
+- Detail rhythm uses the existing spacing scale: 4px label/value gaps, 8px specification and summary row gaps, 12px section padding, and shared two-column starts with 16px gutters. Header text links use compact 32px rows; attribution links stay inline with normal paragraph line height. Display ride duration as `m:ss`; preserve seconds in data.
+- Park sheets are directories: wrapping coaster names, taxonomy, rating circles, ride/rank state, and a clear opening affordance. Show location once in the header; preserve ordering.
+- Track rows use one selection marker, plain ride/rank/log metadata, and track-specific Log actions. Reuse the standard specification sheet below; no repeated selected pills or viewing-track box.
+- Child logging flows supersede the parent sheet without losing its state. Comparisons ask “Which ranks higher?” and advance after choices; reserve restart wording for an actual reset. Preserve ranking/logging logic.
+- Keep 44px touch targets for primary actions and accordion controls, visible keyboard focus, focus containment/return, Escape dismissal, natural sheet scrolling, and a subtle usable scrollbar. Detail-only changes must not restyle the approved main screens.

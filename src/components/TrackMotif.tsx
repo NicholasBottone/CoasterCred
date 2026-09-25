@@ -105,14 +105,29 @@ export function PageHeading({
   title,
   motif,
   eyebrow = false,
+  subtitle,
 }: {
   title: string;
   motif: TrackVariant;
   eyebrow?: boolean;
+  subtitle?: ReactNode;
 }) {
   return (
     <div className="page-heading">
-      {eyebrow ? <p className="technical-label">{title}</p> : <h1>{title}</h1>}
+      {subtitle ? (
+        <div className="min-w-0">
+          {eyebrow ? (
+            <p className="technical-label">{title}</p>
+          ) : (
+            <h1>{title}</h1>
+          )}
+          <div className="mt-1">{subtitle}</div>
+        </div>
+      ) : eyebrow ? (
+        <p className="technical-label">{title}</p>
+      ) : (
+        <h1>{title}</h1>
+      )}
       <TrackMotif variant={motif} />
     </div>
   );

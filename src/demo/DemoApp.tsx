@@ -1,3 +1,10 @@
+import {
+  CoasterDetailHeader,
+  CoasterSpecifications,
+  DetailMetric as Metric,
+  DetailSection,
+  ParkCoasterRow,
+} from "../components/DetailSheet";
 import { Home, LockKeyhole, Repeat2 } from "lucide-react";
 import { PageHeading } from "../components/TrackMotif";
 import { VisitTicket } from "../components/VisitTicket";
@@ -93,6 +100,7 @@ export function DemoApp() {
 
       {selectedPark && (
         <DemoParkModal
+          suspended={selectedCoaster !== null || authOpen}
           park={selectedPark.park}
           location={selectedPark.location}
           onClose={() => setSelectedPark(null)}
@@ -530,7 +538,9 @@ function DemoParkModal({
   location,
   onClose,
   onOpenCoaster,
+  suspended,
 }: {
+  suspended?: boolean;
   park: string;
   location: string;
   onClose: () => void;
@@ -540,14 +550,19 @@ function DemoParkModal({
   const coasters = demoCoasters.filter((coaster) => coaster.park === park);
 
   return (
-    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <ModalContainer
+      onClose={onClose}
+      maxWidth="2xl"
+      scrollRef={scrollRef}
+      label={`${park} coaster directory`}
+      contentClassName="park-sheet"
+      suspended={suspended}
+    >
+      <div className="detail-header">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-xl font-bold text-gray-900 dark:text-gray-100">
-              {park}
-            </h3>
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
+            <h3 className="detail-title">{park}</h3>
+            <span className="detail-muted text-xs">
               {coasters.length} coaster{coasters.length === 1 ? "" : "s"}
             </span>
           </div>
@@ -559,22 +574,15 @@ function DemoParkModal({
         </div>
         <ModalCloseButton onClose={onClose} />
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="park-directory">
         {coasters.map((coaster) => (
-          <button
+          <ParkCoasterRow
             key={coaster.name}
-            type="button"
+            name={coaster.name}
+            material={coaster.type}
+            score={coaster.score}
             onClick={() => onOpenCoaster(coaster)}
-            className="surface-card interactive-lift flex items-center gap-3 rounded-md p-3 text-left"
-          >
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-              {coaster.name}
-            </span>
-            <span className={getCoasterMaterialClasses(coaster.type)}>
-              {coaster.type}
-            </span>
-            <ScoreBadge score={coaster.score} size="sm" />
-          </button>
+          />
         ))}
       </div>
     </ModalContainer>
@@ -594,128 +602,118 @@ function DemoCoasterModal({
   const [isLogPromptOpen, setIsLogPromptOpen] = useState(false);
 
   return (
-    <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-xl font-bold text-gray-900 dark:text-gray-100">
-              {coaster.name}
-            </h3>
-            <span className={getCoasterMaterialClasses(coaster.type)}>
-              {coaster.type}
-            </span>
-            <ScoreBadge score={coaster.score} size="sm" />
-          </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {coaster.park} · {coaster.location}
-          </p>
-        </div>
-        <div className="flex flex-none items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsLogPromptOpen(true)}
-            aria-label="Log ride"
-            className="inline-flex h-11 flex-none items-center gap-1.5 self-start rounded-full border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:bg-primary/15 dark:border-primary/30 dark:bg-primary/10"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
+    <>
+      <ModalContainer
+        onClose={onClose}
+        maxWidth="2xl"
+        scrollRef={scrollRef}
+        label={coaster.name}
+        contentClassName="coaster-sheet"
+        suspended={isLogPromptOpen}
+      >
+        <CoasterDetailHeader
+          title={coaster.name}
+          location={`${coaster.park} · ${coaster.location}`}
+          onClose={onClose}
+          metadata={
+            <>
+              <span className={getCoasterMaterialClasses(coaster.type)}>
+                {coaster.type}
+              </span>
+              <ScoreBadge score={coaster.score} size="sm" />
+            </>
+          }
+          logAction={
+            <button
+              type="button"
+              onClick={() => setIsLogPromptOpen(true)}
+              aria-label="Log ride"
+              className="detail-log-action"
             >
-              <path
-                d="M12 5V19M5 12H19"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>Log</span>
-          </button>
-          <ModalCloseButton onClose={onClose} />
-        </div>
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <Stat
-          label="Height"
-          value={coaster.heightFt ? `${coaster.heightFt}ft` : "—"}
-        />
-        <Stat
-          label="Speed"
-          value={coaster.speedMph ? `${coaster.speedMph}mph` : "—"}
-        />
-        <Stat label="Inversions" value={coaster.inversions ?? "—"} />
-        <Stat
-          label="Length"
-          value={coaster.lengthFt ? `${coaster.lengthFt}ft` : "—"}
-        />
-        <Stat label="Opened" value={coaster.yearOpened ?? "—"} />
-        <Stat label="Maker" value={coaster.manufacturer ?? "—"} />
-      </div>
-
-      <div className="mb-4 grid gap-4 md:grid-cols-2">
-        <section className="surface-subtle p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-              In CoasterCred
-            </h4>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">
-              Community snapshot
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Metric label="Unique riders" value={coaster.uniqueRiders} />
-            <Metric label="Total logs" value={coaster.totalLogs} />
-            <Metric
-              label="Followed riders"
-              value={coaster.friendRatings.length}
-            />
-            <Metric
-              label="Friends avg"
-              value={coaster.friendAverage.toFixed(1)}
-            />
-          </div>
-        </section>
-
-        <section className="surface-subtle p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-              Friends who rode this
-            </h4>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">
-              Preview
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {coaster.friendRatings.map((entry) => (
-              <div
-                key={entry.user.name}
-                className="surface-subtle flex items-center gap-3 px-3 py-3"
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
               >
-                <Avatar
-                  avatarUrl={entry.user.avatarUrl}
-                  name={entry.user.name}
-                  sizeClassName="w-9 h-9"
-                  textClassName="text-sm"
+                <path
+                  d="M12 5V19M5 12H19"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {entry.user.name}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    #{entry.rank} in their list
-                  </p>
-                </div>
-                <ScoreBadge score={entry.score} size="sm" />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+              </svg>
+              <span>Log</span>
+            </button>
+          }
+        />
 
+        <DetailSection title="Specifications">
+          <CoasterSpecifications coaster={coaster} />
+        </DetailSection>
+
+        <div className="detail-social">
+          <section className="detail-section">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                On CoasterCred
+              </h4>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                Community snapshot
+              </span>
+            </div>
+            <dl className="detail-metrics">
+              <Metric label="Unique riders" value={coaster.uniqueRiders} />
+              <Metric label="Total logs" value={coaster.totalLogs} />
+              <Metric
+                label="Followed riders"
+                value={coaster.friendRatings.length}
+              />
+              <Metric
+                label="Friends avg"
+                value={coaster.friendAverage.toFixed(1)}
+              />
+            </dl>
+          </section>
+
+          <section className="detail-section">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                Friends who rode this
+              </h4>
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                Preview
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {coaster.friendRatings.map((entry) => (
+                <div
+                  key={entry.user.name}
+                  className="detail-list-row flex items-center gap-3"
+                >
+                  <Avatar
+                    avatarUrl={entry.user.avatarUrl}
+                    name={entry.user.name}
+                    sizeClassName="w-9 h-9"
+                    textClassName="text-sm"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {entry.user.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      #{entry.rank} in their list
+                    </p>
+                  </div>
+                  <ScoreBadge score={entry.score} size="sm" />
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </ModalContainer>
       {isLogPromptOpen && (
         <DemoLogRidePromptModal
           coaster={coaster}
@@ -727,7 +725,7 @@ function DemoCoasterModal({
           }}
         />
       )}
-    </ModalContainer>
+    </>
   );
 }
 
@@ -747,13 +745,11 @@ function DemoLogRidePromptModal({
       onClose={onClose}
       scrollRef={scrollRef}
       overlayClassName="z-[60]"
-      contentClassName="shadow-2xl"
+      label="Log Ride"
     >
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="detail-header">
         <div className="min-w-0">
-          <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">
-            Log Ride
-          </h4>
+          <h4 className="detail-title">Log Ride</h4>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {coaster.name} · {coaster.park}
           </p>
@@ -846,25 +842,5 @@ function DemoInlineCta({ onClick }: { onClick: () => void }) {
     >
       Sign in to start
     </button>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="surface-subtle p-2 text-center">
-      <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-center dark:border-gray-800 dark:bg-gray-950">
-      <p className="text-lg font-bold text-primary">{value}</p>
-      <p className="text-[11px] text-gray-500 dark:text-gray-400">{label}</p>
-    </div>
   );
 }

@@ -88,82 +88,87 @@ export function MyListPage() {
   return (
     <>
       <div className="page-content">
-        <PageHeading title="My List" motif="roll" />
         <div
-          className="flex items-center justify-between mb-4"
+          className="my-list-heading"
           data-onboarding-target="my-list-summary"
         >
-          <div>
-            <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">
-              {rankings.length} coasters
+          <PageHeading
+            title="My List"
+            motif="roll"
+            subtitle={
+              <p className="ui-copy-disabled text-xs text-gray-400 dark:text-gray-500">
+                {rankings.length} coasters
+              </p>
+            }
+          />
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <p className="ui-copy-disabled flex-1 text-xs text-gray-400 dark:text-gray-500">
+              Head-to-head logging builds your list. Use arrows here for quick
+              manual tweaks.
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="group relative">
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                disabled={rankings.length === 0}
-                aria-label="Export CSV"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="h-5 w-5"
+            <div className="flex items-center gap-2">
+              <div className="group relative">
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  disabled={rankings.length === 0}
+                  aria-label="Export CSV"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <path
-                    d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
-              >
-                Export CSV
-              </span>
-            </div>
-            <div className="group relative">
-              <button
-                type="button"
-                onClick={() => setIsImportOpen(true)}
-                aria-label="Import CSV"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="h-5 w-5"
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="h-5 w-5"
+                  >
+                    <path
+                      d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
                 >
-                  <path
-                    d="M12 15V3m0 0 4 4m-4-4-4 4M5 17v3h14v-3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
-              >
-                Import CSV
-              </span>
+                  Export CSV
+                </span>
+              </div>
+              <div className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  aria-label="Import CSV"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-primary/30 text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:hover:bg-primary/10"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="h-5 w-5"
+                  >
+                    <path
+                      d="M12 15V3m0 0 4 4m-4-4-4 4M5 17v3h14v-3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0  transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 dark:bg-gray-100 dark:text-gray-900"
+                >
+                  Import CSV
+                </span>
+              </div>
             </div>
           </div>
         </div>
-        <p className="ui-copy-disabled mb-3 text-xs text-gray-400 dark:text-gray-500">
-          Head-to-head logging builds your list. Use arrows here for quick
-          manual tweaks.
-        </p>
         {rankings.length === 0 ? (
           <div className="surface-card flex flex-col items-center justify-center rounded-md px-4 py-14 text-center">
             <Trophy

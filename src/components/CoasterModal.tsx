@@ -1,7 +1,14 @@
+import {
+  CoasterDetailHeader,
+  CoasterSpecifications,
+  DetailMetric as Metric,
+  DetailSection,
+} from "./DetailSheet";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { normalizeCoasterLocation } from "../../convex/coasterLocation";
 import { toast } from "sonner";
 import {
   dateInputValueToTimestamp,
@@ -200,7 +207,6 @@ export function CoasterModal({
   );
   const scrollRef = useScrollToTop([
     isCoasterGroupSummary(coaster) ? coaster.multiTrackGroupId : coaster._id,
-    selectedTrackKey,
   ]);
 
   const [notes, setNotes] = useState("");
@@ -576,7 +582,10 @@ export function CoasterModal({
         }
       : null);
   const parkName = groupParent?.park ?? displayCoaster?.park ?? "";
-  const parkLocation = groupParent?.location ?? displayCoaster?.location ?? "";
+  const parkLocation = normalizeCoasterLocation(
+    groupParent?.location ?? displayCoaster?.location ?? "",
+    groupParent?.country ?? displayCoaster?.country,
+  );
   const parkDisplayLine = [parkName, parkLocation].filter(Boolean).join(" · ");
   const selectedTrackLabel = displayCoaster
     ? getCoasterTrackLabel(displayCoaster)
@@ -597,17 +606,28 @@ export function CoasterModal({
 
   return (
     <>
-      <ModalContainer onClose={onClose} maxWidth="2xl" scrollRef={scrollRef}>
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate text-xl font-bold text-gray-900 dark:text-gray-100">
-                {groupParent
-                  ? groupParent.name
-                  : displayCoaster
-                    ? getCoasterDisplayName(displayCoaster)
-                    : "Coaster"}
-              </h3>
+      <ModalContainer
+        onClose={onClose}
+        maxWidth="2xl"
+        contentClassName="coaster-sheet"
+        scrollRef={scrollRef}
+        label={groupParent?.name ?? displayCoaster?.name ?? "Coaster details"}
+        suspended={
+          isLogModalOpen || selectedPark !== null || drilldownCoaster !== null
+        }
+      >
+        <CoasterDetailHeader
+          title={
+            groupParent
+              ? groupParent.name
+              : displayCoaster
+                ? getCoasterDisplayName(displayCoaster)
+                : "Coaster"
+          }
+          location={parkDisplayLine || parkName || "Unknown park"}
+          onClose={onClose}
+          metadata={
+            <>
               <span
                 className={getCoasterMaterialClasses(
                   groupParent?.type ?? displayCoaster?.type,
@@ -616,14 +636,14 @@ export function CoasterModal({
                 {groupParent?.type ?? displayCoaster?.type}
               </span>
               {groupParent && (
-                <span className="rounded-full border border-sky-300 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300">
+                <span className="detail-muted text-xs">
                   {groupTrackEntries.length} track
                   {groupTrackEntries.length === 1 ? "" : "s"}
                 </span>
               )}
               {displayCoaster?.status &&
                 displayCoaster.status.toLowerCase() !== "operating" && (
-                  <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  <span className="text-xs text-amber-700 dark:text-amber-300">
                     {displayCoaster.status}
                   </span>
                 )}
@@ -634,149 +654,128 @@ export function CoasterModal({
                     size="sm"
                   />
                 )}
-            </div>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {parkDisplayLine || parkName || "Unknown park"}
-            </p>
-            {(parkName ||
-              groupParent?.sourceUrl ||
-              displayCoaster?.sourceUrl) && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                {parkName && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedPark({
-                        park: parkName,
-                        location: parkLocation || undefined,
-                      })
-                    }
-                    className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary-hover hover:underline underline-offset-2"
-                  >
-                    Browse park coasters
-                  </button>
-                )}
-                {(groupParent?.sourceUrl ?? displayCoaster?.sourceUrl) && (
-                  <a
-                    href={groupParent?.sourceUrl ?? displayCoaster?.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center text-xs font-medium text-primary transition-colors hover:text-primary-hover hover:underline underline-offset-2"
-                  >
-                    View coaster on Coasterpedia
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-none items-center gap-2">
-            {displayCoaster && (
+            </>
+          }
+          logAction={
+            displayCoaster && !groupParent ? (
               <LogActionButton
                 onClick={openLogModal}
                 ariaLabel={logButtonLabel}
               />
+            ) : undefined
+          }
+        />
+        {(parkName || groupParent?.sourceUrl || displayCoaster?.sourceUrl) && (
+          <div className="detail-header-nav">
+            {parkName && (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedPark({
+                    park: parkName,
+                    location: parkLocation || undefined,
+                  })
+                }
+                className="detail-link"
+              >
+                Browse park coasters
+              </button>
             )}
-            <ModalCloseButton onClose={onClose} />
+            {(groupParent?.sourceUrl ?? displayCoaster?.sourceUrl) && (
+              <a
+                href={groupParent?.sourceUrl ?? displayCoaster?.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="detail-link"
+              >
+                View coaster on Coasterpedia
+              </a>
+            )}
           </div>
-        </div>
+        )}
 
         {groupParent && aggregateStats && (
           <>
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric
-                label="Unique riders"
-                value={aggregateStats.uniqueRiderCount}
-              />
-              <Metric label="Total logs" value={aggregateStats.totalLogCount} />
-              <Metric label="My rides" value={aggregateStats.totalRideCount} />
-              <Metric
-                label="Tracks ridden"
-                value={`${aggregateStats.tracksRiddenCount}/${groupTrackEntries.length}`}
-              />
-            </div>
-
-            <section className="mb-4 rounded-md border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                    Tracks
-                  </h4>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    Select a specific track to view stats, history, and logging
-                    options.
-                  </p>
-                </div>
-                <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
+            <DetailSection title="On CoasterCred · All tracks">
+              <dl className="detail-metrics">
+                <Metric
+                  label="Unique riders"
+                  value={aggregateStats.uniqueRiderCount}
+                />
+                <Metric
+                  label="Total logs"
+                  value={aggregateStats.totalLogCount}
+                />
+                <Metric
+                  label="My rides"
+                  value={aggregateStats.totalRideCount}
+                />
+                <Metric
+                  label="Tracks ridden"
+                  value={`${aggregateStats.tracksRiddenCount}/${groupTrackEntries.length}`}
+                />
+              </dl>
+            </DetailSection>
+            <section className="detail-section" aria-label="Tracks">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h4 className="detail-section-title">Tracks</h4>
+                <span className="detail-muted text-xs">
                   {aggregateStats.tracksRankedCount} ranked
                 </span>
               </div>
-
-              <div className="mt-3 flex flex-col gap-2">
+              <p className="detail-muted mb-2 text-xs">
+                Select a track for specifications, stats, and history.
+              </p>
+              <div>
                 {groupTrackEntries.map((entry) => {
-                  const isSelected =
-                    getTrackKey(entry.coaster) === selectedTrackKey;
+                  const key = getTrackKey(entry.coaster);
+                  const isSelected = selectedTrackEntry
+                    ? key === getTrackKey(selectedTrackEntry.coaster)
+                    : false;
                   const trackLabel =
                     getCoasterTrackLabel(entry.coaster) ??
                     getCoasterDisplayName(entry.coaster);
-
                   return (
-                    <div
-                      key={getTrackKey(entry.coaster)}
-                      className={`rounded-md border px-3 py-3 transition-all ${
-                        isSelected
-                          ? "border-primary/40 bg-primary/5 dark:bg-primary/10"
-                          : "surface-subtle border-transparent"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <button
-                          onClick={() =>
-                            setSelectedTrackKey(getTrackKey(entry.coaster))
-                          }
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {trackLabel}
-                            </p>
-                            {isSelected && (
-                              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] uppercase tracking-wide text-white">
-                                Selected
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {entry.myStats.rideCount} ride
-                            {entry.myStats.rideCount === 1 ? "" : "s"}
+                    <div key={key} className="detail-track-row">
+                      <button
+                        type="button"
+                        className="detail-track-select"
+                        aria-pressed={isSelected}
+                        onClick={() => setSelectedTrackKey(key)}
+                      >
+                        <span
+                          className="track-selection-mark"
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0">
+                          <strong>
+                            {getCoasterDisplayName(entry.coaster)}
+                          </strong>
+                          <span className="detail-track-meta">
+                            {entry.myStats.rideCount}{" "}
+                            {entry.myStats.rideCount === 1 ? "ride" : "rides"}
                             {typeof entry.myStats.currentRank === "number"
-                              ? ` · #${entry.myStats.currentRank}`
+                              ? ` · Rank #${entry.myStats.currentRank}`
                               : " · Not ranked"}
-                          </p>
-                        </button>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {typeof entry.myStats.currentScore === "number" ? (
-                            <ScoreBadge
-                              score={entry.myStats.currentScore}
-                              size="sm"
-                            />
-                          ) : (
-                            <span className="rounded-full border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                              {entry.appStats.totalLogCount} logs
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openLogModalForTrack(getTrackKey(entry.coaster));
-                            }}
-                            aria-label={`Log ${trackLabel}`}
-                            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 dark:bg-primary/10"
-                          >
-                            <PlusIcon className="h-4 w-4" />
-                            <span>Log</span>
-                          </button>
-                        </div>
-                      </div>
+                            {` · ${entry.appStats.totalLogCount} ${entry.appStats.totalLogCount === 1 ? "log" : "logs"}`}
+                          </span>
+                        </span>
+                      </button>
+                      {typeof entry.myStats.currentScore === "number" && (
+                        <ScoreBadge
+                          score={entry.myStats.currentScore}
+                          size="sm"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        className="detail-track-log"
+                        onClick={() => openLogModalForTrack(key)}
+                        aria-label={`Log ${trackLabel}`}
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                        <span>Log</span>
+                      </button>
                     </div>
                   );
                 })}
@@ -785,110 +784,69 @@ export function CoasterModal({
           </>
         )}
 
-        {displayCoaster && groupParent && (
-          <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-300">
-            Viewing track:{" "}
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
-              {selectedTrackLabel ?? getCoasterDisplayName(displayCoaster)}
-            </span>
-          </div>
-        )}
-
         {displayCoaster && (
           <>
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {displayCoaster.heightFt && (
-                <Stat label="Height" value={`${displayCoaster.heightFt}ft`} />
-              )}
-              {displayCoaster.speedMph && (
-                <Stat label="Speed" value={`${displayCoaster.speedMph}mph`} />
-              )}
-              {displayCoaster.inversions !== undefined && (
-                <Stat label="Inversions" value={displayCoaster.inversions} />
-              )}
-              {displayCoaster.lengthFt && (
-                <Stat label="Length" value={`${displayCoaster.lengthFt}ft`} />
-              )}
-              {displayCoaster.yearOpened && (
-                <Stat label="Opened" value={displayCoaster.yearOpened} />
-              )}
-              {displayCoaster.manufacturer && (
-                <Stat label="Maker" value={displayCoaster.manufacturer} />
-              )}
-              {displayCoaster.product && (
-                <Stat label="Product" value={displayCoaster.product} />
-              )}
-              {displayCoaster.propulsion && (
-                <Stat label="Propulsion" value={displayCoaster.propulsion} />
-              )}
-              {displayCoaster.durationSeconds !== undefined && (
-                <Stat
-                  label="Duration"
-                  value={`${displayCoaster.durationSeconds}s`}
+            <DetailSection
+              title={
+                groupParent
+                  ? `${getCoasterDisplayName(displayCoaster)} · Specifications`
+                  : "Specifications"
+              }
+            >
+              <CoasterSpecifications coaster={displayCoaster} />
+            </DetailSection>
+            <DetailSection
+              title={
+                groupParent ? "On CoasterCred · This track" : "On CoasterCred"
+              }
+            >
+              <dl className="detail-metrics">
+                <Metric
+                  label="Unique riders"
+                  value={profileData?.appStats?.uniqueRiderCount ?? 0}
                 />
-              )}
-            </div>
+                <Metric
+                  label="Total logs"
+                  value={profileData?.appStats?.totalLogCount ?? 0}
+                />
+                <Metric
+                  label="Followed riders"
+                  value={friendSummary?.followedRiderCount ?? 0}
+                />
+                <Metric
+                  label="Friends avg"
+                  value={
+                    typeof friendSummary?.averageFollowedScore === "number"
+                      ? friendSummary.averageFollowedScore.toFixed(1)
+                      : "—"
+                  }
+                />
+              </dl>
+            </DetailSection>
+            <DetailSection
+              title={groupParent ? "Your status · This track" : "Your status"}
+            >
+              <dl className="detail-metrics detail-metrics-pair">
+                <Metric
+                  label="Ride count"
+                  value={profileData?.myStats?.rideCount ?? 0}
+                />
+                <Metric
+                  label="Rank"
+                  value={
+                    typeof profileData?.myStats?.currentRank === "number"
+                      ? `#${profileData.myStats.currentRank}`
+                      : "—"
+                  }
+                />
+              </dl>
+            </DetailSection>
 
-            <div className="mb-4 grid gap-4 md:grid-cols-2">
-              <section className="surface-subtle p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                    {groupParent
-                      ? "Selected track on CoasterCred"
-                      : "On CoasterCred"}
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Metric
-                    label="Unique riders"
-                    value={profileData?.appStats?.uniqueRiderCount ?? 0}
-                  />
-                  <Metric
-                    label="Total logs"
-                    value={profileData?.appStats?.totalLogCount ?? 0}
-                  />
-                  <Metric
-                    label="Followed riders"
-                    value={friendSummary?.followedRiderCount ?? 0}
-                  />
-                  <Metric
-                    label="Friends avg"
-                    value={
-                      typeof friendSummary?.averageFollowedScore === "number"
-                        ? friendSummary.averageFollowedScore.toFixed(1)
-                        : "—"
-                    }
-                  />
-                </div>
-              </section>
-
-              <section className="surface-subtle p-4 flex flex-col">
-                <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                    {groupParent ? "Your selected track status" : "Your status"}
-                  </h4>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Metric
-                    label="Ride count"
-                    value={profileData?.myStats?.rideCount ?? 0}
-                  />
-                  <Metric
-                    label="Rank"
-                    value={
-                      typeof profileData?.myStats?.currentRank === "number"
-                        ? `#${profileData.myStats.currentRank}`
-                        : "—"
-                    }
-                  />
-                </div>
-              </section>
-            </div>
-
-            <section className="mb-4 rounded-md border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
+            <section className="detail-section detail-accordion">
               <button
+                aria-expanded={isFriendsOpen}
                 onClick={() => setIsFriendsOpen((current) => !current)}
-                className="flex w-full items-center justify-between text-left"
+                className="detail-disclosure"
               >
                 <div>
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -899,8 +857,8 @@ export function CoasterModal({
               </button>
 
               {isFriendsOpen && (
-                <div className="mt-3">
-                  {loadedFollowedRiders === undefined ? (
+                <div className="detail-accordion-body">
+                  {followedRiders === undefined ? (
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Loading followed riders...
                     </p>
@@ -910,7 +868,7 @@ export function CoasterModal({
                     </p>
                   ) : (
                     <>
-                      <div className="mb-3 flex items-center justify-between">
+                      <div className="mb-1 flex items-center justify-between">
                         <p className="text-xs text-gray-400 dark:text-gray-500">
                           {loadedFollowedRiders.length} followed rider
                           {loadedFollowedRiders.length === 1 ? "" : "s"}
@@ -928,11 +886,11 @@ export function CoasterModal({
                           </button>
                         )}
                       </div>
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col">
                         {visibleFollowedRiders.map((entry: any) => (
                           <div
                             key={entry.user._id}
-                            className="surface-subtle flex items-center gap-3 px-3 py-3"
+                            className="detail-list-row flex items-center gap-3"
                           >
                             <Avatar
                               avatarUrl={entry.profile?.avatarUrl}
@@ -956,7 +914,7 @@ export function CoasterModal({
                             {typeof entry.score === "number" ? (
                               <ScoreBadge score={entry.score} size="sm" />
                             ) : (
-                              <span className="rounded-full border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                              <span className="detail-muted text-xs">
                                 {entry.rideCount} ride
                                 {entry.rideCount === 1 ? "" : "s"}
                               </span>
@@ -970,10 +928,11 @@ export function CoasterModal({
               )}
             </section>
 
-            <section className="mb-4 rounded-md border border-gray-200 bg-white px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
+            <section className="detail-section detail-accordion">
               <button
+                aria-expanded={isRideHistoryOpen}
                 onClick={() => setIsRideHistoryOpen((current) => !current)}
-                className="flex w-full items-center justify-between text-left"
+                className="detail-disclosure"
               >
                 <div>
                   <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -981,7 +940,9 @@ export function CoasterModal({
                   </h4>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
                     {profileData?.myStats?.rideCount ?? 0} total ride
-                    {(profileData?.myStats?.rideCount ?? 0) === 1 ? "" : "s"}{" "}
+                    {(profileData?.myStats?.rideCount ?? 0) === 1
+                      ? ""
+                      : "s"}{" "}
                     for this coaster
                   </p>
                 </div>
@@ -989,8 +950,8 @@ export function CoasterModal({
               </button>
 
               {isRideHistoryOpen && (
-                <div className="mt-3">
-                  {loadedRideHistory === undefined ? (
+                <div className="detail-accordion-body">
+                  {rideHistory === undefined ? (
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Loading ride history...
                     </p>
@@ -1000,11 +961,11 @@ export function CoasterModal({
                     </p>
                   ) : (
                     <>
-                      <div className="flex max-h-40 flex-col gap-2 overflow-y-auto">
+                      <div className="flex flex-col">
                         {loadedRideHistory.map((log: any) => (
                           <div
                             key={log._id}
-                            className="surface-subtle interactive-lift flex items-start gap-3 px-3 py-2"
+                            className="detail-list-row detail-history-row flex flex-wrap items-center gap-3"
                           >
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
@@ -1054,7 +1015,7 @@ export function CoasterModal({
           </>
         )}
 
-        <p className="mt-4 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
+        <p className="mt-2 text-[11px] leading-4 text-gray-400 dark:text-gray-500">
           Coaster data by{" "}
           <a
             href="https://coasterpedia.net/"
@@ -1066,46 +1027,46 @@ export function CoasterModal({
           </a>
           , licensed under CC-BY-SA 3.0.
         </p>
-
-        {displayCoaster && isLogModalOpen && (
-          <LogRideModal
-            mode={isEditingLog ? "edit" : "create"}
-            onClose={() => resetLogState(false)}
-            title={logModalTitle}
-            subtitle={logModalSubtitle}
-            coasterName={getCoasterDisplayName(displayCoaster)}
-            coasterPark={displayCoaster.park}
-            rideDate={rideDate}
-            notes={notes}
-            saving={saving}
-            loadingData={loadingData}
-            loadingComparison={loadingComparison}
-            hasCurrentRank={hasCurrentRank}
-            currentRank={profileData?.myStats?.currentRank ?? null}
-            currentScore={profileData?.myStats?.currentScore ?? null}
-            comparisonTarget={comparisonTarget}
-            shouldLoadComparisonList={shouldLoadComparisonList}
-            rankedCoasterCount={rankedCoasters.length}
-            onRideDateChange={setRideDate}
-            onNotesChange={setNotes}
-            onPrimaryAction={() =>
-              void (isEditingLog ? saveEditedLog() : startComparisonFlow())
-            }
-            onComparisonChoice={(winner) => void handleComparisonChoice(winner)}
-            onRerank={() => {
-              setIsLogModalOpen(true);
-              setIsRerankRequested(true);
-              setShouldLoadComparisonList(true);
-              if (rankedCoasters.length > 0) {
-                setComparisonBounds({ low: 0, high: rankedCoasters.length });
-              }
-            }}
-          />
-        )}
       </ModalContainer>
+      {displayCoaster && isLogModalOpen && (
+        <LogRideModal
+          mode={isEditingLog ? "edit" : "create"}
+          onClose={() => resetLogState(false)}
+          title={logModalTitle}
+          subtitle={logModalSubtitle}
+          coasterName={getCoasterDisplayName(displayCoaster)}
+          coasterPark={displayCoaster.park}
+          rideDate={rideDate}
+          notes={notes}
+          saving={saving}
+          loadingData={loadingData}
+          loadingComparison={loadingComparison}
+          hasCurrentRank={hasCurrentRank}
+          currentRank={profileData?.myStats?.currentRank ?? null}
+          currentScore={profileData?.myStats?.currentScore ?? null}
+          comparisonTarget={comparisonTarget}
+          shouldLoadComparisonList={shouldLoadComparisonList}
+          rankedCoasterCount={rankedCoasters.length}
+          onRideDateChange={setRideDate}
+          onNotesChange={setNotes}
+          onPrimaryAction={() =>
+            void (isEditingLog ? saveEditedLog() : startComparisonFlow())
+          }
+          onComparisonChoice={(winner) => void handleComparisonChoice(winner)}
+          onRerank={() => {
+            setIsLogModalOpen(true);
+            setIsRerankRequested(true);
+            setShouldLoadComparisonList(true);
+            if (rankedCoasters.length > 0) {
+              setComparisonBounds({ low: 0, high: rankedCoasters.length });
+            }
+          }}
+        />
+      )}
 
       {selectedPark && (
         <ParkModal
+          suspended={drilldownCoaster !== null}
           park={selectedPark.park}
           initialLocation={selectedPark.location}
           initialSourceUrl={selectedPark.sourceUrl}
@@ -1125,26 +1086,6 @@ export function CoasterModal({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="surface-subtle p-2 flex flex-col justify-center items-center text-center">
-      <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-center dark:border-gray-800 dark:bg-gray-950">
-      <p className="text-lg font-bold text-primary">{value}</p>
-      <p className="text-[11px] text-gray-500 dark:text-gray-400">{label}</p>
-    </div>
-  );
-}
-
 function LogActionButton({
   onClick,
   ariaLabel,
@@ -1157,7 +1098,7 @@ function LogActionButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="inline-flex h-11 flex-none items-center gap-1.5 self-start rounded-full border border-primary/20 bg-primary/5 px-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 active:bg-primary/15 dark:border-primary/30 dark:bg-primary/10"
+      className="detail-log-action"
     >
       <PlusIcon className="h-4 w-4" />
       <span>Log</span>
@@ -1245,13 +1186,11 @@ function LogRideModal({
       maxWidth="md"
       scrollRef={scrollRef}
       overlayClassName="z-[60]"
-      contentClassName="shadow-2xl"
+      label={title}
     >
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="detail-header">
         <div className="min-w-0">
-          <h4 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100">
-            {title}
-          </h4>
+          <h4 className="detail-title">{title}</h4>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {subtitle}
           </p>
@@ -1270,10 +1209,14 @@ function LogRideModal({
       )}
 
       <div className="mb-3">
-        <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
+        <label
+          htmlFor="log-ride-date"
+          className="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+        >
           Ride date
         </label>
         <input
+          id="log-ride-date"
           type="date"
           value={rideDate}
           max={todayDateInputValue()}
@@ -1282,7 +1225,14 @@ function LogRideModal({
         />
       </div>
 
+      <label
+        htmlFor="log-ride-notes"
+        className="mb-1 block text-xs text-gray-500 dark:text-gray-400"
+      >
+        Notes (optional)
+      </label>
       <textarea
+        id="log-ride-notes"
         placeholder="Notes (optional)..."
         value={notes}
         maxLength={500}
@@ -1292,24 +1242,24 @@ function LogRideModal({
       />
 
       {mode === "edit" ? null : loadingData ? (
-        <div className="mb-3 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
-          Loading your current rankings...
-        </div>
+        <div className="detail-help">Loading your current rankings...</div>
       ) : loadingComparison ? (
-        <div className="mb-3 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+        <div className="detail-help">
           Loading the ranking comparison list...
         </div>
       ) : comparisonTarget ? (
-        <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Which coaster is better?
+        <div className="detail-comparison">
+          <p className="detail-section-title">Which ranks higher?</p>
+          <p className="sr-only" role="status">
+            Compare {coasterName} with{" "}
+            {comparisonTarget.coaster?.name ?? "Unknown"}.
           </p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="comparison-options">
             <button
               type="button"
               onClick={() => onComparisonChoice("selected")}
               disabled={saving}
-              className="rounded-md border border-primary/20 bg-white px-3 py-3 text-left  transition hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5  disabled:opacity-50 dark:border-primary/30 dark:bg-gray-950 dark:hover:bg-primary/10"
+              className="comparison-option"
             >
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {coasterName}
@@ -1322,7 +1272,7 @@ function LogRideModal({
               type="button"
               onClick={() => onComparisonChoice("other")}
               disabled={saving}
-              className="rounded-md border border-gray-200 bg-white px-3 py-3 text-left  transition hover:-translate-y-1 hover:border-gray-300 hover:bg-gray-100  disabled:opacity-50 dark:border-gray-700 dark:bg-gray-950 dark:hover:bg-gray-800"
+              className="comparison-option"
             >
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                 {comparisonTarget.coaster?.name ?? "Unknown"}
@@ -1337,7 +1287,7 @@ function LogRideModal({
           </p>
         </div>
       ) : (
-        <div className="mb-3 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+        <div className="detail-help">
           {hasCurrentRank
             ? "Logging another ride adds it to your history. Use Re-rank if you want to move it in your list."
             : shouldLoadComparisonList && rankedCoasterCount === 0
@@ -1348,29 +1298,29 @@ function LogRideModal({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onPrimaryAction}
-          disabled={saving || (mode === "create" && loadingData)}
-          className="flex-1 rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
-        >
-          {mode === "edit"
-            ? "Save Changes"
-            : comparisonTarget
-              ? "Restart Comparisons"
+      <div className="detail-log-footer">
+        {(!comparisonTarget || mode === "edit") && (
+          <button
+            type="button"
+            onClick={onPrimaryAction}
+            disabled={saving || (mode === "create" && loadingData)}
+            className="min-h-11 flex-1 rounded bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          >
+            {mode === "edit"
+              ? "Save Changes"
               : hasCurrentRank
                 ? "Log Ride"
                 : "Log and Rank Ride"}
-        </button>
+          </button>
+        )}
         {mode === "create" && hasCurrentRank && (
           <button
             type="button"
             onClick={onRerank}
             disabled={saving || loadingComparison}
-            className="rounded-md border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
+            className="min-h-11 rounded border border-primary/30 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/5 dark:hover:bg-primary/10 disabled:opacity-50"
           >
-            Re-rank
+            {comparisonTarget ? "Restart ranking" : "Re-rank"}
           </button>
         )}
       </div>
