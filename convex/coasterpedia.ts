@@ -1,3 +1,5 @@
+import { locationHasPart, normalizeCoasterLocation } from "./coasterLocation";
+
 export const COASTERPEDIA_SOURCE = "coasterpedia";
 export const COASTERPEDIA_API = "https://coasterpedia.net/w/api.php";
 
@@ -179,8 +181,18 @@ function normalizeLocation(fields: Record<string, string>) {
   const city = cleanWikiText(fields.location);
   const state = cleanWikiText(fields.state);
   const country = cleanWikiText(fields.country);
-  const parts = [city, state || country].filter(Boolean);
-  return parts.join(", ");
+  const suffix = state || country;
+  if (!suffix || locationHasPart(city, suffix, Boolean(state))) {
+    return normalizeCoasterLocation(city, country);
+  }
+
+  const parts = city.split(",").map((part) => part.trim()).filter(Boolean);
+  if (state && country && parts.length > 0 && parts[parts.length - 1].toLowerCase() === country.toLowerCase()) {
+    parts.splice(parts.length - 1, 0, state);
+  } else {
+    parts.push(suffix);
+  }
+  return normalizeCoasterLocation(parts.join(", "), country);
 }
 
 function normalizeCountry(fields: Record<string, string>) {

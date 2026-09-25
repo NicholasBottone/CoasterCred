@@ -1,5 +1,6 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import { computeRankingScore } from "./rankingScore";
+import { normalizeCoasterLocation } from "./coasterLocation";
 
 export type FeedLog = Doc<"rideLogs"> & { coaster: Doc<"coasters"> | null };
 
@@ -19,7 +20,7 @@ export function feedGroupKey(log: Doc<"rideLogs">, coaster: Doc<"coasters"> | nu
   return JSON.stringify([
     feedRideDate(log),
     coaster?.park.trim().toLowerCase() ?? String(log.coasterId),
-    coaster?.location.trim().toLowerCase() ?? "",
+    coaster ? normalizeCoasterLocation(coaster.location, coaster.country).toLowerCase() : "",
   ]);
 }
 
@@ -29,7 +30,7 @@ function feedCoasterSummary(coaster: Doc<"coasters">) {
     name: coaster.name,
     parentName: coaster.parentName,
     park: coaster.park,
-    location: coaster.location,
+    location: normalizeCoasterLocation(coaster.location, coaster.country),
     country: coaster.country,
     type: coaster.type,
     source: coaster.source,
@@ -83,7 +84,9 @@ export function groupFeedLogs(
       group = {
         key,
         park: log.coaster?.park ?? "Unknown park",
-        location: log.coaster?.location ?? "",
+        location: log.coaster
+          ? normalizeCoasterLocation(log.coaster.location, log.coaster.country)
+          : "",
         rideDate: feedRideDate(log),
         lastActivityAt: log._creationTime,
         firstCreditCount: 0,

@@ -10,6 +10,7 @@
 
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
+import type * as coasterLocation from "../coasterLocation.js";
 import type * as coasterpedia from "../coasterpedia.js";
 import type * as coasters from "../coasters.js";
 import type * as crons from "../crons.js";
@@ -34,6 +35,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
+  coasterLocation: typeof coasterLocation;
   coasterpedia: typeof coasterpedia;
   coasters: typeof coasters;
   crons: typeof crons;
