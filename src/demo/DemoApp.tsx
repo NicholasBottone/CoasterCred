@@ -9,9 +9,12 @@ import { Home, LockKeyhole, Repeat2 } from "lucide-react";
 import { PageHeading } from "../components/TrackMotif";
 import { VisitTicket } from "../components/VisitTicket";
 import { ProfileSummary } from "../components/ProfileSummary";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { SignInForm } from "../SignInForm";
-import { AppShell, type Tab } from "../components/AppShell";
+import { AppShell } from "../components/AppShell";
+import { NotFoundPage } from "../components/NotFoundPage";
+import { tabFromPath } from "../routes";
 import { Avatar } from "../components/Avatar";
 import { FeedRiderDetails } from "../components/FeedRiderDetails";
 import { ModalCloseButton, ModalContainer } from "../components/ModalContainer";
@@ -29,7 +32,8 @@ import {
 } from "./demoData";
 
 export function DemoApp() {
-  const [tab, setTab] = useState<Tab>("feed");
+  const location = useLocation();
+  const tab = tabFromPath(location.pathname);
   const [authOpen, setAuthOpen] = useState(false);
   const [selectedCoaster, setSelectedCoaster] = useState<DemoCoaster | null>(
     null,
@@ -42,11 +46,17 @@ export function DemoApp() {
 
   const openAuth = () => setAuthOpen(true);
 
+  useEffect(() => {
+    setAuthOpen(false);
+    setSelectedCoaster(null);
+    setSelectedPark(null);
+    setSelectedUser(null);
+  }, [location.pathname]);
+
   return (
     <>
       <AppShell
         tab={tab}
-        onSelectTab={setTab}
         headerAction={
           <button
             onClick={openAuth}
@@ -77,30 +87,68 @@ export function DemoApp() {
           </div>
         }
       >
-        {tab === "feed" && (
-          <DemoFeedPage
-            onOpenAuth={openAuth}
-            onOpenCoaster={setSelectedCoaster}
-            onOpenPark={setSelectedPark}
-            onOpenUser={setSelectedUser}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <DemoFeedPage
+                onOpenAuth={openAuth}
+                onOpenCoaster={setSelectedCoaster}
+                onOpenPark={setSelectedPark}
+                onOpenUser={setSelectedUser}
+              />
+            }
           />
-        )}
-        {tab === "myList" && <DemoMyListPage onOpenAuth={openAuth} />}
-        {tab === "search" && (
-          <LockedDemoPage
-            title="Search Coasters"
-            body="Sign in to search Coasterpedia and log your rides."
-            onOpenAuth={openAuth}
+          <Route
+            path="/my-list"
+            element={<DemoMyListPage onOpenAuth={openAuth} />}
           />
-        )}
-        {tab === "rankings" && <DemoRankingsPage onOpenAuth={openAuth} />}
-        {tab === "profile" && (
-          <LockedDemoPage
-            title="Build your profile"
-            body="Create your coaster profile, follow friends, and track your rankings."
-            onOpenAuth={openAuth}
+          <Route
+            path="/search"
+            element={
+              <LockedDemoPage
+                title="Search Coasters"
+                body="Sign in to search Coasterpedia and log your rides."
+                onOpenAuth={openAuth}
+              />
+            }
           />
-        )}
+          <Route
+            path="/rankings"
+            element={<DemoRankingsPage onOpenAuth={openAuth} />}
+          />
+          <Route
+            path="/profile"
+            element={
+              <LockedDemoPage
+                title="Build your profile"
+                body="Create your coaster profile, follow friends, and track your rankings."
+                onOpenAuth={openAuth}
+              />
+            }
+          />
+          <Route
+            path="/riders/:userId"
+            element={
+              <LockedDemoPage
+                title="Rider profile"
+                body="Sign in to view this rider's profile."
+                onOpenAuth={openAuth}
+              />
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <LockedDemoPage
+                title="Admin"
+                body="Sign in to continue."
+                onOpenAuth={openAuth}
+              />
+            }
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
       </AppShell>
 
       {selectedPark && (

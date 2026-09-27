@@ -416,17 +416,19 @@ export const getPublicProfilePreview = query({
 });
 
 export const getPublicProfilePage = query({
-  args: { userId: v.id("users") },
+  args: { userId: v.string() },
   handler: async (ctx, args) => {
+    const userId = ctx.db.normalizeId("users", args.userId);
+    if (!userId) return null;
     const viewerUserId = await getAuthUserId(ctx);
-    const summary = await getPublicUserSummary(ctx, args.userId, viewerUserId);
+    const summary = await getPublicUserSummary(ctx, userId, viewerUserId);
     if (!summary) {
       return null;
     }
 
     const recentLogs = await ctx.db
       .query("rideLogs")
-      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_and_riddenAt", (q) => q.eq("userId", userId))
       .order("desc")
       .take(3);
 

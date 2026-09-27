@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
 import {
   House,
   ListOrdered,
@@ -9,8 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type Tab =
-  "feed" | "myList" | "search" | "rankings" | "profile" | "admin";
+import { TAB_PATHS, type Tab } from "../routes";
 
 const GITHUB_REPO_URL = "https://github.com/NicholasBottone/CoasterCred";
 
@@ -31,8 +31,8 @@ export function AppShell({
   bottomBanner,
   availableTabs,
 }: {
-  tab: Tab;
-  onSelectTab: (tab: Tab) => void;
+  tab: Tab | null;
+  onSelectTab?: (tab: Tab) => void;
   children: ReactNode;
   headerAction?: ReactNode;
   banner?: ReactNode;
@@ -43,9 +43,10 @@ export function AppShell({
     (item) => availableTabs?.includes(item.id) ?? true,
   );
   const mainRef = useRef<HTMLElement>(null);
+  const location = useLocation();
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
-  }, [tab]);
+  }, [location.pathname]);
   const currentYear = new Date().getFullYear();
 
   return (
@@ -91,10 +92,22 @@ export function AppShell({
 
       <nav className="app-chrome app-nav" aria-label="Main navigation">
         {visibleNavItems.map(({ id, label, icon: Icon }) => (
-          <button
+          <Link
             key={id}
-            type="button"
-            onClick={() => onSelectTab(id)}
+            to={TAB_PATHS[id]}
+            onClick={(event) => {
+              if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              ) {
+                return;
+              }
+              if (location.pathname === TAB_PATHS[id]) event.preventDefault();
+              onSelectTab?.(id);
+            }}
             data-onboarding-target={`nav-${id}`}
             aria-current={tab === id ? "page" : undefined}
           >
@@ -104,7 +117,7 @@ export function AppShell({
               strokeWidth={tab === id ? 2 : 1.75}
             />
             <span>{label}</span>
-          </button>
+          </Link>
         ))}
       </nav>
     </div>

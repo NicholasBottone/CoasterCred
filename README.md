@@ -21,6 +21,12 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
   - `convex/schema.ts` — Application schema, including profiles, follows, coasters, ride logs, and rankings.
   - `convex/auth.ts` — Convex Auth configuration for Discord and Google OAuth sign-in.
 
+### Page URLs
+
+Feed is at `/`. My List, Search, Rankings, and your profile are at `/my-list`, `/search`, `/rankings`, and `/profile`. Rider profiles have shareable `/riders/:userId` URLs, and the admin page is at `/admin` for authorized users. Browser Back and Forward follow these page changes. Detail sheets remain local UI, while onboarding page changes replace the current history entry.
+
+The frontend host must serve `index.html` for direct requests to these paths so a shared link or refresh loads the React app. Convex Auth returns visitors to the URL they opened after sign-in.
+
 ### Auth Environment Variables
 
 - `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` — Discord OAuth credentials.
@@ -31,6 +37,7 @@ CoasterCred is a social coaster-tracking app inspired by Beli. Users can log rid
 ### Local Development Commands
 
 `npm run dev` starts the frontend and Convex backend locally.
+`npm test` runs the route navigation and direct-entry checks without a backend connection.
 
 ## Current Product Notes
 

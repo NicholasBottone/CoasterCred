@@ -207,7 +207,7 @@ select {
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
 }
-.app-nav button {
+.app-nav a {
   position: relative;
   min-height: 52px;
   min-width: 44px;
@@ -220,15 +220,19 @@ select {
   color: var(--cc-muted);
   font-size: 11px;
 }
-.app-nav button[aria-current] {
+.app-nav a[aria-current] {
   color: rgb(var(--cc-brand));
   font-weight: 600;
 }
-.app-nav button:active svg {
+.app-nav a:active svg {
   transform: scale(0.94);
 }
-.app-nav button:hover {
+.app-nav a:hover {
   color: rgb(var(--cc-brand));
+}
+.app-nav a:focus-visible {
+  outline: 2px solid rgb(var(--cc-brand));
+  outline-offset: -2px;
 }
 .page-content {
   width: 100%;
@@ -755,7 +759,7 @@ select {
     padding: 20px 0;
     gap: 4px;
   }
-  .app-nav button {
+  .app-nav a {
     flex: none;
     flex-direction: row;
     justify-content: flex-start;
@@ -764,7 +768,7 @@ select {
     gap: 10px;
     font-size: 13px;
   }
-  .app-nav button[aria-current]::before {
+  .app-nav a[aria-current]::before {
     content: "";
     position: absolute;
     left: 0;

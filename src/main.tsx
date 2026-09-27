@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import { registerSW } from "virtual:pwa-register";
+import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App";
 
@@ -19,6 +20,8 @@ const updateSW = registerSW({
 
 createRoot(document.getElementById("root")!).render(
   <ConvexAuthProvider client={convex}>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ConvexAuthProvider>,
 );

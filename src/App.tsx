@@ -1,6 +1,19 @@
 import { RollerCoaster } from "lucide-react";
-import { Authenticated, Unauthenticated, useConvexAuth, useMutation, useQuery } from "convex/react";
-import { flushSync } from "react-dom";
+import {
+  Authenticated,
+  Unauthenticated,
+  useConvexAuth,
+  useMutation,
+  useQuery,
+} from "convex/react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { Toaster } from "sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SignOutButton } from "./SignOutButton";
@@ -12,10 +25,15 @@ import { SearchPage } from "./pages/SearchPage";
 import { MyListPage } from "./pages/MyListPage";
 import { PublicProfilePage } from "./pages/PublicProfilePage";
 import { AdminPage } from "./pages/AdminPage";
-import { AppShell, type Tab } from "./components/AppShell";
+import { AppShell } from "./components/AppShell";
+import { NotFoundPage } from "./components/NotFoundPage";
 import { Avatar } from "./components/Avatar";
-import { OnboardingTour, type OnboardingStep } from "./components/OnboardingTour";
+import {
+  OnboardingTour,
+  type OnboardingStep,
+} from "./components/OnboardingTour";
 import { DemoApp } from "./demo/DemoApp";
+import { riderPath, tabFromPath, TAB_PATHS, type Tab } from "./routes";
 
 type ThemeMode = "auto" | "light" | "dark";
 type SearchMode = "coasters" | "members";
@@ -24,7 +42,9 @@ const THEME_STORAGE_KEY = "coastercred-theme";
 const ONBOARDING_VERSION = 1;
 
 function focusSearchInput() {
-  const input = document.querySelector<HTMLInputElement>('[data-search-autofocus="true"]');
+  const input = document.querySelector<HTMLInputElement>(
+    '[data-search-autofocus="true"]',
+  );
   input?.focus();
   input?.select();
 }
@@ -34,14 +54,17 @@ export default function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") return "auto";
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === "light" || stored === "dark" || stored === "auto" ? stored : "auto";
+    return stored === "light" || stored === "dark" || stored === "auto"
+      ? stored
+      : "auto";
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
-      const isDark = themeMode === "dark" || (themeMode === "auto" && media.matches);
+      const isDark =
+        themeMode === "dark" || (themeMode === "auto" && media.matches);
       document.documentElement.classList.toggle("dark", isDark);
       document.documentElement.style.colorScheme = isDark ? "dark" : "light";
     };
@@ -59,7 +82,10 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {isLoading && <AuthLoadingScreen />}
       <Authenticated>
-        <AuthenticatedApp themeMode={themeMode} onThemeModeChange={setThemeMode} />
+        <AuthenticatedApp
+          themeMode={themeMode}
+          onThemeModeChange={setThemeMode}
+        />
       </Authenticated>
       <Unauthenticated>
         <DemoApp />
@@ -77,7 +103,9 @@ function AuthLoadingScreen() {
         <span className="text-2xl font-bold">CoasterCred</span>
       </div>
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-      <p className="text-sm text-gray-500 dark:text-gray-400">Signing you in...</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        Signing you in...
+      </p>
     </div>
   );
 }
@@ -89,40 +117,62 @@ function AuthenticatedApp({
   themeMode: ThemeMode;
   onThemeModeChange: (themeMode: ThemeMode) => void;
 }) {
-  const [tab, setTab] = useState<Tab>("feed");
-  const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
-  const [guidedSearchMode, setGuidedSearchMode] = useState<SearchMode | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routeState = location.state as {
+    fromApp?: boolean;
+    fromTab?: Tab;
+  } | null;
+  const tab =
+    tabFromPath(location.pathname) ??
+    (location.pathname.startsWith("/riders/")
+      ? (routeState?.fromTab ?? null)
+      : null);
+  const [guidedSearchMode, setGuidedSearchMode] = useState<SearchMode | null>(
+    null,
+  );
   const [tourOpen, setTourOpen] = useState(false);
   const [hasAutoOpenedTour, setHasAutoOpenedTour] = useState(false);
   const viewerShell = useQuery(api.profiles.getViewerShell);
   const markOnboardingSeen = useMutation(api.profiles.markOnboardingSeen);
   const isAdmin = viewerShell?.isAdmin ?? false;
-  const availableTabs: Tab[] = ["feed", "myList", "search", "rankings", "profile"];
-
-  useEffect(() => {
-    if (tab === "admin" && viewerShell !== undefined && !isAdmin) {
-      setTab("feed");
-    }
-  }, [isAdmin, tab, viewerShell]);
+  const availableTabs: Tab[] = [
+    "feed",
+    "myList",
+    "search",
+    "rankings",
+    "profile",
+  ];
 
   const handleSelectTab = (nextTab: Tab) => {
     setGuidedSearchMode(null);
-
-    if (nextTab === "search") {
-      flushSync(() => {
-        setPublicProfileUserId(null);
-        setTab("search");
-      });
+    if (nextTab === "search" && location.pathname === TAB_PATHS.search) {
       focusSearchInput();
-      return;
     }
+  };
 
-    setPublicProfileUserId(null);
-    setTab(nextTab);
+  const openPublicProfile = (userId: string) => {
+    const path = riderPath(userId);
+    if (location.pathname !== path) {
+      navigate(path, { state: { fromApp: true, fromTab: tab } });
+    }
+  };
+
+  const backFromPublicProfile = () => {
+    if (routeState?.fromApp) {
+      navigate(-1);
+    } else {
+      navigate(TAB_PATHS.feed, { replace: true });
+    }
   };
 
   useEffect(() => {
-    if (hasAutoOpenedTour || viewerShell === undefined || viewerShell === null) {
+    if (
+      hasAutoOpenedTour ||
+      viewerShell === undefined ||
+      viewerShell === null ||
+      location.pathname !== TAB_PATHS.feed
+    ) {
       return;
     }
 
@@ -130,7 +180,7 @@ function AuthenticatedApp({
       setHasAutoOpenedTour(true);
       setTourOpen(true);
     }
-  }, [hasAutoOpenedTour, viewerShell]);
+  }, [hasAutoOpenedTour, location.pathname, viewerShell]);
 
   const markTourSeen = useCallback(async () => {
     try {
@@ -153,9 +203,8 @@ function AuthenticatedApp({
         title: "Welcome to CoasterCred",
         body: "This quick tour shows the fastest path to logging rides, building rankings, and finding friends.",
         onEnter: () => {
-          setPublicProfileUserId(null);
           setGuidedSearchMode(null);
-          setTab("feed");
+          navigate(TAB_PATHS.feed, { replace: true });
         },
       },
       {
@@ -165,9 +214,8 @@ function AuthenticatedApp({
         targetSelector: '[data-onboarding-target="nav-search"]',
         placement: "top",
         onEnter: () => {
-          setPublicProfileUserId(null);
           setGuidedSearchMode("coasters");
-          setTab("search");
+          navigate(TAB_PATHS.search, { replace: true });
         },
       },
       {
@@ -176,9 +224,8 @@ function AuthenticatedApp({
         body: "Search for a coaster, open a result, then tap Log to record the ride and place it in your rankings.",
         targetSelector: '[data-onboarding-target="coaster-search-input"]',
         onEnter: () => {
-          setPublicProfileUserId(null);
           setGuidedSearchMode("coasters");
-          setTab("search");
+          navigate(TAB_PATHS.search, { replace: true });
         },
       },
       {
@@ -187,9 +234,8 @@ function AuthenticatedApp({
         body: "Switch to Members, search by name or handle, then follow people to see their ride activity and coaster overlap.",
         targetSelector: '[data-onboarding-target="member-search-input"]',
         onEnter: () => {
-          setPublicProfileUserId(null);
           setGuidedSearchMode("members");
-          setTab("search");
+          navigate(TAB_PATHS.search, { replace: true });
         },
       },
       {
@@ -199,13 +245,12 @@ function AuthenticatedApp({
         targetSelector: '[data-onboarding-target="nav-myList"]',
         placement: "top",
         onEnter: () => {
-          setPublicProfileUserId(null);
           setGuidedSearchMode(null);
-          setTab("myList");
+          navigate(TAB_PATHS.myList, { replace: true });
         },
       },
     ],
-    [],
+    [navigate],
   );
 
   return (
@@ -219,48 +264,94 @@ function AuthenticatedApp({
             viewerShell={viewerShell}
             onOpenAdmin={() => {
               setGuidedSearchMode(null);
-              setPublicProfileUserId(null);
-              setTab("admin");
+              navigate(TAB_PATHS.admin);
             }}
             onStartTutorial={() => {
-              setPublicProfileUserId(null);
               setTourOpen(true);
             }}
           />
         }
         availableTabs={availableTabs}
       >
-        {publicProfileUserId ? (
-          <PublicProfilePage
-            userId={publicProfileUserId}
-            onBack={() => setPublicProfileUserId(null)}
-            onViewProfile={(userId) => setPublicProfileUserId(userId)}
-          />
-        ) : (
-          <>
-            {tab === "feed" && (
+        <Routes>
+          <Route
+            path="/"
+            element={
               <FeedPage
-                onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
-                onOpenSearch={() => handleSelectTab("search")}
+                onViewPublicProfile={openPublicProfile}
+                onOpenSearch={() => navigate(TAB_PATHS.search)}
               />
-            )}
-            {tab === "myList" && <MyListPage />}
-            {tab === "search" && <SearchPage guidedMode={guidedSearchMode} />}
-            {tab === "rankings" && <RankingsPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
-            {tab === "admin" && <AdminPage onViewPublicProfile={(userId) => setPublicProfileUserId(userId)} />}
-            {tab === "profile" && (
+            }
+          />
+          <Route path="/my-list" element={<MyListPage />} />
+          <Route
+            path="/search"
+            element={<SearchPage guidedMode={guidedSearchMode} />}
+          />
+          <Route
+            path="/rankings"
+            element={<RankingsPage onViewPublicProfile={openPublicProfile} />}
+          />
+          <Route
+            path="/profile"
+            element={
               <ProfilePage
-                onViewPublicProfile={(userId) => setPublicProfileUserId(userId)}
-                onOpenMyList={() => handleSelectTab("myList")}
+                onViewPublicProfile={openPublicProfile}
+                onOpenMyList={() => navigate(TAB_PATHS.myList)}
                 themeMode={themeMode}
                 onThemeModeChange={onThemeModeChange}
               />
-            )}
-          </>
-        )}
+            }
+          />
+          <Route
+            path="/riders/:userId"
+            element={
+              <PublicRiderRoute
+                onBack={backFromPublicProfile}
+                onViewProfile={openPublicProfile}
+              />
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              viewerShell === undefined ? (
+                <AuthLoadingScreen />
+              ) : isAdmin ? (
+                <AdminPage onViewPublicProfile={openPublicProfile} />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
       </AppShell>
-      <OnboardingTour open={tourOpen} steps={onboardingSteps} onClose={closeTour} />
+      <OnboardingTour
+        open={tourOpen}
+        steps={onboardingSteps}
+        onClose={closeTour}
+      />
     </>
+  );
+}
+
+function PublicRiderRoute({
+  onBack,
+  onViewProfile,
+}: {
+  onBack: () => void;
+  onViewProfile: (userId: string) => void;
+}) {
+  const { userId } = useParams();
+  if (!userId) return <NotFoundPage />;
+  return (
+    <PublicProfilePage
+      key={userId}
+      userId={userId}
+      onBack={onBack}
+      onViewProfile={onViewProfile}
+    />
   );
 }
 
@@ -318,7 +409,9 @@ function AuthenticatedHeaderActions({
         onClick={() => setMenuOpen((open) => !open)}
       >
         <Avatar
-          avatarUrl={viewerShell?.profile?.avatarUrl ?? viewerShell?.user?.image}
+          avatarUrl={
+            viewerShell?.profile?.avatarUrl ?? viewerShell?.user?.image
+          }
           name={viewerShell?.user?.name}
           sizeClassName="h-8 w-8 sm:h-9 sm:w-9"
           textClassName="text-sm"

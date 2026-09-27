@@ -37,11 +37,12 @@ export function PublicProfilePage({
   const profileData = useQuery(apiAny.profiles.getPublicProfilePage, {
     userId,
   });
-  const rankingsData = useQuery(apiAny.rankings.getUserRankingsPage, {
-    userId,
-    page: rankingsPage,
-    limit: RANKINGS_PAGE_SIZE,
-  });
+  const rankingsData = useQuery(
+    apiAny.rankings.getUserRankingsPage,
+    profileData
+      ? { userId, page: rankingsPage, limit: RANKINGS_PAGE_SIZE }
+      : "skip",
+  );
   const follow = useMutation(api.profiles.follow);
   const unfollow = useMutation(api.profiles.unfollow);
 
@@ -76,7 +77,7 @@ export function PublicProfilePage({
     setSelectedCoaster(coaster as CoasterSummary);
   };
 
-  if (profileData === undefined || rankingsData === undefined) {
+  if (profileData === undefined || (profileData && rankingsData === undefined)) {
     return (
       <div className="page-content profile-page">
         <button
