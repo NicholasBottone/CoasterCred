@@ -7,6 +7,8 @@ import { validateDisplayName } from "./validation";
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Discord({
+      // Discord includes this issuer in OAuth authorization responses (RFC 9207).
+      issuer: "https://discord.com",
       clientId: process.env.AUTH_DISCORD_ID,
       clientSecret: process.env.AUTH_DISCORD_SECRET,
       authorization: {
